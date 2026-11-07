@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "undici": "7.29.1"
+  },
+  "packages": [
+    {
+      "path": "undici",
+      "name": "undici",
+      "version": "7.29.1",
+      "license": "MIT",
+      "sha256": "3d672bfe441d740552b56ee1ec5df59b38a9b5cb1fb8d2c7f7de4f43e40d153f"
+    }
+  ]
+}

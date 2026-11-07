@@ -1,0 +1,584 @@
+{
+  "schemaVersion": 1,
+  "releaseId": "20261103-134539",
+  "bundle": {
+    "name": "dsh-1c-bundle",
+    "version": "0.1.0",
+    "license": "MIT",
+    "dependencyCount": 100,
+    "devDependencyCount": 1
+  },
+  "pluginCatalog": {
+    "schema": "dsh-1c-bundle/plugin-catalog/v1",
+    "hostVersion": "0.2.1-rc.5",
+    "counts": {
+      "plugins": 66,
+      "enabled": 46,
+      "disabled": 4,
+      "not_mounted": 16,
+      "with_digest": 61,
+      "by_commit": 5
+    },
+    "plugins": [
+      {
+        "name": "@agentclientprotocol/claude-agent-acp",
+        "spec": "0.97.0",
+        "version": "0.97.0",
+        "license": "Apache-2.0",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@agentclientprotocol/codex-acp",
+        "spec": "2.3.0",
+        "version": "2.3.0",
+        "license": "Apache-2.0",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@changfenhuang/dsh-annotation",
+        "spec": "1.4.11",
+        "version": "1.4.11",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on' || process.env.ONEC_ANNOTATION === 'off'"
+        ]
+      },
+      {
+        "name": "@cursor/sdk",
+        "spec": "1.0.38",
+        "version": "1.0.38",
+        "license": "SEE LICENSE IN LICENSE.md",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@dsh-external/dsh-drop-to-path",
+        "spec": "github:loudMore/dsh-drop-to-path#a00a5a2e18fd89e829b1c96f2f2e85af67366e10",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "@fission-ai/openspec",
+        "spec": "1.12.0",
+        "version": "1.12.0",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@j1nn0/agent-handoff",
+        "spec": "0.1.1",
+        "version": "0.1.1",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@j1nn0/agent-progress",
+        "spec": "0.1.1",
+        "version": "0.1.1",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@jiaoqsh/dsh-document",
+        "spec": "0.1.3",
+        "version": "0.1.3",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "@linxin666/dsh-client-ui-git-graph",
+        "spec": "0.4.13",
+        "version": "0.4.13",
+        "license": "Apache-2.0",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "@linxin666/dsh-client-ui-message-edit",
+        "spec": "0.4.13",
+        "version": "0.4.13",
+        "license": "Apache-2.0",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "@muse-code/sdk",
+        "spec": "1.4.14",
+        "version": "1.4.14",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@tt-a1i/archify-dsh",
+        "spec": "1.0.0",
+        "version": "1.0.0",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "@vlln/dsh-task-status",
+        "spec": "0.3.1",
+        "version": "0.3.1",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "@zaimokuza/dsh-acp-adapter",
+        "spec": "0.2.1-rc.3.1",
+        "version": "0.2.1-rc.3.1",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "craft-mermaid",
+        "spec": "github:chunkithwang/craft-mermaid#6692cefb6c9a4234aee90e2fe0ee71348289228c",
+        "version": "1.0.0",
+        "license": "Apache-2.0",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dock-base",
+        "spec": "0.1.2",
+        "version": "0.1.2",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dock-files",
+        "spec": "0.2.0",
+        "version": "0.2.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-1c-assistant",
+        "spec": "file:vendor/assistant",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_ASSISTANT === 'off'"
+        ]
+      },
+      {
+        "name": "dsh-1c-long-operations",
+        "spec": "file:vendor/long-operations",
+        "version": "0.1.0",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-1c-project-wizard",
+        "spec": "file:vendor/project-wizard",
+        "version": "0.1.0",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-1c-selection-actions",
+        "spec": "file:vendor/selection-actions",
+        "version": "1.0.0",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-activity-pane",
+        "spec": "0.4.0",
+        "version": "0.4.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-always-status-bar",
+        "spec": "0.1.0",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-auto-collapse",
+        "spec": "0.2.1",
+        "version": "0.2.1",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-better-sidebar",
+        "spec": "0.18.0",
+        "version": "0.18.0",
+        "license": "MIT",
+        "mounted": "disabled"
+      },
+      {
+        "name": "dsh-browser",
+        "spec": "0.1.0",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-bsl-editor",
+        "spec": "file:vendor/dsh-bsl-editor",
+        "version": "0.4.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-checkpoint-rewind",
+        "spec": "0.6.13",
+        "version": "0.6.13",
+        "license": "Apache-2.0",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-client-auto-continue",
+        "spec": "0.17.1",
+        "version": "0.17.1",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-composer-history",
+        "spec": "0.7.2",
+        "version": "0.7.2",
+        "license": "Apache-2.0",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-context",
+        "spec": "0.42.0",
+        "version": "0.42.0",
+        "license": "Apache-2.0",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-effort-slider",
+        "spec": "1.1.0",
+        "version": "1.1.0",
+        "license": "BSD-3-Clause",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-file-mentions",
+        "spec": "github:a903067276-rgb/dsh-file-mentions#9152c20cc6401e433d5ef77839e953e6adf43442",
+        "version": "1.2.3",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-free-search",
+        "spec": "0.6.5",
+        "version": "0.6.5",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-gui-customization",
+        "spec": "0.6.3",
+        "version": "0.6.3",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-llm-fallbacks",
+        "spec": "0.4.1",
+        "version": "0.4.1",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-lsp-actions",
+        "spec": "0.4.6",
+        "version": "0.4.6",
+        "license": "Apache-2.0",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-mcp-manager",
+        "spec": "0.6.0",
+        "version": "0.6.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-movein",
+        "spec": "0.13.8",
+        "version": "0.13.8",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-notification",
+        "spec": "0.1.1",
+        "version": "0.1.1",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-open-in-vscode",
+        "spec": "github:omdsh-dev/dsh-open-in-vscode#8aed144abdc158a332aa73bce42fc217d962f751",
+        "version": "0.1.6",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-openspec-workflow",
+        "spec": "file:vendor/dsh-openspec-workflow",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-plugin-atlassian",
+        "spec": "file:vendor/dsh-plugin-atlassian",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_ATLASSIAN === 'off'"
+        ]
+      },
+      {
+        "name": "dsh-plugin-subscriptions",
+        "spec": "0.8.0",
+        "version": "0.8.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-quality-review",
+        "spec": "github:CAI-MH/dsh-quality-review#cc6aff67f5305b41f613f8a84674ea1815ba057b",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-relay",
+        "spec": "file:vendor/dsh-relay",
+        "version": "0.2.1",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "dsh-routing-suite",
+        "spec": "0.1.2",
+        "version": "0.1.2",
+        "license": "MIT",
+        "mounted": "disabled"
+      },
+      {
+        "name": "dsh-ru-pii",
+        "spec": "file:vendor/dsh-ru-pii",
+        "version": "0.1.0",
+        "license": null,
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "dsh-selection-ask",
+        "spec": "file:vendor/selection-ask",
+        "version": "0.1.1",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-skill-mcp-panel",
+        "spec": "2.1.0",
+        "version": "2.1.0",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-sleep-send",
+        "spec": "1.2.3",
+        "version": "1.2.3",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-support-inbox",
+        "spec": "file:vendor/dsh-support-inbox",
+        "version": "0.1.0",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-tokenledger",
+        "spec": "0.1.0",
+        "version": "0.1.0",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-tool-autoexpand",
+        "spec": "0.2.2",
+        "version": "0.2.2",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-turn-navigator",
+        "spec": "0.4.3",
+        "version": "0.4.3",
+        "license": "MIT",
+        "mounted": "enabled",
+        "disabledWhen": [
+          "process.env.ONEC_WEB_PLUGINS !== 'on'"
+        ]
+      },
+      {
+        "name": "dsh-vision-router",
+        "spec": "3.1.1",
+        "version": "3.1.1",
+        "license": "MIT",
+        "mounted": "disabled"
+      },
+      {
+        "name": "dsh-web-launcher",
+        "spec": "0.3.2",
+        "version": "0.3.2",
+        "license": "MIT",
+        "mounted": "enabled"
+      },
+      {
+        "name": "dsh-whale-girl-live2d",
+        "spec": "file:vendor/dsh-whale-girl-live2d",
+        "version": "0.4.6-bundle.1",
+        "license": "MIT",
+        "mounted": "disabled"
+      },
+      {
+        "name": "fast-xml-parser",
+        "spec": "5.11.1",
+        "version": "5.11.1",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "ignore",
+        "spec": "7.0.5",
+        "version": "7.0.5",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "onec-question-timeout",
+        "spec": "file:vendor/onec-question-timeout",
+        "version": "0.1.0",
+        "license": null,
+        "mounted": "enabled"
+      },
+      {
+        "name": "pi-antigravity-acp-provider",
+        "spec": "file:vendor/npm/pi-antigravity-acp-provider-0.1.17-bundle.5.tgz",
+        "version": "0.1.17-bundle.5",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "pi2dsh",
+        "spec": "0.23.0",
+        "version": "0.23.0",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "typebox",
+        "spec": "1.3.27",
+        "version": "1.3.27",
+        "license": "MIT",
+        "mounted": "not-mounted"
+      },
+      {
+        "name": "typescript",
+        "spec": "5.9.3",
+        "version": "5.9.3",
+        "license": "Apache-2.0",
+        "mounted": "not-mounted"
+      }
+    ]
+  },
+  "projectPresets": {
+    "visible": [
+      {
+        "id": "1c-full",
+        "label": "1С Full",
+        "description": "Полная сборка с нашими правилами, workflow и MCP."
+      },
+      {
+        "id": "1c-lite",
+        "label": "1С Lite",
+        "description": "Разработка, локальные метаданные и BSL LS; ваши правила и MCP."
+      },
+      {
+        "id": "development",
+        "label": "Разработка",
+        "description": "Снимки и откат, ревью, оркестрация и проверки без workflow 1С."
+      },
+      {
+        "id": "general",
+        "label": "Общий",
+        "description": "Штатный DSH, документы, контекст и общие подключения."
+      }
+    ],
+    "compatibility": [
+      {
+        "id": "1c-only",
+        "label": "Только 1С",
+        "description": "Канон, MCP, локальные инструменты и проверки 1С без дополнительных общих возможностей."
+      }
+    ]
+  }
+}

@@ -1,0 +1,584 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "@fission-ai/openspec": "1.12.0",
+    "@j1nn0/agent-handoff": "0.1.1",
+    "@j1nn0/agent-progress": "0.1.1"
+  },
+  "packages": [
+    {
+      "path": "@fission-ai/openspec",
+      "name": "@fission-ai/openspec",
+      "version": "1.12.0",
+      "license": "MIT",
+      "sha256": "792778c5c6ccc67611ec5f49cac47c3d188dd6a396ed382c349fe5e5605c0a90"
+    },
+    {
+      "path": "@inquirer/ansi",
+      "name": "@inquirer/ansi",
+      "version": "2.0.8",
+      "license": "MIT",
+      "sha256": "7abe1806c63e7dfc6457441264b8a54e51473cd798d77314038b19a21182b2dd"
+    },
+    {
+      "path": "@inquirer/checkbox",
+      "name": "@inquirer/checkbox",
+      "version": "5.2.4",
+      "license": "MIT",
+      "sha256": "774db70e8c5fe0c065ad2a10d9378ae6396394ad1d9254e6170117083518ea9a"
+    },
+    {
+      "path": "@inquirer/checkbox/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/confirm",
+      "name": "@inquirer/confirm",
+      "version": "6.3.1",
+      "license": "MIT",
+      "sha256": "cdecf03beb664e28d4b81fff95be0c216b5d39216bb60d9b557a1bc6d3f0aa0a"
+    },
+    {
+      "path": "@inquirer/confirm/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "11.2.1",
+      "license": "MIT",
+      "sha256": "aad82887058d963f5bcb9a5c72101fb29d09e3d501fc9c2d48a1c6958cd5d94b"
+    },
+    {
+      "path": "@inquirer/editor",
+      "name": "@inquirer/editor",
+      "version": "5.3.2",
+      "license": "MIT",
+      "sha256": "6d3909d1f5d5a1b2f0722c36ff8e75674847ce15ab638c46e6b96ebf448f8ff9"
+    },
+    {
+      "path": "@inquirer/editor/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/expand",
+      "name": "@inquirer/expand",
+      "version": "5.1.4",
+      "license": "MIT",
+      "sha256": "410e3c30b65242b218024c9525669450f221924abe91f7ab2ea350fd7c6cfb4b"
+    },
+    {
+      "path": "@inquirer/expand/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/external-editor",
+      "name": "@inquirer/external-editor",
+      "version": "3.0.5",
+      "license": "MIT",
+      "sha256": "372ebc7df34b3894cbd70c32174b23d6b5a49c839ee4c1ccd9e102f120390e1e"
+    },
+    {
+      "path": "@inquirer/figures",
+      "name": "@inquirer/figures",
+      "version": "2.0.9",
+      "license": "MIT",
+      "sha256": "f592838a376e27a3f08890887fb431450b1605d02bad59c2ea50e0315d603fc9"
+    },
+    {
+      "path": "@inquirer/input",
+      "name": "@inquirer/input",
+      "version": "5.1.5",
+      "license": "MIT",
+      "sha256": "85afc5ef644f6d76781e0f158d6824c4a06dc3c5764ae44c830ff9ee94d0b944"
+    },
+    {
+      "path": "@inquirer/input/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/number",
+      "name": "@inquirer/number",
+      "version": "4.2.2",
+      "license": "MIT",
+      "sha256": "93a75e3ee362dc9955071e2064032eeb98fb643dbbf06f74bc33d5591e00e3e5"
+    },
+    {
+      "path": "@inquirer/number/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/password",
+      "name": "@inquirer/password",
+      "version": "5.2.1",
+      "license": "MIT",
+      "sha256": "fdf5a026a38a0fabb7fdec83a8340f9bfe868fd6884d912d8c64d0eb63a724cc"
+    },
+    {
+      "path": "@inquirer/password/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/prompts",
+      "name": "@inquirer/prompts",
+      "version": "8.7.1",
+      "license": "MIT",
+      "sha256": "7fbaea62f15c2385f977d4bbd1341c383e8bcf8a55f56c22cb0517934f3c0aae"
+    },
+    {
+      "path": "@inquirer/rawlist",
+      "name": "@inquirer/rawlist",
+      "version": "5.3.4",
+      "license": "MIT",
+      "sha256": "d94fdfe2c8f1fdd3f41b3ecb78c1c5995996afd64965e452b36313f937a8238d"
+    },
+    {
+      "path": "@inquirer/rawlist/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/search",
+      "name": "@inquirer/search",
+      "version": "4.3.2",
+      "license": "MIT",
+      "sha256": "11ffbe3a9637e2b61fa44c1b3f2cd9ebb306bac11a5231c0e08357595fa2fa14"
+    },
+    {
+      "path": "@inquirer/search/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/select",
+      "name": "@inquirer/select",
+      "version": "5.2.4",
+      "license": "MIT",
+      "sha256": "f8a26826b1d9a26585b4a7a8b5efd1e725f52d5062d2c9749bdd984829dd0264"
+    },
+    {
+      "path": "@inquirer/select/node_modules/@inquirer/core",
+      "name": "@inquirer/core",
+      "version": "12.0.2",
+      "license": "MIT",
+      "sha256": "a9d8ea8327ffdb5029fdbeea829210d99210fb6f1b264c1692e57742adf22688"
+    },
+    {
+      "path": "@inquirer/type",
+      "name": "@inquirer/type",
+      "version": "4.1.1",
+      "license": "MIT",
+      "sha256": "5ee7fff8567eb0b08bb245a8a6212690089add0d8a998232e920926e2b8a7893"
+    },
+    {
+      "path": "@j1nn0/agent-handoff",
+      "name": "@j1nn0/agent-handoff",
+      "version": "0.1.1",
+      "license": "MIT",
+      "sha256": "559f3e9694c9876a94b2ed5fb41609125be0571f1538461262cce0605bd2893d"
+    },
+    {
+      "path": "@j1nn0/agent-progress",
+      "name": "@j1nn0/agent-progress",
+      "version": "0.1.1",
+      "license": "MIT",
+      "sha256": "08c932a6c270691655b48d4df33b3818903b6ddb83b5f8e32d89b37306c5acff"
+    },
+    {
+      "path": "@nodelib/fs.scandir",
+      "name": "@nodelib/fs.scandir",
+      "version": "2.1.5",
+      "license": "MIT",
+      "sha256": "dd3ab6147ebc1c4c0c406d65389ba1529925063dedb5ef4c0f8e646b71769038"
+    },
+    {
+      "path": "@nodelib/fs.stat",
+      "name": "@nodelib/fs.stat",
+      "version": "2.0.5",
+      "license": "MIT",
+      "sha256": "eeb09024825cb9970883a3d965e92b6117e431ea42a584aa5c2cd6693e070b57"
+    },
+    {
+      "path": "@nodelib/fs.walk",
+      "name": "@nodelib/fs.walk",
+      "version": "1.2.8",
+      "license": "MIT",
+      "sha256": "568d670401a337056c67537525ef47edb1c011adb06946cd557ad6912b3f09f9"
+    },
+    {
+      "path": "ansi-regex",
+      "name": "ansi-regex",
+      "version": "6.3.0",
+      "license": "MIT",
+      "sha256": "85517b291203b3c91de5d48639ee56bfcb703d82a9dd8a220330fa1e935b98d8"
+    },
+    {
+      "path": "braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "license": "MIT",
+      "sha256": "d13ad8b2456d0555d2158b3b6b8030f9e587b138c8200986c3a33ee2457b7071"
+    },
+    {
+      "path": "chalk",
+      "name": "chalk",
+      "version": "5.6.2",
+      "license": "MIT",
+      "sha256": "e41eb3d28217425bbb6c72e42601164de8ff43bb3149fbf67cf0c53c34e1457e"
+    },
+    {
+      "path": "chardet",
+      "name": "chardet",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sha256": "8b536ac6877a3a067f8a1b8c4b8dcf09e54a554d1600d2bb0496024e84fb5473"
+    },
+    {
+      "path": "cli-cursor",
+      "name": "cli-cursor",
+      "version": "5.0.0",
+      "license": "MIT",
+      "sha256": "a75a7c363a7aa0661ac39fd7b1dedadc186696eb22c939bbb2991d547544ece2"
+    },
+    {
+      "path": "cli-spinners",
+      "name": "cli-spinners",
+      "version": "3.4.0",
+      "license": "MIT",
+      "sha256": "ce1179fa0069fecbc1ae1be57639c78b5aab93360fad14c8e18a81a3f811a792"
+    },
+    {
+      "path": "cli-width",
+      "name": "cli-width",
+      "version": "4.1.0",
+      "license": "ISC",
+      "sha256": "7ea77f1b36bcc2a609eb34dd9c9f991d759cdd4e7a13585e0a8b97246f44b1a1"
+    },
+    {
+      "path": "commander",
+      "name": "commander",
+      "version": "14.0.3",
+      "license": "MIT",
+      "sha256": "66fcdc161394ebadec1f74fb2ac2236af06bf255ad2597c846c932b3f0a1a9d1"
+    },
+    {
+      "path": "cross-spawn",
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "license": "MIT",
+      "sha256": "38d3f34b66e0b1943d06e6456d9a938c9346cad6095ffcdc0bc48d6e00ab0b85"
+    },
+    {
+      "path": "diff",
+      "name": "diff",
+      "version": "9.0.0",
+      "license": "BSD-3-Clause",
+      "sha256": "cdd711bac18d035845251ea56c68dc734f4bc54f8a4155a58579b0b851ca74ed"
+    },
+    {
+      "path": "fast-glob",
+      "name": "fast-glob",
+      "version": "3.3.3",
+      "license": "MIT",
+      "sha256": "de820b8f398ccc2fe357f06278108c142f714f9de6d0716cb598853663a12456"
+    },
+    {
+      "path": "fast-string-truncated-width",
+      "name": "fast-string-truncated-width",
+      "version": "3.0.3",
+      "license": "MIT",
+      "sha256": "ae1c0fff8b6b66481fffbeb43c4c1b8f84329c0b68edf78988860346e7590693"
+    },
+    {
+      "path": "fast-string-width",
+      "name": "fast-string-width",
+      "version": "3.0.2",
+      "license": "MIT",
+      "sha256": "9bcabc1eba03cfe0d6b403f1b58c6cd2e3dbd9dd9223105a36eae2d6d5b9c730"
+    },
+    {
+      "path": "fast-wrap-ansi",
+      "name": "fast-wrap-ansi",
+      "version": "0.2.2",
+      "license": "MIT",
+      "sha256": "91f7473aec0e324c048bd0194a9b9d7f81764e8cc634c58809e0d5a09d7bb0d9"
+    },
+    {
+      "path": "fastq",
+      "name": "fastq",
+      "version": "1.20.3",
+      "license": "ISC",
+      "sha256": "a08decbd0cb561d13226f36494b5c9f4eb91df5388e9913278f1ddb2a5c48d2b"
+    },
+    {
+      "path": "fill-range",
+      "name": "fill-range",
+      "version": "7.1.1",
+      "license": "MIT",
+      "sha256": "120e4f1ea4f9493eddb030f28d498f3fbf2e04225367798ac8f368e25cafcf7e"
+    },
+    {
+      "path": "get-east-asian-width",
+      "name": "get-east-asian-width",
+      "version": "1.6.0",
+      "license": "MIT",
+      "sha256": "2a5669e1f5f3572cc1c4e1253ae11dd8ab0fa93c1d841cca5402ba990db798b8"
+    },
+    {
+      "path": "glob-parent",
+      "name": "glob-parent",
+      "version": "5.1.2",
+      "license": "ISC",
+      "sha256": "3554f5ac7c1409aee215b8563707bfdbad626cd876ef8dc249eb3f84c23b8a0a"
+    },
+    {
+      "path": "iconv-lite",
+      "name": "iconv-lite",
+      "version": "0.7.3",
+      "license": "MIT",
+      "sha256": "2e6d7e51d663911b17fca59d7449b9d2d5bd2375b4dcffdc96709d7186a1075b"
+    },
+    {
+      "path": "is-extglob",
+      "name": "is-extglob",
+      "version": "2.1.1",
+      "license": "MIT",
+      "sha256": "06087ce7c0a51b8b6958f8424cd0a3c6a669281553d812141f6a8783aede4031"
+    },
+    {
+      "path": "is-glob",
+      "name": "is-glob",
+      "version": "4.0.3",
+      "license": "MIT",
+      "sha256": "e241d5bd52cc98137ab7c1f322753c943f554dc2a8b21f2aa19dfe0693732cf7"
+    },
+    {
+      "path": "is-interactive",
+      "name": "is-interactive",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "4169dbdfefbaa50cc7872347f4ef5600906aafd7be8b62e293c78c29c49792f0"
+    },
+    {
+      "path": "is-number",
+      "name": "is-number",
+      "version": "7.0.0",
+      "license": "MIT",
+      "sha256": "fb0d147c85adb9182a190a8e48d78892579631f5861169122a9ef05c6a964197"
+    },
+    {
+      "path": "is-unicode-supported",
+      "name": "is-unicode-supported",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "71ef76acc3743572cd467242eda8869e6e403a6b23e2a8ebd253efd8798d358a"
+    },
+    {
+      "path": "isexe",
+      "name": "isexe",
+      "version": "2.0.0",
+      "license": "ISC",
+      "sha256": "b8af296820fa3fd471d70f083317068fd48434d0efb8d32a96df283927227556"
+    },
+    {
+      "path": "log-symbols",
+      "name": "log-symbols",
+      "version": "7.0.1",
+      "license": "MIT",
+      "sha256": "b94abfe86393ef202b81d2992f144109a322a1c824b3bfe1855e61537ed87b15"
+    },
+    {
+      "path": "merge2",
+      "name": "merge2",
+      "version": "1.4.1",
+      "license": "MIT",
+      "sha256": "986ea70cd2c58dc616aa581173837260b5d04acc2a9340b56a02a100a8d7fa0d"
+    },
+    {
+      "path": "micromatch",
+      "name": "micromatch",
+      "version": "4.0.8",
+      "license": "MIT",
+      "sha256": "c637a593f010170f36c58efd9bd4ccdab53839aa1d567f9bfb601cd1d256b392"
+    },
+    {
+      "path": "mimic-function",
+      "name": "mimic-function",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sha256": "74307b0436d4d9bceae33ab63b3e53e1e9576b015bdcdd530dcfe9afb433c27f"
+    },
+    {
+      "path": "mute-stream",
+      "name": "mute-stream",
+      "version": "3.0.0",
+      "license": "ISC",
+      "sha256": "a0e5a44f30a3098e820902e44d2f08464a5015f5dac2a82f1049c8ce9d997036"
+    },
+    {
+      "path": "onetime",
+      "name": "onetime",
+      "version": "7.0.0",
+      "license": "MIT",
+      "sha256": "5ab50641bfdf6dccbea510497a5ac0062df965c21c34e660d376233cff5980b7"
+    },
+    {
+      "path": "ora",
+      "name": "ora",
+      "version": "9.4.1",
+      "license": "MIT",
+      "sha256": "c4f89ddd43657b0ae22c4f3feae04bc218af9152bce68bd6165bd99b462fc451"
+    },
+    {
+      "path": "path-key",
+      "name": "path-key",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "1bbb96074650f138c06283973026180209d0feab18271c3bf80e1782352f13ce"
+    },
+    {
+      "path": "picomatch",
+      "name": "picomatch",
+      "version": "2.3.2",
+      "license": "MIT",
+      "sha256": "982a53e071734ab07133a11503b87330426d5e67610372a10a9b475bbcb5bdd1"
+    },
+    {
+      "path": "queue-microtask",
+      "name": "queue-microtask",
+      "version": "1.2.3",
+      "license": "MIT",
+      "sha256": "39c6b9148389928b443ae1ab9762f2ba0ad69713318746cc4b8edc49d11d2ba3"
+    },
+    {
+      "path": "restore-cursor",
+      "name": "restore-cursor",
+      "version": "5.1.0",
+      "license": "MIT",
+      "sha256": "c52ed3b6dc79f347dd4f61df0996f98d0a7873e75e86457652bb15aa0e7c1e88"
+    },
+    {
+      "path": "reusify",
+      "name": "reusify",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "aa0718113a13a94b00ffd4f1229da043a267ccee96714e5eaeb4485c919afd5d"
+    },
+    {
+      "path": "run-parallel",
+      "name": "run-parallel",
+      "version": "1.2.0",
+      "license": "MIT",
+      "sha256": "7bf366ffa1da63347225b80dbff6ed691e7457a35f41705f01cb29e2987ffac7"
+    },
+    {
+      "path": "safer-buffer",
+      "name": "safer-buffer",
+      "version": "2.1.2",
+      "license": "MIT",
+      "sha256": "34d450e37295860a9ec7454f09cf6eddd0a0a2c768af072c28de2e1fad0ae44e"
+    },
+    {
+      "path": "shebang-command",
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "1b36ce3e8c214868e6fae1c7d6a016cc465822bf480cf0267169cb811711c48d"
+    },
+    {
+      "path": "shebang-regex",
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sha256": "bc78add0c9670aa3447bbd91ca7b7d15caa09d17d6e43c675a2520b9ce625803"
+    },
+    {
+      "path": "signal-exit",
+      "name": "signal-exit",
+      "version": "4.1.0",
+      "license": "ISC",
+      "sha256": "474d8ec2e8a45ec52ab03b47aefc1e62247076f8085ba70cb8fa3b62a4325e24"
+    },
+    {
+      "path": "stdin-discarder",
+      "name": "stdin-discarder",
+      "version": "0.3.2",
+      "license": "MIT",
+      "sha256": "db018650dd60e98eb583abb41e48abe97f50b362f3556acd81ae34582deba4ed"
+    },
+    {
+      "path": "string-width",
+      "name": "string-width",
+      "version": "8.2.2",
+      "license": "MIT",
+      "sha256": "4505b279f78fb88179eef1496b2ef61cb12a8ff0f5e729ba1c90d533b3a7aa9a"
+    },
+    {
+      "path": "strip-ansi",
+      "name": "strip-ansi",
+      "version": "7.2.0",
+      "license": "MIT",
+      "sha256": "f4a633c4a2f3e9af8c64c29c10d0dcf3afc570c817f6e6bccbd2cd4fb6af173d"
+    },
+    {
+      "path": "to-regex-range",
+      "name": "to-regex-range",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sha256": "73a15e96f667f2d43efe95f3203fbea7ee60052ca78c80bd537042e21764cda7"
+    },
+    {
+      "path": "which",
+      "name": "which",
+      "version": "2.0.2",
+      "license": "ISC",
+      "sha256": "a69d24bdae9e2af7d19654aff3f0d0eccf0b8e35cb756103982fe5bd91845950"
+    },
+    {
+      "path": "yaml",
+      "name": "yaml",
+      "version": "2.9.1",
+      "license": "ISC",
+      "sha256": "05ee6c2d385c7161eb7bd21e65018ac369fe6185c738ed5d359d32d7ecb523c8"
+    },
+    {
+      "path": "yoctocolors",
+      "name": "yoctocolors",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sha256": "739e8def36031c3782a6adfb3877aa49e56d1aeb4ba25d986fe883bbed8fa338"
+    },
+    {
+      "path": "zod",
+      "name": "zod",
+      "version": "4.4.3",
+      "license": "MIT",
+      "sha256": "e4f8b3a092e582030e15881e4fed6e66d58f761705b480d51988b768c67313c8"
+    }
+  ]
+}

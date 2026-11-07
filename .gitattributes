@@ -1,0 +1,4 @@
+# Exact-text patches, provenance hashes and upstream notices are byte-sensitive.
+# Preserve current encoding, BOM, and line endings across clone/checkout.
+* -text
+*.png binary

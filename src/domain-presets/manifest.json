@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "package": "airules-dsh-domain-presets",
+  "presets": ["python-airules", "sysadmin-airules"],
+  "nativeBase": { "id": "standard", "version": "0.2.1-rc.5", "source": "@deepseek-ai/dsh-web-app/presets/standard.patch.yml", "sourceSha256": "0d398d2a6872a73a106cb3bd19303ecccf1637e1fcad4d0bf9d8a72d2c2c68f5" },
+  "scope": "native-agent-composition",
+  "permissions": "inherit-native-and-project",
+  "modelSelection": "inherit-native",
+  "connections": "external-only",
+  "separation": { "mcpBindings": "excluded", "credentials": "excluded", "runtimeState": "excluded", "onecRulepack": "excluded" },
+  "adaptation": "General orchestration/test/review principles adapted from project_rules, without its project-specific role/model maps or platform dependencies."
+}

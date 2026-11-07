@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "id": "project-preset-1c-airules",
+  "releaseId": "20261103-134539",
+  "preset": {
+    "id": "1c-airules",
+    "label": "1С"
+  },
+  "files": [
+    {
+      "target": "scripts/repair-agent-preset.mjs",
+      "sourceSha256": "cfb2a44111c3d51b4f6c18558827d39773e19f15b0cc89a67e4e43430259867d",
+      "resultSha256": "9e5ea3d3eb3b4824b8427f0b99e8f7918d805e1bf97fd022e818d662fea38297",
+      "replacements": [
+        {
+          "from": "if (['1c', '1c-only', '1c-full'].includes(id)) persona.config.prefix =",
+          "to": "if (['1c', '1c-only', '1c-full', '1c-airules'].includes(id)) persona.config.prefix =",
+          "count": 1
+        },
+        {
+          "from": "patch.push({ id: 'agent-preset-registry', config: { default: '1c-full' } });",
+          "to": "patch.push({ id: 'agent-preset-registry', config: { default: '1c-airules' } });",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/lib/project-presets.js",
+      "sourceSha256": "556038fc00b929833483dc79a2a2d881bc9a67003bdd4750e12d8c578511a69d",
+      "resultSha256": "197f259f82ce84a94d1a2c8d2f1cd5cdd683ccaaaf1518b20b1b09173ea04871",
+      "replacements": [
+        {
+          "from": "  { id: '1c-lite', label: '1С Lite', description: 'Разработка, локальные метаданные и BSL LS; ваши правила и MCP.' },\r\n  { id: '1c-full', label: '1С Full', description: 'Полная сборка с нашими правилами, workflow и MCP.' },",
+          "to": "  { id: '1c-airules', label: '1С', description: 'airules, локальные метаданные, BSL LS и оркестрация без встроенных MCP и канона сборки.' },",
+          "count": 1
+        },
+        {
+          "from": "export const LEGACY_PROJECT_PRESETS = Object.freeze([\r\n  { id: '1c-only', label: 'Только 1С', description: 'Канон, MCP, локальные инструменты и проверки 1С без дополнительных общих возможностей.' },\r\n])",
+          "to": "export const LEGACY_PROJECT_PRESETS = Object.freeze([\r\n  { id: '1c-lite', label: '1С Lite', description: 'Совместимость с ранее сохранёнными проектами и чатами.' },\r\n  { id: '1c-full', label: '1С Full', description: 'Совместимость с ранее сохранёнными проектами и чатами.' },\r\n  { id: '1c-only', label: 'Только 1С', description: 'Канон, MCP, локальные инструменты и проверки 1С без дополнительных общих возможностей.' },\r\n])",
+          "count": 1
+        },
+        {
+          "from": "const hiddenPresetIds = new Set(['standard', 'minimal', 'ptc', '1c', '1c-only', 'dsh-assistant'])",
+          "to": "const hiddenPresetIds = new Set(['standard', 'minimal', 'ptc', '1c', '1c-lite', '1c-full', '1c-only', 'dsh-assistant'])",
+          "count": 1
+        },
+        {
+          "from": "const preset = value.preset === '1c' ? '1c-full' : value.preset ?? '1c-full'",
+          "to": "const preset = value.preset === '1c' ? '1c-full' : value.preset ?? '1c-airules'",
+          "count": 1
+        },
+        {
+          "from": "onec: ['1c-lite', '1c-only', '1c-full'].includes(preset)",
+          "to": "onec: ['1c-airules', '1c-lite', '1c-only', '1c-full'].includes(preset)",
+          "count": 1
+        },
+        {
+          "from": "full, memory: true }",
+          "to": "full, airules: preset === '1c-airules', memory: true }",
+          "count": 1
+        },
+        {
+          "from": "const onecTools = new Set(['onec_metadata_tree', 'onec_metadata_open', 'onec_bsl_check', 'onec_bsl_query', 'onec_bsl_bind', 'onec_designer', 'onec_extension_diff', 'onec_merge_plan', 'onec_meta_preview'])",
+          "to": "const onecTools = new Set(['onec_metadata_tree', 'onec_metadata_open', 'onec_bsl_check', 'onec_bsl_query', 'onec_bsl_bind', 'onec_designer', 'onec_extension_diff', 'onec_merge_plan', 'onec_meta_preview'])\r\nconst airulesTools = new Set(['airules_rule', 'airules_role', 'airules_verification'])",
+          "count": 1
+        },
+        {
+          "from": "  if (fullTools.has(name)) return 'full'",
+          "to": "  if (airulesTools.has(name)) return 'airules'\r\n  if (fullTools.has(name)) return 'full'",
+          "count": 1
+        },
+        {
+          "from": "  const features = featuresFor(target)\r\n  // A user's equally named skill is not part of our shipped canon.",
+          "to": "  const features = featuresFor(target)\r\n  if (skill.provider === 'airules-rulepack') return features.airules\r\n  // A user's equally named skill is not part of our shipped canon.",
+          "count": 1
+        },
+        {
+          "from": "saveProjectPreset(workspace.path, { preset: '1c-full' })",
+          "to": "saveProjectPreset(workspace.path, { preset: '1c-airules' })",
+          "count": 1
+        },
+        {
+          "from": "return !selected || hiddenPresetIds.has(selected) || selected === 'development' && !explicit ? '1c-full' : selected",
+          "to": "return !selected || hiddenPresetIds.has(selected) && !explicit || selected === 'development' && !explicit ? '1c-airules' : selected",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/lib/developer-experience.js",
+      "sourceSha256": "246b794f562389d7f2996e98bdb3736c42d6ce5f13ded2869686452541c73a7c",
+      "resultSha256": "b8a0fb5f5523a89a0c1f4a0d0a2e1026ba387c8018f403fdc997cb5ca27bfc7f",
+      "replacements": [
+        {
+          "from": "project: { preset: '1c-full', openspec: true, atlassian: true, configured: false }",
+          "to": "project: { preset: '1c-airules', openspec: false, atlassian: false, configured: false }",
+          "count": 1
+        },
+        {
+          "from": "throw new Error('Выберите один из пяти пресетов проекта.')",
+          "to": "throw new Error('Выберите один из доступных пресетов проекта.')",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/lib/client.js",
+      "sourceSha256": "a17af153e1cbd11896b4c9dc2743b9392e38f12941fbde60bdde48f44fbb9a86",
+      "resultSha256": "9c41037b85c0ac014b976fb2146830016e8eaa28e36e2d3d5e241e7d7450a4e9",
+      "replacements": [
+        {
+          "from": "const presetNames = { general: \"\u041e\u0431\u0449\u0438\u0439\", development: \"\u0420\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0430\", \"1c-lite\": \"1\u0421 Lite\", \"1c-full\": \"1\u0421 Full\", \"1c-only\": \"\u0422\u043e\u043b\u044c\u043a\u043e 1\u0421\" };",
+          "to": "const presetNames = { general: \"\u041e\u0431\u0449\u0438\u0439\", development: \"\u0420\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0430\", \"1c-airules\": \"1\u0421\", \"1c-lite\": \"1\u0421 Lite\", \"1c-full\": \"1\u0421 Full\", \"1c-only\": \"\u0422\u043e\u043b\u044c\u043a\u043e 1\u0421\" };",
+          "count": 1
+        },
+        {
+          "from": "({ full: \"1С Full\", onec: \"1С Lite или 1С Full\", development: \"Разработка, 1С Lite или 1С Full\", enhancements: \"Общий, Разработка, 1С Lite или 1С Full\"",
+          "to": "({ full: \"совместимый пресет 1С Full\", onec: \"1С\", development: \"Разработка или 1С\", enhancements: \"Общий, Разработка или 1С\"",
+          "count": 1
+        },
+        {
+          "from": "Профиль проекта определяет возможности бандла: Общий, Разработка, 1С Lite или 1С Full.",
+          "to": "Профиль проекта определяет возможности бандла: Общий, Разработка или 1С.",
+          "count": 1
+        },
+        {
+          "from": "state.features?.preset === \"1c-only\" || state.project?.preset === \"1c-only\" ? h(\"p\", null, \"Прежний пресет «Только 1С» скрыт из выбора. В сохранённых проектах и чатах он по-прежнему даёт наш полный набор для 1С без дополнительных общих функций.\") : null,",
+          "to": "[\"1c-lite\", \"1c-full\", \"1c-only\"].includes(state.features?.preset || state.project?.preset) ? h(\"p\", null, \"Прежние пресеты 1С скрыты из выбора, но сохранённые проекты и чаты продолжают использовать их без миграции.\") : null,",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/lib/project-wizard.js",
+      "sourceSha256": "136d48803465ad1e73831c811d8ecafea89dae4d02418c8ef0aa55bffc36e370",
+      "resultSha256": "af6948f4991eea58c13bfbc0b1d26af35f078e4a72cb3d4b7e2d306f683c4d6d",
+      "replacements": [
+        {
+          "from": "if (input.preset !== '1c-lite') fail('Локальная форма предназначена для 1С Lite.')",
+          "to": "if (!['1c-airules', '1c-lite'].includes(input.preset)) fail('Локальная форма предназначена для пресета 1С.')",
+          "count": 1
+        },
+        {
+          "from": "if (Object.keys(updates).some(key => !LITE_PROJECT_SETTINGS.has(key))) fail('1С Lite не изменяет наши MCP и параметры workflow.')",
+          "to": "if (Object.keys(updates).some(key => !LITE_PROJECT_SETTINGS.has(key))) fail('Локальная форма 1С не изменяет MCP и параметры workflow.')",
+          "count": 1
+        },
+        {
+          "from": "const preset = saveProjectPreset(projectDir, { preset: '1c-lite',",
+          "to": "const preset = saveProjectPreset(projectDir, { preset: input.preset,",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/node_modules/dsh-1c-project-wizard/lib/client.js",
+      "sourceSha256": "a0579b103bcf595579f88525b6853aa632a43efa9cb71dbc0e93305864721786",
+      "resultSha256": "c9fbde17fc37778d2148254888190b8ce062ebdeee99d063819885b0466a021e",
+      "replacements": [
+        {
+          "from": "const [preset, setPreset] = React.useState(\"1c-full\");",
+          "to": "const [preset, setPreset] = React.useState(\"1c-airules\");",
+          "count": 1
+        },
+        {
+          "from": "if (preset === \"1c-lite\" && liteOpen)",
+          "to": "if ([\"1c-airules\", \"1c-lite\"].includes(preset) && liteOpen)",
+          "count": 1
+        },
+        {
+          "from": "preset === \"1c-lite\" ? h(\"p\", null, \"Разработка с деревьями метаданных и BSL Language Server. Наши MCP, правила и workflow отключены. Подключайте собственные инструменты и правила.\") : null,",
+          "to": "[\"1c-airules\", \"1c-lite\"].includes(preset) ? h(\"p\", null, \"Разработка с airules, деревьями метаданных и BSL Language Server. Встроенные MCP и канон сборки не включаются.\") : null,",
+          "count": 1
+        },
+        {
+          "from": "creating && preset === \"1c-lite\" && !liteOpen ?",
+          "to": "creating && [\"1c-airules\", \"1c-lite\"].includes(preset) && !liteOpen ?",
+          "count": 1
+        },
+        {
+          "from": "creating && preset === \"1c-lite\" && liteOpen ?",
+          "to": "creating && [\"1c-airules\", \"1c-lite\"].includes(preset) && liteOpen ?",
+          "count": 1
+        },
+        {
+          "from": "creating && preset.startsWith(\"1c-\") ?",
+          "to": "creating && [\"1c-full\", \"1c-only\"].includes(preset) ?",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "target": "dsh-1c-bundle/vendor/project-wizard/lib/client.js",
+      "sourceSha256": "a0579b103bcf595579f88525b6853aa632a43efa9cb71dbc0e93305864721786",
+      "resultSha256": "c9fbde17fc37778d2148254888190b8ce062ebdeee99d063819885b0466a021e",
+      "replacements": [
+        {
+          "from": "const [preset, setPreset] = React.useState(\"1c-full\");",
+          "to": "const [preset, setPreset] = React.useState(\"1c-airules\");",
+          "count": 1
+        },
+        {
+          "from": "if (preset === \"1c-lite\" && liteOpen)",
+          "to": "if ([\"1c-airules\", \"1c-lite\"].includes(preset) && liteOpen)",
+          "count": 1
+        },
+        {
+          "from": "preset === \"1c-lite\" ? h(\"p\", null, \"Разработка с деревьями метаданных и BSL Language Server. Наши MCP, правила и workflow отключены. Подключайте собственные инструменты и правила.\") : null,",
+          "to": "[\"1c-airules\", \"1c-lite\"].includes(preset) ? h(\"p\", null, \"Разработка с airules, деревьями метаданных и BSL Language Server. Встроенные MCP и канон сборки не включаются.\") : null,",
+          "count": 1
+        },
+        {
+          "from": "creating && preset === \"1c-lite\" && !liteOpen ?",
+          "to": "creating && [\"1c-airules\", \"1c-lite\"].includes(preset) && !liteOpen ?",
+          "count": 1
+        },
+        {
+          "from": "creating && preset === \"1c-lite\" && liteOpen ?",
+          "to": "creating && [\"1c-airules\", \"1c-lite\"].includes(preset) && liteOpen ?",
+          "count": 1
+        },
+        {
+          "from": "creating && preset.startsWith(\"1c-\") ?",
+          "to": "creating && [\"1c-full\", \"1c-only\"].includes(preset) ?",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

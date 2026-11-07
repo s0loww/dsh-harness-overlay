@@ -1,0 +1,8 @@
+{
+  "name": "airules-dsh-skills", "version": "0.1.0-dev1", "private": true, "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "files": ["lib", "README.md"],
+  "peerDependencies": { "@deepseek-ai/dsh-home-paths": "0.2.1-rc.5", "@deepseek-ai/dsh-llm": "0.2.1-rc.5", "yaml": "^2.8.0" },
+  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots"] } }
+}

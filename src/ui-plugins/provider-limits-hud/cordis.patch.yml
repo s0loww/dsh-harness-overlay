@@ -1,0 +1,5 @@
+# Read-only client HUD. No endpoint, credential or MCP configuration is stored
+# in this row; the host queries the native read-only account service.
+- insert:
+    - id: airules-provider-limits-hud
+      name: airules-provider-limits-hud

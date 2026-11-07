@@ -1,0 +1,8 @@
+{
+  "name": "airules-dsh-onec-capability-workflows",
+  "version": "0.1.0-dev1", "private": true, "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./tools": "./lib/tools.js", "./package.json": "./package.json" },
+  "files": ["lib", "README.md"],
+  "peerDependencies": { "@deepseek-ai/dsh-tools": "0.2.1-rc.5", "@deepseek-ai/dsh-home-paths": "0.2.1-rc.5" }
+}

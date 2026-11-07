@@ -1,0 +1,34 @@
+{
+  "name": "airules-dsh-russian-localization",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Russian locale provider for DeepSeek Harness 0.2.1-rc.5 using the official locale extension API.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./core": "./src/core.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "data/provenance.json",
+    "data/overrides.ru.json",
+    "THIRD_PARTY_NOTICES.md",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web" }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-client-locale": "0.2.1-rc.5"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "airules-dsh-providers-settings",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
+  "files": ["index.js", "client.js", "README.md", "LICENSE"],
+  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-settings-models", "@deepseek-ai/dsh-client-ui-settings-account", "airules-dsh-subscriptions", "airules-dsh-additional-providers"] } }
+}

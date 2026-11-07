@@ -1,0 +1,8 @@
+# One profile-level mount; it creates two complete native AgentPreset children.
+# No default preset change and no connection configuration.
+- insert:
+    - id: airules-domain-presets
+      name: airules-dsh-domain-presets
+      config:
+        python: true
+        sysadmin: true

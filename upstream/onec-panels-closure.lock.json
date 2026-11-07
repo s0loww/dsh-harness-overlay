@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "fast-xml-parser": "4.5.7"
+  },
+  "packages": [
+    {
+      "path": "fast-xml-parser",
+      "name": "fast-xml-parser",
+      "version": "4.5.7",
+      "license": "MIT",
+      "sha256": "f1f6f7d7c15d99f66b369cb57e4d0f4f33678ed940ad8464e046c9cefa74ce72"
+    },
+    {
+      "path": "strnum",
+      "name": "strnum",
+      "version": "1.1.2",
+      "license": "MIT",
+      "sha256": "9f1ee8d8c0c27e31ae5a41ad062aae0a871505f28ed21e8ad4cca9fe98ca4a8a"
+    }
+  ]
+}

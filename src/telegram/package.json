@@ -1,0 +1,16 @@
+{
+  "name": "airules-dsh-telegram",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "files": ["lib", "vendor", "scripts", "README.md", "PROVENANCE.md"],
+  "dsh": { "client": { "inject": ["@deepseek-ai/dsh-client-ui-slots"], "platform": "web" } },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "react": "^18.3.1"
+  },
+  "peerDependenciesMeta": { "react": { "optional": true } }
+}

@@ -1,0 +1,33 @@
+dist/*
+!dist/.gitkeep
+node_modules/
+.tmp/
+*.local.json
+*.local.yaml
+*.local.yml
+*.env
+.env.*
+!.env.example
+var/
+.dsh/
+.desktop-local/
+.dsh-1c/
+profiles.local/
+projects.local/
+*.log
+*.sqlite*
+*.db
+*.pfx
+*.p12
+*.key
+*.pem
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
+# Historical UI evidence may contain local project/account information.
+# Keep only explicitly inspected synthetic-fixture screenshots in source.
+docs/assets/*
+!docs/assets/wave2-caveman.png
+!docs/assets/wave2-documents.png
+

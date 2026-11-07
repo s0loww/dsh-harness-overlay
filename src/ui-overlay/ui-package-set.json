@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "artifact": { "id": "airules-dsh-ui-overlay" },
+  "publicPackages": [
+    { "name": "dsh-gui-customization", "version": "0.6.3", "component": "settings-shell", "mount": true, "rowId": "ui-gui-customization" },
+    { "name": "dsh-tokenledger", "version": "0.1.0", "component": "balance-cost-hud", "mount": true, "rowId": "tokenledger" },
+    { "name": "dock-base", "version": "0.1.2", "component": "workspace-shell", "mount": true, "rowId": "dock" },
+    { "name": "dock-files", "version": "0.2.0", "component": "workspace-shell", "mount": true, "rowId": "dock-files" },
+    { "name": "dsh-activity-pane", "version": "0.4.0", "component": "workspace-shell", "mount": true, "rowId": "dsh-activity-pane" },
+    { "name": "dsh-always-status-bar", "version": "0.1.0", "component": "conversation-ui", "mount": true, "rowId": "dsh-always-status-bar" },
+    { "name": "dsh-auto-collapse", "version": "0.2.1", "component": "conversation-auto-collapse", "mount": true, "rowId": "dsh-auto-collapse", "registryIntegrity": "sha512-gIs3kSs+Ng8fGRS1te37M3d/MisqBtjvARYRxr4Uee9hND7N5qOW4Qk52KTZ2IJWFW/XXjSZpN1W7ME9Mgg9QQ==", "cleanClient": { "path": "lib/client.js", "sha256": "76201ae937e6cf1f9eed70a5c8defbfa175a76ba9d96f7d1a52550b730594382" } },
+    { "name": "dsh-composer-history", "version": "0.7.2", "component": "conversation-ui", "mount": true, "rowId": "composer-history" },
+    { "name": "dsh-effort-slider", "version": "1.1.0", "component": "conversation-ui", "mount": true, "rowId": "ui-effort-slider" },
+    { "name": "dsh-mcp-manager", "version": "0.6.0", "component": "machine-mcp-manager", "mount": false, "rowId": "dsh-mcp-manager" },
+    { "name": "dsh-notification", "version": "0.1.1", "component": "conversation-ui", "mount": true, "rowId": "notify" },
+    { "name": "dsh-sleep-send", "version": "1.2.3", "component": "scheduled-send", "mount": true, "rowId": "dsh-sleep-send", "registryIntegrity": "sha512-KOEEhdeAvWDnL/UF9OUo5idKIUx6bvqpgS/8gU6wH5qgIku4Dnn54olkts+/UidhYgu2YX+SrJNPSa3MMqgBbA==", "cleanClient": { "path": "client.js", "sha256": "fcd378fa564d1b2b908e3017be7dd55ad4b3f30d2da26ff926d15fed5d67a5aa" } },
+    { "name": "dsh-tool-autoexpand", "version": "0.2.2", "component": "conversation-ui", "mount": true, "rowId": "dsh-tool-autoexpand" },
+    { "name": "dsh-turn-navigator", "version": "0.4.3", "component": "conversation-turn-navigator", "mount": true, "rowId": "dsh-turn-navigator", "registryIntegrity": "sha512-GDiWoMGnONUqYMI5wQyCkBm8JpgFaLLEQwUiMSlIJR2yrbN9woRTUpbYGf/LdtmRzskF07SXJe70GUim+PDEuQ==", "cleanClient": { "path": "lib/client.js", "sha256": "6c3c61df2d6bbeecdb5f78244351224683e21677f90b6680e0b64e89e71dd1eb" } }
+  ],
+  "localPackages": [
+    { "name": "@deepseek-ai/dsh-client-ui-settings-general", "path": "var/asar-extract-rc5/dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-general", "nativeCompatibility": true, "component": "settings-shell", "mount": false },
+    { "name": "@deepseek-ai/dsh-client-ui-settings-models", "path": "var/asar-extract-rc5/dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-models", "nativeCompatibility": true, "component": "settings-shell", "mount": false },
+    { "name": "@deepseek-ai/dsh-client-ui-settings-account", "path": "var/asar-extract-rc5/dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-account", "nativeCompatibility": true, "component": "settings-shell", "mount": false },
+    { "name": "airules-dsh-providers-settings", "path": "src/providers-settings", "component": "settings-shell", "mount": true, "rowId": "airules-providers-settings" },
+    { "name": "airules-provider-limits-hud", "path": "src/ui-plugins/provider-limits-hud", "component": "balance-cost-hud", "mount": true, "rowId": "airules-provider-limits-hud" },
+    { "name": "airules-dsh-russian-localization", "path": "src/ui-plugins/russian-localization", "component": "russian-localization", "mount": true, "rowId": "airules-russian-localization" }
+  ]
+}

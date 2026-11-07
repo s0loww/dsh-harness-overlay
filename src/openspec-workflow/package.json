@@ -1,0 +1,48 @@
+{
+  "name": "dsh-openspec-workflow",
+  "version": "0.1.0-airules.1",
+  "description": "OpenSpec runtime и UI для airules в DeepSeek Harness rc.5.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./workspace": "./lib/openspec-workspace.js",
+    "./commands": "./lib/openspec-commands.js",
+    "./tickets": "./lib/openspec-tickets.js",
+    "./ticket-source": "./lib/openspec-ticket-source.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "templates",
+    "README.md",
+    "PROVENANCE.md"
+  ],
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "@fission-ai/openspec": "1.12.0",
+    "@j1nn0/agent-handoff": "0.1.1",
+    "@j1nn0/agent-progress": "0.1.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.1-rc.5",
+    "react": "^18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

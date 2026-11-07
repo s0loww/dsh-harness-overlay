@@ -1,0 +1,40 @@
+{
+  "repository": "https://github.com/IgnatAi401/dsh-telegram",
+  "commit": "004640f220374e72507056e88cf8aa90ae9cb737",
+  "version": "0.3.0",
+  "license": "BSD-3-Clause",
+  "date": "2026-10-13",
+  "originalFiles": {
+    "cordis.patch.yml": "e12ac75fa239cba4e4a2b428b23aa47a224002028dfe8624dfa0be44a22ece46",
+    "LICENSE": "3076c60d8ddbd2b0c747e97359292447e3c249007ebbeb7d94fb6de722b6246b",
+    "package.json": "c0a4823f84576e24f3e0e3d115332012252368d7725bdf07904f934630860ffb",
+    "README.en.md": "c0b3d20f16c6158a02365cfd9f60729f98e7f8d4095aec0a17bb71ccb69e479a",
+    "lib/bridge.js": "a9a8fb07017502b8dcc00799039fb0aad3386d32111c8c0615e733a51f4fc2be",
+    "lib/client.js": "e027c30eddb02115cc01cc5d37d1334409c0fa021c5b4095cef4da95e3de047b",
+    "lib/format.js": "e29c43bd7ca578f19479bf343d80d83631febf0c9e708d5376ba31e5fdb62c83",
+    "lib/index.js": "685f458cfc10bd4177a6cd294c7064fcd2898554f0a12948a8037f2a0a9d1831",
+    "lib/progress.js": "968a043e8a3f735eaf7b8443fd819f514920edf42408ff20161e5db86dad585c",
+    "lib/result-cache.js": "2c4c4dfea54f7cf3c4590985f2ccf38e95ac315443dcc616941f7a1bc636cc6c",
+    "lib/transcript.js": "99798741610679af9101fc3bd8ca9e5aa1d749693eb385e36b783c8c043c86e0",
+    "lib/types/bridge.d.ts": "b8360ec784aec3a6c30809962fe4b7af8dd9049c47399964026c9c267532c156",
+    "lib/types/client.d.ts": "3f517357e13c966400c8ad8023d8e066f9a8498a9ce3b15e7d4c7beaa59bd478",
+    "lib/types/format.d.ts": "28f6b77f980e08e2e139fb9dcdfe41a957ef8e2ce34e853e9966bb583b27ac2f",
+    "lib/types/index.d.ts": "82bcc08747d2faecca997cbaa5320ba24e1304f38885d7b5e61f4f304da4cb7b",
+    "lib/types/progress.d.ts": "e0a9186b14fde423e06049755bc38b9b3235aa651295059bb48b3922a59d3f99",
+    "lib/types/result-cache.d.ts": "e7d420fac3cb132d5789932277982d97da6f6930d283cc5cc287b23818ee3d33",
+    "lib/types/transcript.d.ts": "c2efb65085a73653cb0a5e3f7b1940150e1a56824cda81b71d84250ef04d82ad",
+    "src/bridge.ts": "92af916315966eadc1d7cba060d72789eaadbfc6d048222c2846366463cdc8c5",
+    "src/client.ts": "5c86fb9afb019035b8d9343b57e8ea9896bcc8d30851739166be20c3207c1428",
+    "src/format.ts": "65c25b20a27bb2eb5a2c213652be8ccf161ea15d7020f55e642789896ddd66d8",
+    "src/index.ts": "33d251e72478337867e89d5020e5532862fdc8431a3f831be86af79bfea3a6e5",
+    "src/progress.ts": "0737881449a33e85565da5ad80ac8c8c9cf64f25850c8a92666c9aeb0269b7cc",
+    "src/result-cache.ts": "737d0aefff72b9a6c65d864ba0e0b7ebea0741cf082f7b49bb58c76460211832",
+    "src/transcript.ts": "9d64c5ac0108af1be23a326644836c8871cffcad6c6103ca7dc51ab5ec8de9cc"
+  },
+  "adaptations": [
+    "Основные русские сообщения/меню/подтверждения",
+    "status/stop/disconnect и публичный connectCurrent для локальной команды",
+    "Wrapper бандла требует одного владельца, нет allowAllUsers, без настроек нет сети"
+  ]
+}
+

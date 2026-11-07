@@ -1,0 +1,23 @@
+{
+  "name": "airules-official-onec-mechanics",
+  "version": "0.1.0-dev",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./project-root": "./project-root.js",
+    "./lsp-servers": "./lsp-servers.cjs",
+    "./settings-contract": "./settings-contract.json"
+  },
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "project-root.js",
+    "lsp-servers.cjs",
+    "settings-contract.json",
+    "README.md",
+    "PROVENANCE.md",
+    "LICENSE"
+  ]
+}

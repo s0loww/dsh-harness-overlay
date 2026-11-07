@@ -1,0 +1,11 @@
+{
+  "name": "airules-dsh-domain-presets",
+  "version": "0.1.0-dev1",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "main": "index.js",
+  "exports": { ".": "./index.js", "./policy": "./policy.js", "./core": "./core.mjs", "./package.json": "./package.json" },
+  "files": ["index.js", "composition.mjs", "policy.js", "core.mjs", "standard.plugins.json", "rules", "skills", "manifest.json", "cordis.fragment.yml", "README.md", "LICENSE"],
+  "peerDependencies": { "@deepseek-ai/dsh-agent-preset": "0.2.1-rc.5", "@deepseek-ai/dsh-tools": "0.2.1-rc.5", "@deepseek-ai/dsh-skill-filesystem": "0.2.1-rc.5", "@deepseek-ai/schemastery": "^3.18.1" }
+}

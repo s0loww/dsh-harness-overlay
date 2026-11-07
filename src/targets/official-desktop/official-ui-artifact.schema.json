@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "airules/official-desktop-ui-artifact/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifact", "target", "packages", "cordisFragment", "internalPatches"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "hostVersion", "appAsarSha256"],
+      "properties": {
+        "kind": { "const": "official-desktop" },
+        "hostVersion": { "type": "string", "minLength": 1 },
+        "appAsarSha256": { "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source"],
+        "properties": {
+          "name": { "pattern": "^(?:@[a-z0-9._-]+/)?[a-z0-9._-]+$" },
+          "source": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "cordisFragment": { "type": "string", "minLength": 1 },
+    "internalPatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "appAsarSha256", "descriptor"],
+        "properties": {
+          "id": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "appAsarSha256": { "pattern": "^[a-f0-9]{64}$" },
+          "descriptor": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

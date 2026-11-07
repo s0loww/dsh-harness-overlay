@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airules.local/schemas/dsh-ui-overlay-manifest-v1.json",
+  "title": "DSH UI overlay artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifact", "sourceRelease", "target", "separation", "components", "operations", "files"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "airules-dsh-ui-overlay" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sourceRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "releaseId"],
+      "properties": {
+        "product": { "const": "DSH Desktop 1C" },
+        "releaseId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseIds", "hostVersions", "baselineLockSha256", "unknownTargetPolicy"],
+      "properties": {
+        "releaseIds": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "hostVersions": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "baselineLockSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "unknownTargetPolicy": { "const": "block" }
+      }
+    },
+    "separation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["includesPolicy", "includesRulepack", "includesMcpBindings", "includesCredentials", "includesRuntimeState"],
+      "properties": {
+        "includesPolicy": { "const": false },
+        "includesRulepack": { "const": false },
+        "includesMcpBindings": { "const": false },
+        "includesCredentials": { "const": false },
+        "includesRuntimeState": { "const": false }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required", "enabledByDefault", "installOrder"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "required": { "type": "boolean" },
+          "enabledByDefault": { "type": "boolean" },
+          "installOrder": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component", "type", "source", "target", "sha256"],
+        "properties": {
+          "component": { "type": "string" },
+          "type": { "enum": ["package-copy", "config-fragment", "exact-text-patch", "data-overlay"] },
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1 },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha256", "bytes"],
+        "properties": {
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

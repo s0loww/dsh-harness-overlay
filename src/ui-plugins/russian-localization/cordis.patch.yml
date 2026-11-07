@@ -1,0 +1,4 @@
+# Client-only locale provider. No settings, MCP, policy or credential rows.
+- insert:
+    - id: airules-russian-localization
+      name: airules-dsh-russian-localization

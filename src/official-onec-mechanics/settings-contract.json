@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "scope": "project-local-safe-settings",
+  "file": ".dev.env",
+  "allowedKeys": [
+    "INFOBASE_NAME",
+    "INFOBASE_KIND",
+    "INFOBASE_PATH",
+    "IB_USER",
+    "IB_PASSWORD",
+    "IB_UNLOCK_CODE",
+    "EXPORT_PATH",
+    "PLATFORM_PATH",
+    "PLATFORM_VERSION",
+    "USE_EDT"
+  ],
+  "forbiddenCapabilities": [
+    "database-create",
+    "database-restore",
+    "database-load",
+    "configuration-deploy",
+    "mcp-binding-management"
+  ],
+  "wizard": {
+    "included": false,
+    "reason": "The vendor wizard imports Oleg Full policy, MCP normalization, database preparation, and bundle-private APIs. Only its safe local-settings contract is retained."
+  }
+}

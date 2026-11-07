@@ -1,0 +1,32 @@
+{
+  "name": "dsh-harness-overlay-private",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "snapshot": "node scripts/snapshot-installed.mjs",
+    "verify": "node scripts/verify-baseline.mjs",
+    "official:snapshot": "node scripts/official-snapshot.mjs",
+    "official:verify": "node scripts/official-verify.mjs",
+    "official:plan": "node scripts/official-plan.mjs",
+    "official:policy:plan": "node installer/official-policy/plan.mjs",
+    "official:policy:apply": "node installer/official-policy/apply.mjs",
+    "official:policy:rollback": "node installer/official-policy/rollback.mjs",
+    "official:ui:plan": "node installer/official-ui/plan.mjs",
+    "official:ui:apply": "node installer/official-ui/apply.mjs",
+    "official:ui:rollback": "node installer/official-ui/rollback.mjs",
+    "official:live:plan": "node installer/official-live/plan.mjs",
+    "official:live:apply": "node installer/official-live/apply.mjs",
+    "official:live:rollback": "node installer/official-live/rollback.mjs",
+    "candidate:create": "node scripts/create-official-candidate.mjs",
+    "candidate:cycle": "node scripts/cycle-official-candidate.mjs",
+    "stage": "node scripts/stage-overlay.mjs",
+    "stage:ui": "node scripts/stage-ui-overlay.mjs",
+    "stage:policy": "node scripts/stage-official-policy.mjs",
+    "plan": "node installer/plan.mjs",
+    "apply": "node installer/apply.mjs",
+    "rollback": "node installer/rollback.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
+

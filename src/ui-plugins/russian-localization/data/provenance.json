@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sourceRelease": "20261103-134539",
+  "hostVersion": "0.2.1-rc.5",
+  "sourceSha256": "de484e4ad19e95b7ed81f933933b78053c6b54e74df51e6a68c4a6442c400808",
+  "namespaces": 216,
+  "strings": 24320,
+  "ignoredSourceSections": [
+    "zhRu"
+  ],
+  "packages": [
+    {
+      "npm": "@goodandready/dsh-russian-lang",
+      "version": "0.4.17",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 GooDAnDReaDY",
+      "url": "https://github.com/GooDAnDReaDY/dsh-russian-lang",
+      "integrity": "sha512-zGaRNcK6dwJnPxgyawCOESEGcnpPU6NlVEExsVNwbjGm6muaBt+bqAxtJ+CR/flb4a53Xdd5V3a7qh4N+0OqSA==",
+      "files": "lib/locales/core-base.json, core-extra.json, plugins/*.json, zh-ru.json",
+      "license_file": "locales/LICENSE-goodandready-dsh-russian-lang.txt",
+      "strings": 18968
+    },
+    {
+      "npm": "@ragnoryok1/dsh-client-locale-ru",
+      "version": "0.2.24",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 Ragnoryok1",
+      "url": "https://github.com/Ragnoryok1/dsh-client-locale-ru",
+      "commit": "8b48b8147232e5e9bbb14dbc22392d06a51035c7",
+      "integrity": "sha512-U28kLSlV5tQ8+1hZQjSLS3CazIJhcxhfnzKx/4i6J/VbilBK4+tyArQ9sk1lNEocJyr5Lo9ilamUPc6R9bOycQ==",
+      "files": "src/client/dicts.ts (RU_DICTS), только namespace установленных пакетов",
+      "license_file": "locales/LICENSE-ragnoryok1-dsh-client-locale-ru.txt",
+      "strings": 4706
+    },
+    {
+      "npm": "@goodandready/dsh-russian-lang",
+      "version": "0.2.23",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 GooDAnDReaDY",
+      "imported": "2026-09-17",
+      "files": "прежний запасной словарь R120: ключи, которых нет в новых версиях",
+      "strings": 607
+    }
+  ],
+  "localOverrides": {
+    "file": "data/overrides.ru.json",
+    "sha256": "9d3c1e1ca3919eb93af01ff6ae590d27028a8aa7324d8e406d75fbd94dc11274",
+    "namespaces": 1,
+    "strings": 39
+  },
+  "officialApi": "@deepseek-ai/dsh-client-locale addLanguage/register"
+}

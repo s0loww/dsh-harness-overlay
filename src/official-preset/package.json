@@ -1,0 +1,18 @@
+{
+  "name": "airules-official-preset",
+  "version": "0.1.0-dev",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "README.md"
+  ]
+}

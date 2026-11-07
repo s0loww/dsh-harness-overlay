@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "@zaimokuza/dsh-acp-adapter": "0.2.1-rc.3.1"
+  },
+  "packages": [
+    {
+      "path": "@modelcontextprotocol/node",
+      "name": "@modelcontextprotocol/node",
+      "version": "2.1.1",
+      "license": "Apache-2.0",
+      "sha256": "1a362889fccca44a2c2cb32ee15f545b9a272e2a73de8d19fa0491993b489fba"
+    },
+    {
+      "path": "@modelcontextprotocol/node/node_modules/@hono/node-server",
+      "name": "@hono/node-server",
+      "version": "1.19.17",
+      "license": "MIT",
+      "sha256": "6f9269cc3901b1fc47b3edc871ccde9ab71851e7d9c6392d841a7de8f69e7c37"
+    },
+    {
+      "path": "@modelcontextprotocol/server",
+      "name": "@modelcontextprotocol/server",
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "sha256": "1e6bd3067f95cd91e82e23d53886cfa8a6a1f407a71c2253fd8541d1591a599b"
+    },
+    {
+      "path": "@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core",
+      "name": "@modelcontextprotocol/core",
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "sha256": "61b36cea58a2a19ef3113dd9ac337573fa9740b5d7879a08f553e35988246445"
+    },
+    {
+      "path": "@zaimokuza/dsh-acp-adapter",
+      "name": "@zaimokuza/dsh-acp-adapter",
+      "version": "0.2.1-rc.3.1",
+      "license": "MIT",
+      "sha256": "006ba6fd11bc4c34f0bdc342da4b3f020010a176b723ed563520dfaaff881193"
+    },
+    {
+      "path": "@zaimokuza/dsh-acp-adapter/node_modules/@agentclientprotocol/sdk",
+      "name": "@agentclientprotocol/sdk",
+      "version": "1.5.1",
+      "license": "Apache-2.0",
+      "sha256": "c70e28db193f5ddfaa0370ca4ed35c533bf331000fe424419e5ef8059e250fd6"
+    },
+    {
+      "path": "@zaimokuza/dsh-acp-adapter/node_modules/@modelcontextprotocol/client",
+      "name": "@modelcontextprotocol/client",
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "sha256": "c27b52f64f434b2ba420b4408922758dcef294e589f53eb4b82b5c446488e5ce"
+    },
+    {
+      "path": "@zaimokuza/dsh-acp-adapter/node_modules/@modelcontextprotocol/core",
+      "name": "@modelcontextprotocol/core",
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "sha256": "61b36cea58a2a19ef3113dd9ac337573fa9740b5d7879a08f553e35988246445"
+    },
+    {
+      "path": "@zaimokuza/dsh-acp-adapter/node_modules/yaml",
+      "name": "yaml",
+      "version": "2.9.0",
+      "license": "ISC",
+      "sha256": "24dd717739d071a70fe2abbad72fbfcf59aab9e898973449cb54e33508366ba3"
+    },
+    {
+      "path": "cross-spawn",
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "license": "MIT",
+      "sha256": "38d3f34b66e0b1943d06e6456d9a938c9346cad6095ffcdc0bc48d6e00ab0b85"
+    },
+    {
+      "path": "eventsource",
+      "name": "eventsource",
+      "version": "3.0.7",
+      "license": "MIT",
+      "sha256": "b30703b75812f9c6efe77bfa69d2206316a16250cf1744cb390139f2c28f13e4"
+    },
+    {
+      "path": "eventsource-parser",
+      "name": "eventsource-parser",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "573b0471e2bf6583461c72302626453a895dcf57546fefe4c38a796039539ec8"
+    },
+    {
+      "path": "hono",
+      "name": "hono",
+      "version": "4.13.5",
+      "license": "MIT",
+      "sha256": "819d35309092343dc5f0e20d94aeeb10bf1bb2a259567cd3d80cbbc0452c9fa1"
+    },
+    {
+      "path": "isexe",
+      "name": "isexe",
+      "version": "2.0.0",
+      "license": "ISC",
+      "sha256": "b8af296820fa3fd471d70f083317068fd48434d0efb8d32a96df283927227556"
+    },
+    {
+      "path": "jose",
+      "name": "jose",
+      "version": "6.2.11",
+      "license": "MIT",
+      "sha256": "19dc8bc9d61ca25c0c30e8f4c6ce5e02c68150a1bcd74bd7ab567da0c33e928e"
+    },
+    {
+      "path": "path-key",
+      "name": "path-key",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "1bbb96074650f138c06283973026180209d0feab18271c3bf80e1782352f13ce"
+    },
+    {
+      "path": "pkce-challenge",
+      "name": "pkce-challenge",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sha256": "263b3400810ea607085fcd1c5fd6a5ea27ca44e96cdc185d5289e79f237d74b8"
+    },
+    {
+      "path": "shebang-command",
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "1b36ce3e8c214868e6fae1c7d6a016cc465822bf480cf0267169cb811711c48d"
+    },
+    {
+      "path": "shebang-regex",
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sha256": "bc78add0c9670aa3447bbd91ca7b7d15caa09d17d6e43c675a2520b9ce625803"
+    },
+    {
+      "path": "which",
+      "name": "which",
+      "version": "2.0.2",
+      "license": "ISC",
+      "sha256": "a69d24bdae9e2af7d19654aff3f0d0eccf0b8e35cb756103982fe5bd91845950"
+    },
+    {
+      "path": "zod",
+      "name": "zod",
+      "version": "4.4.3",
+      "license": "MIT",
+      "sha256": "e4f8b3a092e582030e15881e4fed6e66d58f761705b480d51988b768c67313c8"
+    }
+  ]
+}

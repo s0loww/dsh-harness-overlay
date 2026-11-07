@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "artifact": { "id": "airules-dsh-ui-overlay", "version": "0.1.0-dev" },
+  "sourceRelease": { "product": "DSH Desktop 1C", "releaseId": "20261103-134539" },
+  "target": {
+    "releaseIds": ["20261103-134539"],
+    "hostVersions": ["0.2.1-rc.5"],
+    "baselineLockSha256": "01671473c940a85aa441e0bf6f4055d5cf4824f4bceb8bb6cd209e929fd7dd20",
+    "unknownTargetPolicy": "block"
+  },
+  "separation": {
+    "includesPolicy": false,
+    "includesRulepack": false,
+    "includesMcpBindings": false,
+    "includesCredentials": false,
+    "includesRuntimeState": false
+  },
+  "components": [
+    { "id": "settings-shell", "required": true, "enabledByDefault": true, "installOrder": 10 },
+    { "id": "balance-cost-hud", "required": true, "enabledByDefault": true, "installOrder": 20 },
+    { "id": "russian-localization", "required": true, "enabledByDefault": true, "installOrder": 30 }
+  ],
+  "operations": [],
+  "files": {}
+}

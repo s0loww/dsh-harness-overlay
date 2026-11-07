@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "product": "DSH Desktop 1C",
+    "releaseId": "20261103-134539",
+    "hostVersion": "0.2.1-rc.5",
+    "bundleVersion": "0.1.0"
+  },
+  "separation": {
+    "policy": "excluded",
+    "rulepack": "excluded",
+    "mcpBindings": "excluded",
+    "credentials": "excluded",
+    "runtimeState": "excluded"
+  },
+  "components": [
+    {
+      "id": "balance-cost-hud",
+      "label": "Баланс и стоимость",
+      "category": "balance",
+      "owner": "private-overlay",
+      "sourcePackages": [
+        { "name": "dsh-1c-bundle", "version": "0.1.0", "license": "MIT", "origin": "bundle-file", "redistribution": "review-required" },
+        { "name": "dsh-tokenledger", "version": "0.1.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH sidebar.footer.action slot"],
+        "backend": ["native deepseekAccount.getBalance through authenticated read-only /airules/provider-limits"],
+        "hostCapabilities": ["plugin loader", "web client extensions", "locale registry"]
+      },
+      "statePolicy": {
+        "scope": "none",
+        "credentials": "external-only",
+        "allowedData": ["ephemeral normalized balance and quota display values"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "reimplement", "status": "candidate", "rationale": "A new isolated airules-provider-limits-hud package is implemented; candidate-copy UI smoke is still required before promotion to audited." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": true, "defaultEnabled": true, "installOrder": 20, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "balance-hud-contract", "kind": "import", "description": "The new HUD normalizes both read-only provider contracts without reading or writing credentials." },
+        { "id": "balance-hud-no-state", "kind": "static", "description": "The host projects native balance without credentials or persistence; the client has no settings surface." }
+      ],
+      "smokeChecks": [
+        { "id": "balance-widget-renders", "kind": "ui-smoke", "description": "The balance widget renders ready and unavailable/degraded states without exposing provider secrets." }
+      ]
+    },
+    {
+      "id": "settings-shell",
+      "label": "Общие настройки интерфейса",
+      "category": "settings",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-gui-customization", "version": "0.6.3", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH settings navigation"],
+        "backend": [],
+        "hostCapabilities": ["plugin loader", "settings registry"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["appearance preferences", "grouped native settings navigation", "native provider account and model editors"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The package is public and self-contained; host settings API compatibility must be verified." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": true, "defaultEnabled": true, "installOrder": 10, "failurePolicy": "fail-overlay" },
+      "healthChecks": [
+        { "id": "settings-registers", "kind": "static", "description": "Settings entries register without duplicate navigation ids." }
+      ],
+      "smokeChecks": [
+        { "id": "settings-page-opens", "kind": "ui-smoke", "description": "The settings page opens and persists only appearance preferences." }
+      ]
+    },
+    {
+      "id": "russian-localization",
+      "label": "Русская локализация",
+      "category": "localization",
+      "owner": "private-overlay",
+      "sourcePackages": [
+        { "name": "dsh-1c-bundle", "version": "0.1.0", "license": "MIT", "origin": "bundle-file", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["@deepseek-ai/dsh-client-locale 0.2.1-rc.5"],
+        "backend": [],
+        "hostCapabilities": ["locale addLanguage", "locale register"]
+      },
+      "statePolicy": {
+        "scope": "none",
+        "credentials": "none",
+        "allowedData": ["translation strings and provenance metadata"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "data-overlay", "status": "audited", "rationale": "Standalone provider uses official addLanguage/register APIs; 215 namespaces and both MIT notices are hash-pinned, while global zh/text monkeypatch data is excluded." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": true, "defaultEnabled": true, "installOrder": 30, "failurePolicy": "fail-overlay" },
+      "healthChecks": [
+        { "id": "locale-provenance-complete", "kind": "static", "description": "Every imported dictionary has version, license and provenance metadata." },
+        { "id": "locale-official-api", "kind": "import", "description": "The provider requires official addLanguage/register methods and never replaces locale registry methods." }
+      ],
+      "smokeChecks": [
+        { "id": "core-navigation-russian", "kind": "ui-smoke", "description": "Core navigation, settings and preset labels render in Russian without missing-key placeholders." }
+      ]
+    },
+    {
+      "id": "plugin-skill-panel",
+      "label": "Панель плагинов, skills и MCP",
+      "category": "plugin-panel",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-skill-mcp-panel", "version": "2.1.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH sidebar and settings slots"],
+        "backend": ["target DSH plugin and MCP registries"],
+        "hostCapabilities": ["plugin registry", "skills registry", "MCP manager API"]
+      },
+      "statePolicy": {
+        "scope": "machine-user",
+        "credentials": "external-only",
+        "allowedData": ["enabled component ids", "non-secret connection status"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The UI may be portable, but the overlay must never carry the MCP records it displays." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 50, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "panel-no-bindings", "kind": "static", "description": "Artifact and defaults contain no MCP endpoint, command, header or credential." }
+      ],
+      "smokeChecks": [
+        { "id": "panel-opens-empty", "kind": "ui-smoke", "description": "Panel opens with an empty/degraded MCP list and offers explicit configuration." }
+      ]
+    },
+    {
+      "id": "scheduled-send",
+      "label": "Задачи по расписанию",
+      "category": "schedules",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-sleep-send", "version": "1.2.3", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["composer action slot"],
+        "backend": [],
+        "hostCapabilities": ["web client extensions"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["user-created schedule definitions"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The Oleg bundle copy failed official-desktop compatibility because it contains a projectPresetUi wrapper. The dev3 candidate uses the pinned clean npm tarball for an isolated compatibility smoke; this is not parity promotion." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 60, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "schedule-package-loads", "kind": "import", "description": "The package imports without starting a schedule." }
+      ],
+      "smokeChecks": [
+        { "id": "schedule-roundtrip", "kind": "ui-smoke", "description": "A disposable schedule can be created, displayed and removed without sending a message." }
+      ]
+    },
+    {
+      "id": "machine-mcp-manager",
+      "label": "Менеджер MCP уровня машины",
+      "category": "mcp-ui",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-mcp-manager", "version": "0.6.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH settings navigation"],
+        "backend": ["target-owned MCP registry"],
+        "hostCapabilities": ["plugin loader", "settings registry"]
+      },
+      "statePolicy": {
+        "scope": "machine-user",
+        "credentials": "external-only",
+        "allowedData": ["non-secret MCP connection status"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The public package is staged without any server definitions and remains disabled until the official target smoke test." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": false, "installOrder": 55, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "machine-mcp-no-bindings", "kind": "static", "description": "The artifact contains the UI package but no server, endpoint, command, header or credential." }
+      ],
+      "smokeChecks": [
+        { "id": "machine-mcp-disabled-default", "kind": "ui-smoke", "description": "The package stays unmounted until the user explicitly enables machine-scope MCP management." }
+      ]
+    },
+    {
+      "id": "conversation-ui",
+      "label": "Интерфейс диалога",
+      "category": "conversation-ui",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-always-status-bar", "version": "0.1.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dsh-composer-history", "version": "0.7.2", "license": "Apache-2.0", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dsh-effort-slider", "version": "1.1.0", "license": "BSD-3-Clause", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dsh-notification", "version": "0.1.1", "license": "MIT", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dsh-tool-autoexpand", "version": "0.2.2", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["composer, message and session UI slots"],
+        "backend": [],
+        "hostCapabilities": ["plugin loader", "web client extensions"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["display and composer preferences"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "Five public packages are staged independently and require candidate browser smoke before promotion; clean upstream collapse and turn-navigation candidates are tracked separately." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 65, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "conversation-packages-load", "kind": "import", "description": "Every selected conversation UI package imports against the pinned host API." }
+      ],
+      "smokeChecks": [
+        { "id": "conversation-controls-render", "kind": "ui-smoke", "description": "Status, history, effort, notification and tool controls render without duplicate slots." }
+      ]
+    },
+    {
+      "id": "conversation-auto-collapse",
+      "label": "Автосворачивание блоков диалога",
+      "category": "conversation-ui",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-auto-collapse", "version": "0.2.1", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["message UI slots"],
+        "backend": [],
+        "hostCapabilities": ["plugin loader", "web client extensions"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["collapse preferences"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The Oleg bundle copy failed official-desktop compatibility because it contains a projectPresetUi wrapper. The dev3 candidate uses the pinned clean npm tarball for an isolated compatibility smoke; this is not parity promotion." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 66, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "auto-collapse-host-api", "kind": "import", "description": "The repaired package imports against the pinned official host API before it can be selected." }
+      ],
+      "smokeChecks": [
+        { "id": "auto-collapse-clean-smoke", "kind": "ui-smoke", "description": "The SRI-pinned clean package mounts without the projectPresetUi wrapper or renderer failure." }
+      ]
+    },
+    {
+      "id": "conversation-turn-navigator",
+      "label": "Навигация по ходам диалога",
+      "category": "conversation-ui",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-turn-navigator", "version": "0.4.3", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["message and session UI slots"],
+        "backend": [],
+        "hostCapabilities": ["plugin loader", "web client extensions"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["turn navigation preferences"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "The Oleg bundle copy failed official-desktop compatibility because it contains a projectPresetUi wrapper. The dev3 candidate uses the pinned clean npm tarball for an isolated compatibility smoke; this is not parity promotion." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 67, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "turn-navigator-host-api", "kind": "import", "description": "The repaired package imports against the pinned official host API before it can be selected." }
+      ],
+      "smokeChecks": [
+        { "id": "turn-navigator-clean-smoke", "kind": "ui-smoke", "description": "The SRI-pinned clean package mounts without the projectPresetUi wrapper or renderer failure." }
+      ]
+    },
+    {
+      "id": "workspace-shell",
+      "label": "Рабочая панель и проводник",
+      "category": "workspace",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dock-base", "version": "0.1.2", "license": "MIT", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dock-files", "version": "0.2.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" },
+        { "name": "dsh-activity-pane", "version": "0.4.0", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH workbench slots"],
+        "backend": ["workspace file listing API"],
+        "hostCapabilities": ["workbench registry", "workspace registry"]
+      },
+      "statePolicy": {
+        "scope": "runtime",
+        "credentials": "none",
+        "allowedData": ["active workspace path selected by the user", "panel layout"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "package-copy", "status": "candidate", "rationale": "Three public packages form one dependency chain and must be installed and tested together." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539", "official-desktop-0.2.1-rc.5"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 40, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "workspace-dependency-order", "kind": "static", "description": "dock-base loads before dock-files and dsh-activity-pane." }
+      ],
+      "smokeChecks": [
+        { "id": "workspace-read-only-browse", "kind": "ui-smoke", "description": "A fixture workspace can be browsed without modifying its files." }
+      ]
+    },
+    {
+      "id": "theme-background",
+      "label": "Тема и фон",
+      "category": "theme",
+      "owner": "third-party",
+      "sourcePackages": [
+        { "name": "dsh-gui-customization", "version": "0.6.3", "license": "MIT", "origin": "npm", "redistribution": "confirmed" }
+      ],
+      "dependencies": {
+        "client": ["DSH theme events"],
+        "backend": [],
+        "hostCapabilities": ["theme registry"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["theme id", "background asset selection"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "config-only", "status": "candidate", "rationale": "Reuse the settings package and ship only non-copyrighted configuration/assets." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": true, "installOrder": 70, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "theme-assets-declared", "kind": "static", "description": "Every shipped background asset has an explicit source and redistribution status." }
+      ],
+      "smokeChecks": [
+        { "id": "theme-toggle", "kind": "ui-smoke", "description": "Theme changes apply and revert without a page error." }
+      ]
+    },
+    {
+      "id": "companion",
+      "label": "Компаньон",
+      "category": "companion",
+      "owner": "bundle-vendor",
+      "sourcePackages": [
+        { "name": "dsh-whale-girl-live2d", "version": "0.4.6-bundle.1", "license": "MIT", "origin": "vendor-file", "redistribution": "review-required" }
+      ],
+      "dependencies": {
+        "client": ["web overlay slot", "Live2D runtime"],
+        "backend": [],
+        "hostCapabilities": ["web client extensions"]
+      },
+      "statePolicy": {
+        "scope": "browser-local",
+        "credentials": "none",
+        "allowedData": ["position", "scale", "visibility"],
+        "forbiddenData": ["credentials", "tokens", "session-history", "mcp-bindings", "runtime-state"]
+      },
+      "portability": { "mode": "vendor-patch", "status": "deferred", "rationale": "The bundled plugin is disabled and character assets need a separate provenance and licensing review." },
+      "targetCompatibility": { "releaseIds": ["20261103-134539"], "hostVersions": ["0.2.1-rc.5"], "unknownTargetPolicy": "block" },
+      "deployment": { "required": false, "defaultEnabled": false, "installOrder": 80, "failurePolicy": "disable-component" },
+      "healthChecks": [
+        { "id": "companion-assets-approved", "kind": "static", "description": "The model, textures and animation runtime have explicit redistribution approval." }
+      ],
+      "smokeChecks": [
+        { "id": "companion-disabled-default", "kind": "ui-smoke", "description": "The companion remains disabled until the user enables an approved asset pack." }
+      ]
+    }
+  ]
+}

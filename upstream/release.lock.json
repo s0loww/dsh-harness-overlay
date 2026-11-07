@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "product": "DSH Desktop 1C",
+  "releaseId": "20261103-134539",
+  "bundleVersion": "0.1.0",
+  "hostVersion": "0.2.1-rc.5",
+  "platform": "win-x64",
+  "fileCount": 43133,
+  "totalBytes": 3133780329,
+  "sourceFiles": {
+    "dsh-1c-bundle/diagnostics/plugin-catalog.json": "6a0244301d934a0484450991695966080919b43e0df8a0310dfa9e487f76173d",
+    "dsh-1c-bundle/lib/client.js": "a17af153e1cbd11896b4c9dc2743b9392e38f12941fbde60bdde48f44fbb9a86",
+    "dsh-1c-bundle/lib/developer-experience.js": "246b794f562389d7f2996e98bdb3736c42d6ce5f13ded2869686452541c73a7c",
+    "dsh-1c-bundle/lib/project-presets.js": "556038fc00b929833483dc79a2a2d881bc9a67003bdd4750e12d8c578511a69d",
+    "dsh-1c-bundle/lib/project-wizard.js": "136d48803465ad1e73831c811d8ecafea89dae4d02418c8ef0aa55bffc36e370",
+    "dsh-1c-bundle/node_modules/dsh-1c-project-wizard/lib/client.js": "a0579b103bcf595579f88525b6853aa632a43efa9cb71dbc0e93305864721786",
+    "dsh-1c-bundle/package-lock.json": "675b52464d423eb4abaf2ab7f072c0d618a20009245b3319352f0029eb7d9775",
+    "dsh-1c-bundle/package.json": "564af096a3990352dc9e5f89c0c9ac827bc213d6473ee41d7215634f282fb345",
+    "dsh-1c-bundle/vendor/project-wizard/lib/client.js": "a0579b103bcf595579f88525b6853aa632a43efa9cb71dbc0e93305864721786",
+    "RELEASE-MANIFEST.json": "dabef4bc1aaf1c49d8d5594f611dd4a6995c4bd195c607c7f1b5b57dabaa5531",
+    "scripts/repair-agent-preset.mjs": "cfb2a44111c3d51b4f6c18558827d39773e19f15b0cc89a67e4e43430259867d"
+  }
+}

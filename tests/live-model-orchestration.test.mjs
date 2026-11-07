@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, relative, isAbsolute } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { verifyFsCompat } from '../scripts/live-native-host.mjs'
 import { MATRIX, validateRun, publicModels, loadSubscriptionPlugin } from '../scripts/probe-live-model-orchestration.mjs'
 
 const safeRemove = async root => { const rel=relative(tmpdir(),root); assert.ok(!isAbsolute(rel)&&!rel.startsWith('..')&&rel.startsWith('airules-live-test-')); await rm(root,{recursive:true,force:true}) }
@@ -44,4 +46,21 @@ test('explicit auth-store seam isolates native token IO and auth-controller writ
   await controller.logout('codex','synthetic-one')
   assert.equal((await tokens.list()).length,0)
   assert.throws(()=>runtime.apply(ctx,{}, {authStorePath:'relative-auth.json'}),/absolute path/)
+})
+
+
+test('runtime fs attestation rejects an unpatched service or payload drift before model requests',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'airules-live-test-'));t.after(()=>safeRemove(root))
+  await writeFile(join(root,'package.json'),JSON.stringify({type:'module'}))
+  const candidateRoot=join(root,'candidate'),policyArtifactRoot=join(root,'policy')
+  const relative='airules-dsh-native-fs/lib',directory=join(candidateRoot,'home/profiles/desktop/node_modules',relative),payload=join(policyArtifactRoot,'payload/packages',relative)
+  await mkdir(directory,{recursive:true});await mkdir(payload,{recursive:true})
+  const files={'local.js':'export class LocalFileSystem {}\n','index.js':"import {LocalFileSystem} from './local.js';export class SandboxedFileSystem extends LocalFileSystem {}\n"}
+  for(const [filename,text]of Object.entries(files)){await writeFile(join(directory,filename),text);await writeFile(join(payload,filename),text)}
+  const {SandboxedFileSystem}=await import(pathToFileURL(join(directory,'index.js')))
+  const proof=await verifyFsCompat({get:()=>new SandboxedFileSystem()},{candidateRoot,policyArtifactRoot})
+  assert.equal(proof.filesystem.profileServiceIdentity,true);assert.equal(proof.filesystem.nativeSandboxSubclass,true)
+  await assert.rejects(verifyFsCompat({get:()=>({})},{candidateRoot,policyArtifactRoot}),/NATIVE_SANDBOX_SERVICE_NOT_LOADED/)
+  await writeFile(join(payload,'local.js'),'unreviewed drift\n')
+  await assert.rejects(verifyFsCompat({get:()=>new SandboxedFileSystem()},{candidateRoot,policyArtifactRoot}),/MODULE_HASH_MISMATCH/)
 })

@@ -1,6 +1,12 @@
 # Desktop integration rollout
 
-Current installed release: [UI dev16 / policy dev37 — canonical airules and acceptance](airules-g243ce44-release.md).
+Current installed release: [UI dev16 / policy dev39 — preserve native edit BOM](native-bom-release.md).
+527 source tests and 341 native checks passed. All four live Flash High / Sol
+Medium scenarios, with and without MCP, now pass the strict byte-preserving
+oracle. Native sandbox remains intact; installed receipt has 47 operations,
+zero drift and no pending cleanup. Real deployment was not run.
+
+Previous installed release: [UI dev16 / policy dev37 — canonical airules and acceptance](airules-g243ce44-release.md).
 Clean canonical source `243ce44`, explicit source-bundle input, project priority
 contract and OpenAI native-runtime acceptance. 503 source tests and 341 native
 checks passed; installed receipt has zero drift. Four live-model/MCP scenarios

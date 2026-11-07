@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "chokidar": "5.0.0",
+    "koffi": "3.1.1",
+    "@deepseek-ai/schemastery": "3.18.5"
+  },
+  "optionalDependencySelection": {
+    "koffi": [
+      "@koromix/koffi-win32-x64"
+    ]
+  },
+  "packages": [
+    {
+      "path": "@deepseek-ai/cosmokit",
+      "name": "@deepseek-ai/cosmokit",
+      "version": "1.8.6",
+      "license": "MIT",
+      "sha256": "37092a65a6ae76ae1bd09baf2abe8f556e4ae2425f795406deb011c54764aa54"
+    },
+    {
+      "path": "@deepseek-ai/schemastery",
+      "name": "@deepseek-ai/schemastery",
+      "version": "3.18.5",
+      "license": "MIT",
+      "sha256": "8ff91fc31760d2f47df6f57f09893a664a992f2d198e52ccefa6075a12ec9f88"
+    },
+    {
+      "path": "@koromix/koffi-win32-x64",
+      "name": "@koromix/koffi-win32-x64",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "a89c19f23ede30855ed03c05c46e1d9ee862d12e15629f474e888a0683cf6e27"
+    },
+    {
+      "path": "@standard-schema/spec",
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "7892fb3ec38ab29ec936a0d1941c016ecfa483004a5deecd2c73e71187f55a95"
+    },
+    {
+      "path": "chokidar",
+      "name": "chokidar",
+      "version": "5.0.0",
+      "license": "MIT",
+      "sha256": "3d824c9ed65a5b55adfbae7515f186831f3b35047ac528cd808a8e2c09a72f8f"
+    },
+    {
+      "path": "koffi",
+      "name": "koffi",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "1d64583d489392ac595e1229863eddd897839cfb5a587f0daf0ad364fc10c166"
+    },
+    {
+      "path": "readdirp",
+      "name": "readdirp",
+      "version": "5.1.1",
+      "license": "MIT",
+      "sha256": "82ec9cc3c7652c8d16de0ee58aa6aac9c14f806ce29c405b2538b80f4cc12be8"
+    }
+  ]
+}

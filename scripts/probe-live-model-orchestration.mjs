@@ -6,6 +6,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const NATIVE = join(REPO, 'var/asar-extract-rc5/dsh/node_modules')
+const DEFAULT_POLICY = join(REPO,'dist/airules-official-policy-0.12.0-dev39')
 const mod = name => import(pathToFileURL(join(NATIVE, '@deepseek-ai', name, 'lib/index.js')))
 export const MATRIX = Object.freeze([
   { id: 'deepseek-local', provider: 'deepseek-account', model: 'deepseek-flash', effort: 'high', mcp: false },
@@ -24,7 +25,7 @@ export function publicModels(provider, models) {
 
 // Forward only installed dependency packages; no auth/profile/history bytes are copied.
 // The plugin itself is loaded from maintained source, with the explicit host storage seam.
-export async function loadSubscriptionPlugin(directory, dependencies = NATIVE) {
+export async function loadSubscriptionPlugin(directory, dependencies = NATIVE, policyArtifactRoot = DEFAULT_POLICY) {
   const pkg = join(directory, 'subscription-plugin')
   await cp(join(REPO,'src/subscriptions'),pkg,{recursive:true})
   for (const name of ['@deepseek-ai/schemastery','@deepseek-ai/dsh-llm','@deepseek-ai/dsh-home-paths','@deepseek-ai/dsh-attachment','@deepseek-ai/dsh-tools']) {
@@ -32,12 +33,12 @@ export async function loadSubscriptionPlugin(directory, dependencies = NATIVE) {
     await mkdir(join(destination,'..'),{recursive:true})
     await symlink(join(dependencies,name),destination,'junction')
   }
-  const undici = join(REPO,'dist/airules-official-policy-0.12.0-dev37/payload/packages/airules-dsh-subscriptions/node_modules/undici')
+  const undici = join(policyArtifactRoot,'payload/packages/airules-dsh-subscriptions/node_modules/undici')
   await symlink(undici,join(pkg,'node_modules/undici'),'junction')
   return import(pathToFileURL(join(pkg,'lib/index.js')))
 }
 
-export async function mountMetadataHost({directory, authStorePath, credentialsPath}) {
+export async function mountMetadataHost({directory, authStorePath, credentialsPath, policyArtifactRoot = DEFAULT_POLICY}) {
   if (![directory,authStorePath,credentialsPath].every(isAbsolute)) throw new Error('EXPLICIT_ABSOLUTE_STORAGE_PATHS_REQUIRED')
   const [{Context},{LlmRuntime},{LocalCredentialProvider},{AuthorizationService},{PlatformAccount},deepseek] = await Promise.all([
     mod('cordis'),mod('dsh-llm'),mod('dsh-credentials-local'),mod('dsh-authorization'),mod('dsh-deepseek-account-platform'),mod('dsh-llm-deepseek-account'),
@@ -50,7 +51,7 @@ export async function mountMetadataHost({directory, authStorePath, credentialsPa
   await mount('acceptance-authorization',scope=>new AuthorizationService(scope),['credentials'])
   await mount('acceptance-deepseek-account',scope=>new PlatformAccount(scope),['credentials','authorization'])
   await mount('acceptance-deepseek-llm',scope=>deepseek.apply(scope,{}),['llm'])
-  const subscription = await loadSubscriptionPlugin(directory)
+  const subscription = await loadSubscriptionPlugin(directory, NATIVE, policyArtifactRoot)
   await mount('acceptance-openai',scope=>subscription.apply(scope,{providers:['codex'],pool:{enabled:false}}, {authStorePath}),['llm'])
   return {ctx,llm:ctx.llm,readiness:async()=>{
     const entries=await ctx.llm.registration('codex').adapter.options.tokens.list(true)
@@ -150,7 +151,7 @@ ${mcp?'Parent and at least one child MUST each actually call '+DOC_TOOL+' with E
 function parse(argv) {
   const options = {}
   for(let index=0;index<argv.length;index+=2) {
-    if(!['--metadata-only','--auth-store','--credentials-store','--output','--run','--candidate-root','--project-root','--source-relative','--bsl-ls','--mcp-config'].includes(argv[index]) || !argv[index+1]) throw new Error('EXPLICIT_PROBE_ARGUMENTS_REQUIRED')
+    if(!['--metadata-only','--auth-store','--credentials-store','--output','--run','--candidate-root','--project-root','--source-relative','--bsl-ls','--mcp-config','--policy-artifact','--ui-artifact'].includes(argv[index]) || !argv[index+1]) throw new Error('EXPLICIT_PROBE_ARGUMENTS_REQUIRED')
     options[argv[index].slice(2)] = argv[index+1]
   }
   return options
@@ -159,6 +160,7 @@ export async function main(argv=process.argv.slice(2)) {
   const options=parse(argv)
   if(options['metadata-only']==='true')return metadataMain(options)
   const route=MATRIX.find(row=>row.id===options.run);if(!route)throw new Error('EXACT_AUTHORIZED_MATRIX_REQUIRED');validateRun(route)
+  const policyArtifactRoot=resolve(options['policy-artifact']??DEFAULT_POLICY),uiArtifactRoot=resolve(options['ui-artifact']??join(REPO,'dist/airules-ui-overlay-0.1.0-dev16'))
   const candidate=resolve(options['candidate-root']),runRoot=join(REPO,'var/live-model-acceptance',`${route.id}-${randomUUID()}`)
   // This executable handles one row per fresh process. Home identity is fixed before native imports.
   process.env.DSH_HOME=join(candidate,'home');process.env.DSH_AGENTS_HOME=join(candidate,'home-agents');process.env.DSH_TELEMETRY_DISABLED='1'
@@ -199,7 +201,8 @@ export async function main(argv=process.argv.slice(2)) {
       mcpConfig={serverName:'1C-docs-mcp',transport:'streamable-http',url:raw.url,headers:raw.headers??{}}
     }
     const {bootNativeHost}=await import('./live-native-host.mjs')
-    host=await bootNativeHost({candidateRoot:candidate,runRoot,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],provider:route.provider,model:route.model,effort:route.effort,guard,mcpConfig,onEvent,maxRequests:24})
+    host=await bootNativeHost({candidateRoot:candidate,runRoot,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],provider:route.provider,model:route.model,effort:route.effort,guard,mcpConfig,onEvent,maxRequests:24,policyArtifactRoot,uiArtifactRoot})
+    report.runtimeProof=host.runtimeProof
     parentId=report.parentId=host.agent.id
     report.mcpRegistered=host.ctx.tools.schemas(host.agent).filter(tool=>tool.name.startsWith('mcp__')).length
     if(!route.mcp&&report.mcpRegistered!==0)throw new Error('MCP_MUST_BE_ABSENT')
@@ -222,6 +225,8 @@ export async function main(argv=process.argv.slice(2)) {
     report.finalSourceSha256=digest(await readFile(source.target))
     const parentConfig=host.agent.session.requestHeader()?.config;report.parentRequest=parentConfig?{provider:parentConfig.provider,model:parentConfig.model,effort:parentConfig.reasoningEffort}:undefined
     const handoff=await readFile(join(runRoot,'artifacts/handoff.md'),'utf8').catch(()=>'');report.handoffVerified=handoff.includes('MissingReturnedValueDescription')&&handoff.includes('NOT_CERTIFIED')&&handoff.includes('NOT_RUN')
+    report.encoding={originalHasBom:original.startsWith('\uFEFF'),finalHasBom:changed.startsWith('\uFEFF')}
+    report.outputBytes=(await readFile(source.target)).length
     const expected=original.replace('//+','// +').replace('//-','// -')
     report.exactCommentChanges=changed===expected
     report.semanticCommentChanges=changed.replace(/^\uFEFF/,'')===expected.replace(/^\uFEFF/,'')
@@ -247,7 +252,7 @@ async function metadataMain(options) {
   process.env.DSH_HOME=join(directory,'home');process.env.DSH_AGENTS_HOME=join(directory,'home-agents');process.env.DSH_TELEMETRY_DISABLED='1'
   let host
   try {
-    host=await mountMetadataHost({directory,authStorePath:options['auth-store'],credentialsPath:options['credentials-store']})
+    host=await mountMetadataHost({directory,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],policyArtifactRoot:resolve(options['policy-artifact']??DEFAULT_POLICY)})
     const readiness=await host.readiness(),result=[]
     for(const provider of ['codex','deepseek-account']) {
       const models=await host.llm.listModels(provider)

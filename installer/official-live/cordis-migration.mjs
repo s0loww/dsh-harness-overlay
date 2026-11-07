@@ -1,4 +1,5 @@
 import YAML from '../vendor/yaml/dist/index.js'
+import { validatePolicyFragment } from '../official-policy/policy-cordis.mjs'
 
 const fail = detail => { throw Object.assign(new Error(`LIVE_CORDIS_MIGRATION_CONFLICT: ${detail}`), { code: 'LIVE_CORDIS_MIGRATION_CONFLICT' }) }
 const options = { customTags: [{ tag: 'tag:yaml.org,2002:js', resolve: value => value }], strict: true, uniqueKeys: true }
@@ -105,15 +106,39 @@ function serialize(row, eol) {
   return doc.toString({ lineWidth: 0 }).replace(/\n/g, eol)
 }
 
+function mentionsId(node, id) {
+  if (YAML.isMap(node)) return idOf(node) === id || node.items.some(pair => mentionsId(pair.value, id))
+  return YAML.isSeq(node) && node.items.some(item => mentionsId(item, id))
+}
+const mentionsNativeFs = node => mentionsId(node, 'fs-sandbox')
+
+// Cardinality changes are reserved for this exact, reviewed global provider
+// alias. No other new root row or unrelated fragment gets this exception.
+function nativeFsCardinality(oldFragment, newFragment, old, next) {
+  if (old.length === next.length) return null
+  if (!((old.length === 3 && next.length === 4) || (old.length === 4 && next.length === 3))) fail('managed block cardinality')
+  try { validatePolicyFragment(oldFragment); validatePolicyFragment(newFragment) }
+  catch { fail('managed block cardinality') }
+  return old.length === 3 ? 'add' : 'remove'
+}
+
 /** Data-only migration. !!js remains an opaque tagged scalar and is never run. */
 export function migrateCordisFragments(current, pairs) {
   let source = current
   for (const { oldFragment, newFragment } of pairs) {
     if (oldFragment === newFragment) continue
     const old = parse(oldFragment).contents.items, next = parse(newFragment).contents.items
-    if (old.length !== next.length) fail('managed block cardinality')
+    const nativeFsChange = nativeFsCardinality(oldFragment, newFragment, old, next)
     const doc = parse(source), rows = doc.contents.items, replacements = [], claimed = new Set()
-    for (let index = 0; index < old.length; index++) {
+    if (nativeFsChange === 'add' && rows.some(row => mentionsNativeFs(row) || mentionsId(row, 'airules-native-fs'))) fail('native filesystem provider collision')
+    if (nativeFsChange === 'remove') {
+      const found = rows.map((row, index) => mentionsNativeFs(row) ? index : -1).filter(index => index >= 0)
+      if (found.length !== 1 || !same(rows[found[0]], old[3])) fail('native filesystem provider ownership')
+      const row = rows[found[0]]
+      claimed.add(found[0])
+      replacements.push({ start: source.lastIndexOf('\n', row.range[0] - 1) + 1, end: row.range[2], text: '' })
+    }
+    for (let index = 0; index < Math.min(old.length, next.length); index++) {
       if (same(old[index], next[index])) continue
       const signature = identity(old[index])
       if (!matches(next[index], signature)) fail('managed identity changed')
@@ -136,6 +161,10 @@ export function migrateCordisFragments(current, pairs) {
       replacements.push({ start, end, text: serialize(merged, source.includes('\r\n') ? '\r\n' : '\n') })
     }
     for (const row of replacements.sort((a, b) => b.start - a.start)) source = source.slice(0, row.start) + row.text + source.slice(row.end)
+    if (nativeFsChange === 'add') {
+      const eol = source.includes('\r\n') ? '\r\n' : '\n'
+      source += (source.length && !/\r?\n$/u.test(source) ? eol : '') + serialize(next[3], eol)
+    }
     parse(source)
   }
   return source

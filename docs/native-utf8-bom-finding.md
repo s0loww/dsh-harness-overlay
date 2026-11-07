@@ -1,7 +1,8 @@
 # Native edit loses UTF-8 BOM
 
-Observed during real model acceptance on 2026-11-07. This is an open native
-filesystem finding, not a repaired or installed compatibility patch.
+Observed during real model acceptance on 2026-11-07. Repaired and installed
+in [policy39](native-bom-release.md), with four full strict live PASS results.
+The reproduction and historical failure evidence below remain unchanged.
 
 Target: `@deepseek-ai/dsh-fs-local@0.2.1-rc.5`. Inspected `lib/index.js` SHA-256:
 `63fbb41d2c33e07111884b798be507e68c2752acab8249c821c20ade436e894f`.
@@ -29,15 +30,15 @@ Later reports expose `exactCommentChanges: false`,
 PARTIAL only when every separate functional check passes. BOM normalization
 never counts as full PASS, and other content or line-ending drift remains FAIL.
 
-## Proposed repair boundary
+## Implemented repair boundary
 
-Preserve a BOM flag in `readForEdit`, then restore the original BOM during
-`editText` writeback. Keep model-facing text, observations, version checks,
-native locks, sandbox admission and atomic replacement intact. A deliberate
-whole-file write needs its own explicit encoding contract.
+The managed compatibility patch preserves a BOM flag in `readForEdit` and
+restores the original BOM during `editText` writeback. Model-facing text,
+observations, version checks, native locks, sandbox admission and atomic
+replacement remain intact. Deliberate whole-file write semantics are unchanged.
 
-Ship any repair as a version- and hash-guarded compatibility patch with
-candidate apply/rollback evidence. Do not edit the official installation in
-place, rewrite tool results, or repair files after a successful tool call.
-Regression cases must cover BOM/no-BOM, LF/CRLF, duplicate-BOM prevention,
-expected-version conflicts and sandbox refusals.
+The version- and hash-guarded package passed candidate apply/rollback/reapply
+and was promoted through the transactional profile installer. Official ASAR
+bytes were not modified. There is no tool-result rewriting or post-call file
+repair. Regression cases cover BOM/no-BOM, LF/CRLF, repeated edits without
+extra BOMs, expected-version conflicts and sandbox refusals.

@@ -83,3 +83,22 @@ Do not add ASARs, binaries, dependency trees, credentials, sessions, `.desktop-l
 Preserve licenses and notices already attached to reviewed runtime sources.
 Private source archival does not establish readiness for public redistribution;
 the individual `PROVENANCE.md` records retain unresolved supplier notice details.
+
+## Native filesystem compatibility
+
+The Windows x64 BOM repair is an explicit build option:
+`--include-native-fs-compat true --native-modules <absolute-extracted-SDK-node_modules>`.
+Its source and output hashes pin both native filesystem modules to rc.5. The
+sandbox module retains all permission fences; only its local superclass import
+changes. The local module preserves the original BOM inside atomic `edit`.
+
+`upstream/native-fs-closure.lock.json` pins seven runtime packages, including
+Koffi's existing Windows x64 binary. The lock explicitly selects that optional
+platform package; all other closures retain the original strict optional
+dependency behavior. No dependency is downloaded by this build step. This
+artifact targets Windows x64; it does not claim another platform's binary closure.
+
+Cordis id-targeted `name` is an assertion, not a rename. The policy disables
+the exact native `fs-sandbox` row and inserts one managed sandbox provider.
+Candidate runtime attestation must confirm the actual service class and both
+module hashes before the live model acceptance starts.

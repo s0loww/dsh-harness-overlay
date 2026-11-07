@@ -6,6 +6,8 @@ import { DEFAULT_RELEASE_LOCK, verifyOfficialDesktop } from '../../src/targets/o
 import { canonical, directoryState, sameState, sha256, targetState } from '../fs-state.mjs'
 import { beneath, loadCandidate, OfficialUiInstallerError } from '../official-ui/common.mjs'
 import { analyzePolicyCordis, mergePolicyCordis } from './policy-cordis.mjs'
+import { NATIVE_FS_VERSION, NATIVE_FS_INPUT_SHA256, NATIVE_FS_OUTPUT_SHA256, NATIVE_FS_SANDBOX_INPUT_SHA256, NATIVE_FS_SANDBOX_OUTPUT_SHA256 } from '../../src/native-fs-compat/patch.mjs'
+import { inspectPackageClosure } from '../../scripts/stage-package-closure.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 export const DEFAULT_ARTIFACT = resolve(ROOT, 'dist/airules-official-policy-0.12.0-dev7')
@@ -115,7 +117,7 @@ export function policyPackageNames(manifest) {
   if (manifest.integrations === undefined) return [...PACKAGES]
   const integrations = manifest.integrations
   if (!integrations || typeof integrations !== 'object' || Array.isArray(integrations)
-    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities'].includes(key))
+    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat'].includes(key))
     || Object.keys(integrations).length === 0) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
   const packages = [...PACKAGES]
   const feature = integrations.openspec
@@ -183,6 +185,12 @@ export function policyPackageNames(manifest) {
     if (canonical(integrations[key]) !== canonical({ package: name, ...fields })) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
     packages.push(name)
   }
+  if (integrations.nativeFsCompat !== undefined) {
+    const {dependencyLockSha256, ...rest} = integrations.nativeFsCompat ?? {}
+    if (!HASH.test(dependencyLockSha256 ?? '') || canonical(rest) !== canonical({package:'airules-dsh-native-fs',patch:'utf8-bom-edit-v1',hostVersion:NATIVE_FS_VERSION,
+      localInputSha256:NATIVE_FS_INPUT_SHA256,localOutputSha256:NATIVE_FS_OUTPUT_SHA256,sandboxInputSha256:NATIVE_FS_SANDBOX_INPUT_SHA256,sandboxOutputSha256:NATIVE_FS_SANDBOX_OUTPUT_SHA256,privateRuntimePackages:7,target:'win32-x64'})) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_INVALID')
+    packages.push('airules-dsh-native-fs')
+  }
   return packages
 }
 
@@ -219,6 +227,17 @@ export async function verifyPolicyArtifact(artifactRoot) {
     if (!row || !HASH.test(row.sha256 ?? '') || row.bytes !== actual[path]?.bytes || row.sha256 !== actual[path]?.sha256) throw new OfficialUiInstallerError('POLICY_FILE_HASH_MISMATCH', path)
   }
   const packageNames = policyPackageNames(manifest)
+  if (manifest.integrations?.nativeFsCompat) {
+    const base = join(root, 'payload/packages/airules-dsh-native-fs'), feature = manifest.integrations.nativeFsCompat
+    const lockBytes = await readFile(join(ROOT, 'upstream/native-fs-closure.lock.json')), lock = JSON.parse(lockBytes)
+    if (sha256(lockBytes) !== feature.dependencyLockSha256 || sha256(await readFile(join(base, 'lib/local.js'))) !== NATIVE_FS_OUTPUT_SHA256
+      || sha256(await readFile(join(base, 'lib/index.js'))) !== NATIVE_FS_SANDBOX_OUTPUT_SHA256) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_HASH_MISMATCH')
+    const closure = await inspectPackageClosure({modulesRoot:join(base,'node_modules'),roots:lock.roots,optionalDependencySelection:lock.optionalDependencySelection})
+    if (canonical(closure) !== canonical(lock)) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_CLOSURE_MISMATCH')
+    const fragment = await readFile(join(root, 'cordis.policy.fragment.yml'), 'utf8')
+    if (!/^- id: fs-sandbox\r?\n  name: '@deepseek-ai\/dsh-fs-sandbox'\r?\n  disabled: true\s*$/m.test(fragment)
+      || !/^    - id: airules-native-fs\r?\n      name: airules-dsh-native-fs\s*$/m.test(fragment)) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_MOUNT_REQUIRED')
+  }
   await verifyWorkflowPayload(root, manifest)
   const expected = [...packageNames.map(name => ({ kind: 'package-copy', source: `payload/packages/${name}`, target: `node_modules/${name}` })), { kind: 'cordis-merge', source: 'cordis.policy.fragment.yml', target: 'cordis.patch.yml' }]
   if (canonical(manifest.operations) !== canonical(expected)) throw new OfficialUiInstallerError('POLICY_OPERATIONS_INVALID')

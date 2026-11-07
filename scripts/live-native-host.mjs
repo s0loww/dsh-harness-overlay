@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { randomUUID, createHash } from 'node:crypto'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { loadSubscriptionPlugin } from './probe-live-model-orchestration.mjs'
@@ -11,7 +11,8 @@ const native = name => import(pathToFileURL(join(NATIVE, name, 'lib/index.js')))
 
 /** Isolated native host. Booting never submits a model prompt. No auth file is copied. */
 export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, credentialsPath,
-  provider, model, effort, guard, mcpConfig, onEvent = () => {}, maxRequests = 24 }) {
+  provider, model, effort, guard, mcpConfig, onEvent = () => {}, maxRequests = 24,
+  policyArtifactRoot=join(REPO,'dist/airules-official-policy-0.12.0-dev39'),uiArtifactRoot=join(REPO,'dist/airules-ui-overlay-0.1.0-dev16') }) {
   if (![candidateRoot, runRoot, authStorePath, credentialsPath].every(isAbsolute) || typeof guard !== 'function') throw new Error('EXPLICIT_LIVE_HOST_BOUNDARIES_REQUIRED')
   candidateRoot = assertCandidatePath(candidateRoot)
   if (!((provider === 'codex' && model === 'gpt-6.1-sol' && effort === 'medium') ||
@@ -20,8 +21,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
   if (resolve(process.env.DSH_HOME ?? '') !== resolve(join(candidateRoot, 'home')) ||
     resolve(process.env.DSH_AGENTS_HOME ?? '') !== resolve(join(candidateRoot, 'home-agents'))) throw new Error('SET_ISOLATED_HOME_BEFORE_NATIVE_IMPORTS')
   await preflightCandidate({ candidateRoot,
-    uiArtifactRoot: join(REPO, 'dist/airules-ui-overlay-0.1.0-dev16'),
-    policyArtifactRoot: join(REPO, 'dist/airules-official-policy-0.12.0-dev37') })
+    uiArtifactRoot, policyArtifactRoot })
   await mkdir(runRoot, { recursive: true })
   const patch = join(runRoot, 'live-host.patch.yml')
   const disabled = ['airules-subscriptions', 'airules-telegram', 'airules-mobile', 'airules-mcp-manager',
@@ -41,6 +41,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
   try {
     app = await runProfile({ profile: 'desktop', environment: loadLayeredEnv('dsh', candidateRoot), patchFiles: [patch], args: [] })
     const ctx = app.ctx
+    const runtimeProof=await verifyFsCompat(ctx,{candidateRoot,policyArtifactRoot})
     // A mandatory deny guard is additional to the actual native sandbox.
     ctx.tools.guard(guard)
     ctx.on('session/event', (session, event) => onEvent('session/event', { sessionId: session.id, event }), { global: true })
@@ -69,7 +70,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
     ctx.on('agent/error', ({ agent: subject }) => onEvent('agent/error', { agentId: subject.id }), { global: true })
     const mount = async (plugin, config) => { const h = ctx.plugin(plugin, config); handles.push(h); await h.await(); return h }
     await mount(await native('dsh-llm-deepseek-account'), {})
-    const subscription = await loadSubscriptionPlugin(join(runRoot, 'host-runtime'))
+    const subscription = await loadSubscriptionPlugin(join(runRoot, 'host-runtime'),undefined,policyArtifactRoot)
     await mount({ name: 'acceptance-explicit-subscriptions', inject: ['llm'], apply(scope) {
       return subscription.apply(scope, { providers: ['codex'], pool: { enabled: false },
         rateLimit: { wait: false, maxWaitMs: 1 } }, { authStorePath })
@@ -88,7 +89,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
       } })
     agent = handle.agent ?? ctx.agents.get(handle.id)
     if (!agent || !agent.ctx.tools.get('airules_delegate', agent)) throw new Error('NATIVE_DELEGATION_REQUIRED')
-    return { ctx, agent, get requests() { return requests },
+    return { ctx, agent, runtimeProof, get requests() { return requests },
       async run(prompt) {
         if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 16000) throw new Error('BOUNDED_PROMPT_REQUIRED')
         agent.followup(createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'user' } }))
@@ -115,4 +116,24 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
     await app?.ctx?.fiber.dispose().catch(() => {})
     throw error
   }
+}
+
+/** Attest the profile-resolved service, never replace or monkeypatch native fs. */
+export async function verifyFsCompat(ctx,{candidateRoot,policyArtifactRoot}) {
+  const relative='airules-dsh-native-fs/lib'
+  const directory=join(candidateRoot,'home/profiles/desktop/node_modules',relative)
+  const payloadDirectory=join(policyArtifactRoot,'payload/packages',relative)
+  const sha=bytes=>createHash('sha256').update(bytes).digest('hex')
+  const hashes={}
+  for(const filename of ['index.js','local.js']) {
+    const [loaded,expected]=await Promise.all([readFile(join(directory,filename)),readFile(join(payloadDirectory,filename))])
+    if(sha(loaded)!==sha(expected))throw new Error('FS_COMPAT_MODULE_HASH_MISMATCH')
+    hashes[filename]=sha(loaded)
+  }
+  const [implementation,local]=await Promise.all([import(pathToFileURL(join(directory,'index.js'))),import(pathToFileURL(join(directory,'local.js')))])
+  const exposed=ctx.get('fs')
+  // Cordis publicly exposes the underlying service through its original symbol.
+  const filesystem=exposed?.[Symbol.for('cordis.original')]??exposed
+  if(typeof implementation.SandboxedFileSystem!=='function'||filesystem?.constructor!==implementation.SandboxedFileSystem||typeof local.LocalFileSystem!=='function'||!(filesystem instanceof local.LocalFileSystem)||Object.getPrototypeOf(implementation.SandboxedFileSystem.prototype)!==local.LocalFileSystem.prototype)throw Object.assign(new Error('FS_COMPAT_NATIVE_SANDBOX_SERVICE_NOT_LOADED'),{proofDebug:{actualConstructor:filesystem?.constructor?.name,actualLocalEditHasBom:String(Object.getPrototypeOf(Object.getPrototypeOf(filesystem??{}))?.editText).includes('original.utf8Bom'),actualLocalEditSha:sha(Buffer.from(String(Object.getPrototypeOf(Object.getPrototypeOf(filesystem??{}))?.editText))),expectedLocalEditSha:sha(Buffer.from(String(local.LocalFileSystem.prototype.editText))),ownerPlugin:filesystem?.ctx?.fiber?.entry?.options?.name,ownerId:filesystem?.ctx?.fiber?.entry?.options?.id,constructorMatches:filesystem?.constructor===implementation.SandboxedFileSystem,localInstance:typeof local.LocalFileSystem==='function'&&filesystem instanceof local.LocalFileSystem,expectedSuperclassMatches:Object.getPrototypeOf(implementation.SandboxedFileSystem.prototype)===local.LocalFileSystem.prototype,actualSuperclass:Object.getPrototypeOf(Object.getPrototypeOf(filesystem??{}))?.constructor?.name}})
+  return {filesystem:{package:'airules-dsh-native-fs',hashes,profileEntryId:filesystem?.ctx?.fiber?.entry?.options?.id,profileEntryName:filesystem?.ctx?.fiber?.entry?.options?.name,profileServiceIdentity:true,nativeSandboxSubclass:true,patchedLocalSuperclass:true},policyArtifact:policyArtifactRoot.split(/[\\/]/).at(-1)}
 }

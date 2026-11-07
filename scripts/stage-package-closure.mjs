@@ -34,7 +34,9 @@ async function packageFiles(root) {
   return files
 }
 
-export async function inspectPackageClosure({ modulesRoot, roots }) {
+export async function inspectPackageClosure({ modulesRoot, roots, optionalDependencySelection = {} }) {
+  if (!optionalDependencySelection || typeof optionalDependencySelection !== 'object' || Array.isArray(optionalDependencySelection)
+    || Object.entries(optionalDependencySelection).some(([name, values]) => !validName(name) || !Array.isArray(values) || !values.length || new Set(values).size !== values.length || values.some(value => !validName(value)))) throw new Error('CLOSURE_OPTIONAL_SELECTION_INVALID')
   const base = resolve(modulesRoot), packages = new Map()
   await checkedDirectory(base, base)
   async function locate(from, name) {
@@ -58,7 +60,10 @@ export async function inspectPackageClosure({ modulesRoot, roots }) {
     packages.set(rel, { path: rel, name: manifest.name, version: manifest.version, license: manifest.license ?? null, sha256: hash(JSON.stringify(files)) })
     // Only runtime dependencies. Peers are provided by the pinned host; missing
     // optional runtime packages fail closed instead of silently trimming features.
-    for (const name of Object.keys({ ...manifest.dependencies, ...manifest.optionalDependencies }).sort()) {
+    const selection = Object.hasOwn(optionalDependencySelection, manifest.name) ? optionalDependencySelection[manifest.name] : undefined
+    if (selection && selection.some(name => !Object.hasOwn(manifest.optionalDependencies ?? {}, name))) throw new Error('CLOSURE_OPTIONAL_SELECTION_UNKNOWN')
+    const optional = selection ? Object.fromEntries(selection.map(name => [name, manifest.optionalDependencies[name]])) : manifest.optionalDependencies
+    for (const name of Object.keys({ ...manifest.dependencies, ...optional }).sort()) {
       const dependency = await locate(path, name)
       const pkg = JSON.parse(await readFile(join(dependency, 'package.json'), 'utf8'))
       if (pkg.name !== name) throw new Error(`CLOSURE_DEPENDENCY_IDENTITY_INVALID: ${name}`)
@@ -71,11 +76,12 @@ export async function inspectPackageClosure({ modulesRoot, roots }) {
     if (pkg.name !== name || pkg.version !== version) throw new Error(`CLOSURE_ROOT_VERSION_MISMATCH: ${name}`)
     await visit(path)
   }
-  return { schemaVersion: 1, roots, packages: [...packages.values()].sort((a, b) => a.path.localeCompare(b.path, 'en')) }
+  if (Object.keys(optionalDependencySelection).some(name => ![...packages.values()].some(row => row.name === name))) throw new Error('CLOSURE_OPTIONAL_SELECTION_UNUSED')
+  return { schemaVersion: 1, roots, ...(Object.keys(optionalDependencySelection).length ? {optionalDependencySelection} : {}), packages: [...packages.values()].sort((a, b) => a.path.localeCompare(b.path, 'en')) }
 }
 
 export async function stagePackageClosure({ modulesRoot, targetModulesRoot, lock }) {
-  const actual = await inspectPackageClosure({ modulesRoot, roots: lock.roots })
+  const actual = await inspectPackageClosure({ modulesRoot, roots: lock.roots, optionalDependencySelection: lock.optionalDependencySelection })
   if (JSON.stringify(actual) !== JSON.stringify(lock)) throw new Error('CLOSURE_LOCK_MISMATCH')
   for (const row of actual.packages) {
     const source = join(modulesRoot, row.path), target = join(targetModulesRoot, row.path)
@@ -84,7 +90,7 @@ export async function stagePackageClosure({ modulesRoot, targetModulesRoot, lock
       filter: path => !relative(source, path).split(sep).some(part => part === 'node_modules' || part === '.git') })
   }
   // Post-copy validation catches drift between the inspected source and copy.
-  const staged = await inspectPackageClosure({ modulesRoot: targetModulesRoot, roots: lock.roots })
+  const staged = await inspectPackageClosure({ modulesRoot: targetModulesRoot, roots: lock.roots, optionalDependencySelection: lock.optionalDependencySelection })
   if (JSON.stringify(staged) !== JSON.stringify(lock)) throw new Error('CLOSURE_STAGED_HASH_MISMATCH')
   return actual
 }

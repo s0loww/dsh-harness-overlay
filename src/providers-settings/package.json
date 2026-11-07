@@ -7,5 +7,5 @@
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
   "files": ["index.js", "client.js", "README.md", "LICENSE"],
-  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-settings-models", "@deepseek-ai/dsh-client-ui-settings-account", "airules-dsh-subscriptions", "airules-dsh-additional-providers"] } }
+  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-settings-models", "@deepseek-ai/dsh-client-ui-settings-account", "airules-dsh-subscriptions", "airules-dsh-additional-providers", "airules-dsh-provider-extensions", "airules-dsh-cursor-provider"] } }
 }

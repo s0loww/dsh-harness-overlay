@@ -54,7 +54,8 @@ const prefix = text => normalize(text).split('\n').filter(line => /^\s*#/u.test(
 const HOST_IDS = new Set(['airules-onec-bsl-editor', 'airules-openspec', 'airules-telegram',
   'airules-acp', 'airules-acp-adapter', 'airules-subscriptions', 'airules-mobile', 'airules-mcp-manager',
   'airules-additional-providers', 'airules-onec-panels', 'airules-project-settings', 'airules-model-orchestration', 'airules-domain-presets',
-  'airules-workflows', 'airules-agent-import', 'airules-skills', 'airules-general-tools', 'airules-documents', 'airules-onec-capabilities', 'airules-native-fs'])
+  'airules-workflows', 'airules-agent-import', 'airules-skills', 'airules-general-tools', 'airules-documents', 'airules-onec-capabilities', 'airules-native-fs',
+  'airules-provider-extensions','airules-cursor-provider','airules-onec-specialized'])
 function ownership(block) {
   if (mentionsId(block, 'fs-sandbox')) return exactNativeFs(block) ? 'native-fs' : 'ambiguous'
   const hasCompatFs = mentionsId(block, 'airules-native-fs')

@@ -41,3 +41,11 @@ test('skills and import replacements retain old deep links and context grouping'
   assert.equal(activeSection(rows, 'dsh-movein'), 'airules-agent-import')
   assert.deepEqual(groupSections(rows).map(group => group.label), ['Контекст и история'])
 })
+
+test('extended provider sections remain available alone and route into the unified page when installed',()=>{
+ const rows=[{id:'airules-api-plans'},{id:'airules-provider-drivers'}]
+ assert.deepEqual(visibleRows(rows).map(row=>row.id),rows.map(row=>row.id))
+ rows.push({id:'airules-providers-settings'})
+ assert.deepEqual(visibleRows(rows).map(row=>row.id),['airules-providers-settings'])
+ for(const id of ['airules-api-plans','airules-provider-drivers'])assert.equal(activeSection(rows,id),'airules-providers-settings')
+})

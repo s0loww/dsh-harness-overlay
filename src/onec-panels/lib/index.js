@@ -1,8 +1,9 @@
 import { inspectFile, inventory } from './core.js'
 import { projectSession } from './session.js'
+import { createWorkbench, workbenchHandler, WORKBENCH_API } from './workbench.js'
 
 export const name = 'airules-dsh-onec-panels'
-export const inject = ['webServer', 'connection', 'sessions', 'sessionPersistence', 'sessionProjections', 'sandboxPolicy']
+export const inject = ['webServer', 'connection', 'sessions', 'sessionPersistence', 'sessionProjections', 'sandboxPolicy', 'jobs', 'tools', 'dshHomePath']
 export const API = '/airules/onec-panels'
 export async function sessionRoot(ctx, sessionId) {
   return (await projectSession(ctx, sessionId)).root
@@ -25,4 +26,8 @@ export function handlerFor(ctx) {
 }
 export function apply(ctx) {
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: handlerFor(ctx) }))
+  const workbench=createWorkbench(ctx,{configPath:ctx.dshHomePath('onec-workbench/background.json')})
+  ctx.provide('airulesOnecWorkbench',workbench)
+  ctx.on('tools/result',(exec,result)=>workbench.graphs.capture(exec,result),{global:true})
+  ctx.effect(() => ctx.webServer.register({kind:'exact',path:WORKBENCH_API,handler:workbenchHandler(ctx,workbench)}))
 }

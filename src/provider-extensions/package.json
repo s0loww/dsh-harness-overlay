@@ -1,0 +1,7 @@
+{
+  "name":"airules-dsh-provider-extensions","version":"0.1.0-dev1","private":true,"type":"module","license":"MIT",
+  "main":"lib/index.js","exports":{".":"./lib/index.js","./client":"./lib/client.js","./package.json":"./package.json"},
+  "files":["lib","README.md","PROVENANCE.md"],
+  "peerDependencies":{"@deepseek-ai/dsh-credentials":"0.2.1-rc.5","@zaimokuza/dsh-acp-adapter":"0.2.1-rc.3.1","@muse-code/sdk":"1.4.14","pi-antigravity-acp-provider":"0.1.17-bundle.5"},
+  "dsh":{"client":{"platform":"web","inject":["@deepseek-ai/dsh-client-ui-slots"]}}
+}

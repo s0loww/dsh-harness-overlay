@@ -2,7 +2,14 @@
 
 One settings section for subscription accounts and model APIs. Search and group
 filters select expandable provider cards. Subscriptions reuse their public login,
-account and model panels; Kimi reuses its guarded device-flow panel. Native API
+account and model panels; Kimi reuses its guarded device-flow panel. GLM Coding
+Plan, Qwen Token Plan International and OpenCode Go embed their isolated key-plan
+panels. Google/Muse embed cold setup for explicitly installed, digest-pinned
+runtimes; Cursor embeds its separately configured external SDK panel. Cards remain
+available when no model catalog or runtime is configured. Panels mount on first
+expansion and remain mounted when collapsed. The summary counts model catalogs,
+not authenticated accounts; an unloaded catalog is not displayed as a known zero.
+Native API
 editors share the already mounted official Models controller and its credential,
 settings revision and model interrogation operations. No parallel credential
 storage or authentication flow is introduced.
@@ -19,7 +26,16 @@ Disposal clears only the current bridge owner's face. Missing model activation
 becomes an explicit retry message after eight seconds rather than endless loading.
 Native account sign-in remains in the official slot during bridge activation.
 
-Claude subscription OAuth is deliberately omitted: the supplier implementation
-hard-disables that request route. Anthropic API configuration remains available
-through the official API editor. Cursor, the supplier assistant, voice, Jira,
-supplier support/update and Live2D controls are not advertised here.
+Claude direct subscription OAuth is deliberately not offered: the supplier
+implementation hard-disables that model request route. Its searchable card
+explains the installed official Claude CLI through native ACP, or Anthropic API
+configuration through the official API editor. No working direct OAuth route is
+claimed. The supplier assistant, voice, Jira, supplier support/update and Live2D
+controls remain excluded.
+
+Client injection preloads `airules-dsh-provider-extensions` and
+`airules-dsh-cursor-provider` when their module rows exist. The native loader skips
+absent rows; the page reports an unavailable optional panel instead of failing.
+The complete release enables both policy integrations. Loading the page does not
+start their SDKs or auth flows; these actions remain inside the expanded provider
+panels and require explicit user interaction.

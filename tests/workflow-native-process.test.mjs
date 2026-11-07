@@ -16,6 +16,21 @@ const helpers = {
   matchesSignature: (code, text, signatures) => code !== 0 && signatures.some(signature => text.includes(signature)),
 }
 
+test('explicit child working directory stays inside the original native session policy root', async t => {
+  const f = await fixture(t), nested = join(f.context.cwd, 'isolated-child')
+  await mkdir(nested)
+  const make = workingDirectory => createNativeProcessAdapter({ ctx: f.ctx, agent: f.agent, callId: 'cwd-call', id: 'child-cwd', core, nativeHelpers: helpers,
+    operations: { inspect: { ...f.operations.inspect, workingDirectory } } })
+  const success = await make(() => nested).execute('inspect', {}, f.context)
+  assert.equal(success.data.exitCode, 0)
+  assert.equal(f.calls.spawned.at(-1).cwd, nested)
+  assert.equal(f.calls.confined.at(-1).policy.workspaceRoot, f.context.cwd)
+  const before = f.calls.spawned.length
+  await assert.rejects(make(() => tmpdir()).execute('inspect', {}, f.context), /NATIVE_WORKFLOW_WORKING_DIRECTORY_INVALID/)
+  await assert.rejects(make(() => 'relative').execute('inspect', {}, f.context), /NATIVE_WORKFLOW_WORKING_DIRECTORY_INVALID/)
+  assert.equal(f.calls.spawned.length, before)
+})
+
 async function fixture(t, options = {}) {
   const cwd = await mkdtemp(join(tmpdir(), 'native-workflow-'))
   t.after(() => rm(cwd, { recursive: true, force: true }))

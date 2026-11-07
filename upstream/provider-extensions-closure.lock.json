@@ -1,0 +1,829 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "@muse-code/sdk": "1.4.14",
+    "pi-antigravity-acp-provider": "0.1.17-bundle.5",
+    "typebox": "1.3.27"
+  },
+  "packages": [
+    {
+      "path": "@muse-code/sdk",
+      "name": "@muse-code/sdk",
+      "version": "1.4.14",
+      "license": "MIT",
+      "sha256": "44533a1491909d22c9204f74d7d7c5e3d2d6c6674d312b44dff44a6308f1271f"
+    },
+    {
+      "path": "pi-antigravity-acp-provider",
+      "name": "pi-antigravity-acp-provider",
+      "version": "0.1.17-bundle.5",
+      "license": "MIT",
+      "sha256": "d47b44d832f32d5fbab76bad46a54952488bf5c633c29102575c7eeb5f020908"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/@agentclientprotocol/sdk",
+      "name": "@agentclientprotocol/sdk",
+      "version": "1.8.0",
+      "license": "Apache-2.0",
+      "sha256": "e3fa33dd9e84238546e5429978664c69107e715acaf551c4d44467ce1ba35968"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/@hono/node-server",
+      "name": "@hono/node-server",
+      "version": "2.1.5",
+      "license": "MIT",
+      "sha256": "531d37e2c381cddf4a33ae8b0f7d03504dc52f0e25159566cc7fd6ef933ded8d"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/@modelcontextprotocol/sdk",
+      "name": "@modelcontextprotocol/sdk",
+      "version": "1.32.1",
+      "license": "MIT",
+      "sha256": "67816890cbf26d9b6c0fdb1eda5503a46fe7d9abe3e550e46bdd343f86d1b346"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/accepts",
+      "name": "accepts",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "23bbc025d86b26684d94a4dc7b80e0cedfb437a4d5c2ee12ca249ec31647689d"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ajv",
+      "name": "ajv",
+      "version": "8.20.0",
+      "license": "MIT",
+      "sha256": "15bd28e762cf1f052826dcb8b6c2ef7a9f5f92da6f060c01d788ccbe1bad0a97"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ajv-formats",
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "license": "MIT",
+      "sha256": "835cbf61a26683c2dcbc3bb7b8054f8ac6088585629be12f90c42fdd9f152e83"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/bluebird",
+      "name": "bluebird",
+      "version": "3.7.2",
+      "license": "MIT",
+      "sha256": "2c049aba82ba5f9030c015fc02d14108d3dd58ce2a1011cf3e7e4297f07682f5"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/body-parser",
+      "name": "body-parser",
+      "version": "2.4.0",
+      "license": "MIT",
+      "sha256": "2bbc6ce586dd2b1bd53169510fa0ce528b633b3817976ab5a136e7f57a9f03de"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/body-parser/node_modules/content-type",
+      "name": "content-type",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "5466b37a260068e2f45d59aa1c2e1ede62f38c85167b354961df35bc33b3e1cd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/bytes",
+      "name": "bytes",
+      "version": "3.1.2",
+      "license": "MIT",
+      "sha256": "9bcfd6188bb979e5f69f2287e844ce0e2ec5f9327ee62404641ad73065723944"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/call-bind-apply-helpers",
+      "name": "call-bind-apply-helpers",
+      "version": "1.0.2",
+      "license": "MIT",
+      "sha256": "2b300dc5f3386c5663b76da6e3957e0a31a19cde31c00b033cbedd5f0dccc4fa"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/call-bound",
+      "name": "call-bound",
+      "version": "1.0.4",
+      "license": "MIT",
+      "sha256": "aa4a2cb20de97bedf41e93d0b80db27ebbc44cdfd2bf6c5f5a405a53680becc2"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/content-disposition",
+      "name": "content-disposition",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sha256": "d688d8ba4452d27983a63d188cca86d0058672575ab55561b46c0829277937e7"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/content-type",
+      "name": "content-type",
+      "version": "1.0.5",
+      "license": "MIT",
+      "sha256": "07c2a7d1d160cbe91ce974e96b91a6258e68aac8046128246e47c50d1c55759a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/cookie",
+      "name": "cookie",
+      "version": "0.7.2",
+      "license": "MIT",
+      "sha256": "5272fb304c21640c1c37aeb7620c229aa30f91757a65b67b03d7fad4dfd6ae46"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/cookie-signature",
+      "name": "cookie-signature",
+      "version": "1.2.2",
+      "license": "MIT",
+      "sha256": "53b0763dc7255e1a5664e49253abb6a40931fb3dd0f1efc5bec96f85f6cf24c8"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/core-util-is",
+      "name": "core-util-is",
+      "version": "1.0.3",
+      "license": "MIT",
+      "sha256": "55f118eb84447b9c3b6612ff58543b8c30a48f880bde4c2e8e25d11a6a61b3e6"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/cors",
+      "name": "cors",
+      "version": "2.8.6",
+      "license": "MIT",
+      "sha256": "2f081c5b62fe1f2f66e370c75e6535c72c7cc8ead7041240b46de75de0c8f35c"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/cross-spawn",
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "license": "MIT",
+      "sha256": "38d3f34b66e0b1943d06e6456d9a938c9346cad6095ffcdc0bc48d6e00ab0b85"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/debug",
+      "name": "debug",
+      "version": "4.4.3",
+      "license": "MIT",
+      "sha256": "46cefcf52278a78c5a02643efd002b74de6e8d71e3e2b42be13c3933027360d7"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/depd",
+      "name": "depd",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "91e16ff182acd950103628eddac068156fdaabf152ab41cb500b2a1160ea10cf"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/dunder-proto",
+      "name": "dunder-proto",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "d238a6135b8093c455c190ed61a82bb5400daec930e603968c785c3196819d54"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/duplexer2",
+      "name": "duplexer2",
+      "version": "0.1.4",
+      "license": "BSD-3-Clause",
+      "sha256": "4585b74f59598af03e61245dbcce7358b0b78f22573e9fed59a12d75b3342340"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ee-first",
+      "name": "ee-first",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sha256": "4d9716715bf3ce787d8eee9613d41c10ce59d08ab41bd6d4f662c0618c1a3c32"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/encodeurl",
+      "name": "encodeurl",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sha256": "a1d9a4754954ab894d2a4328abb43a4b0606402b592e80a2e77bf08399cafc8b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/es-define-property",
+      "name": "es-define-property",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "dc6728ab150c145f810a7dab31e32d6ef5368b5c5c6685971b0dd5c0c0c65af2"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/es-errors",
+      "name": "es-errors",
+      "version": "1.3.0",
+      "license": "MIT",
+      "sha256": "6111f1d80a492bd4dda2e9333042ab030936d4518fcd5a72656960af1a61da10"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/es-object-atoms",
+      "name": "es-object-atoms",
+      "version": "1.1.2",
+      "license": "MIT",
+      "sha256": "2304373234f1b3ac56bfb4e67d236de74ac6aedbedee2238913e6e4164267007"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/escape-html",
+      "name": "escape-html",
+      "version": "1.0.3",
+      "license": "MIT",
+      "sha256": "c884e0f59285678a99e0666f45df2fda0f3814dc92163336053ce95f57644c48"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/etag",
+      "name": "etag",
+      "version": "1.8.1",
+      "license": "MIT",
+      "sha256": "eda3b6711589d1a01a775d200d8f95832bbd7c50e03e81451d1ae10e8c5366fa"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/eventsource",
+      "name": "eventsource",
+      "version": "3.0.7",
+      "license": "MIT",
+      "sha256": "b30703b75812f9c6efe77bfa69d2206316a16250cf1744cb390139f2c28f13e4"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/eventsource-parser",
+      "name": "eventsource-parser",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "573b0471e2bf6583461c72302626453a895dcf57546fefe4c38a796039539ec8"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/express",
+      "name": "express",
+      "version": "5.3.0",
+      "license": "MIT",
+      "sha256": "0049efcfd96370e12f13adf19c681c6f57ea2d85220ac18e0be9fdbb42bf14be"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/express-rate-limit",
+      "name": "express-rate-limit",
+      "version": "8.7.2",
+      "license": "MIT",
+      "sha256": "44f9172243b16d75a31e43b836b9186109dd439dc53432efb1dcbdfce1d05f4b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/express/node_modules/content-type",
+      "name": "content-type",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "5466b37a260068e2f45d59aa1c2e1ede62f38c85167b354961df35bc33b3e1cd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/fast-deep-equal",
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "license": "MIT",
+      "sha256": "9e4ea42b87109a04de606c31c62da40d892b727a02422a5122c2ee12a532e8c1"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/fast-uri",
+      "name": "fast-uri",
+      "version": "3.1.9",
+      "license": "BSD-3-Clause",
+      "sha256": "ebfc3ed50830204206b0a86e3be8c5061b2bebfe2c48fbaca9e2862c1dfcaf12"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/finalhandler",
+      "name": "finalhandler",
+      "version": "2.1.1",
+      "license": "MIT",
+      "sha256": "bf3128fd7437b8256822a8751c18c8628abeaa19eb05e4898623bac2a7f97edc"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/forwarded",
+      "name": "forwarded",
+      "version": "0.2.0",
+      "license": "MIT",
+      "sha256": "87ca670ab94ad4aa1e621ea8f984abbc5091ca101bf9d75851e375a6f887e85d"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/fresh",
+      "name": "fresh",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "a279ae6e5f7cf4a6f5ec88ed55c45f24b831d435550cc614dd91b7e5054fb99e"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "11.3.1",
+      "license": "MIT",
+      "sha256": "c4b195f74262ce55baf1ebf7187cac92dc7b3b9007b2637e70413af03773ad34"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/function-bind",
+      "name": "function-bind",
+      "version": "1.1.2",
+      "license": "MIT",
+      "sha256": "9ae8dc1790468295b565006b27350721790a50f32321d5cff4c6c53785abd7e6"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/get-intrinsic",
+      "name": "get-intrinsic",
+      "version": "1.3.0",
+      "license": "MIT",
+      "sha256": "83050cb650d50e61371454eae64049703422fd5e40e64c5b675328eae84b080b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/get-proto",
+      "name": "get-proto",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "f77735d843a54c181f3ebdd52b83f452586c0b2e7b7da523a23b78b00bc401bd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/gopd",
+      "name": "gopd",
+      "version": "1.2.0",
+      "license": "MIT",
+      "sha256": "4f81bf5f4439dac7c7d88af9ad4ebb316e6b0fd009aa0d738b404c59d067bfb4"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/graceful-fs",
+      "name": "graceful-fs",
+      "version": "4.2.11",
+      "license": "ISC",
+      "sha256": "216c50af16ed224ae21355d809e9f580591eff9330b84ad4e60f81b36c8aa7e3"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/has-symbols",
+      "name": "has-symbols",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "32c171dd4873881f7e4ac8e242fe4a2577647fc93f049445e752b0981e788ee2"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/hasown",
+      "name": "hasown",
+      "version": "2.0.4",
+      "license": "MIT",
+      "sha256": "00eb412258bf5e8f36a72be7561c5b199d3215f12726fc02092abc8456a519b6"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/hono",
+      "name": "hono",
+      "version": "4.13.14",
+      "license": "MIT",
+      "sha256": "335543fb327a000b95e70b784890d8077b309683cd486a1775e4ff2251893738"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/http-errors",
+      "name": "http-errors",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sha256": "32c36e665cbc2b442a80fc9fb7ac2705c6e60eed4616df8a197801aecd4c7d0e"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/iconv-lite",
+      "name": "iconv-lite",
+      "version": "0.7.3",
+      "license": "MIT",
+      "sha256": "2e6d7e51d663911b17fca59d7449b9d2d5bd2375b4dcffdc96709d7186a1075b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/inherits",
+      "name": "inherits",
+      "version": "2.0.4",
+      "license": "ISC",
+      "sha256": "b54d4168ae861077864dadc0cef3e12f4f9eb2b1881d955b9a159be60c7b5477"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ip-address",
+      "name": "ip-address",
+      "version": "10.7.5",
+      "license": "MIT",
+      "sha256": "2174fbfad663a381ff4c0478426c1d895f8864bb635e9dc6884c2e859e16a950"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ipaddr.js",
+      "name": "ipaddr.js",
+      "version": "1.9.1",
+      "license": "MIT",
+      "sha256": "bb4e02f17dd60dd0b38b66ac154643db8e36bb3ab0aa4fdf4f0da87a3ed69ce7"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/is-promise",
+      "name": "is-promise",
+      "version": "4.0.0",
+      "license": "MIT",
+      "sha256": "ce2ca6d3d23d38a97cc47d22a57eef5b78981e0a54462480c9d2d81ba77c4aef"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/isarray",
+      "name": "isarray",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sha256": "4e7de9254c7be3b3dcc6518c55fc3ef38e385854a613a1a1dfe39e1b29e7ac93"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/isexe",
+      "name": "isexe",
+      "version": "2.0.0",
+      "license": "ISC",
+      "sha256": "b8af296820fa3fd471d70f083317068fd48434d0efb8d32a96df283927227556"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/jose",
+      "name": "jose",
+      "version": "6.2.14",
+      "license": "MIT",
+      "sha256": "e461fca210a0029471ae895d34e2815340123b308791ff96d04cd94b3b679303"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/json-schema-traverse",
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sha256": "1c6524fab06f43b6a0e5fe276390dba8947e2cb038a13dad1508af4b4cba248b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/json-schema-typed",
+      "name": "json-schema-typed",
+      "version": "8.0.2",
+      "license": "BSD-2-Clause",
+      "sha256": "83edbf636305da1ecbe77527296adadf10cadf3f0f67039257f3708e005f2ee1"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/jsonfile",
+      "name": "jsonfile",
+      "version": "6.2.1",
+      "license": "MIT",
+      "sha256": "dd43cc654980e9dcee06d3b18c5b4d2095c7b330acd70e56b27b13d84e48504d"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/math-intrinsics",
+      "name": "math-intrinsics",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "22797106dd1e6c0086679e7909aa907ce33ba9c8b1449364c4170766278cdc99"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/media-typer",
+      "name": "media-typer",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sha256": "8f18e2a5a7dab75b1549d5e08e8eda97b8c6ea4bc0ee8ac19edb8bc5954b825a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/merge-descriptors",
+      "name": "merge-descriptors",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "d0901acf1018d4780b40d9934e51271511eaec2b0c14cca13bf11e2ddfde5cc5"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/mime-db",
+      "name": "mime-db",
+      "version": "1.54.0",
+      "license": "MIT",
+      "sha256": "e428eba9bf6fa6d10e9b9e2b1d13e961c2f55be4b24d8377c11676b179e88a2a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/mime-types",
+      "name": "mime-types",
+      "version": "3.0.2",
+      "license": "MIT",
+      "sha256": "e35b5625af9e90cc76810ac34f6ee1d4c884a543328c89387c0ef83ad07ed7dc"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/ms",
+      "name": "ms",
+      "version": "2.1.3",
+      "license": "MIT",
+      "sha256": "884a08454ee28b75a5a44adc835666a7b7229c130cdcd4e22e0d07271257057a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/negotiator",
+      "name": "negotiator",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "c41ecbcf96bebf766a46b1982d3efaa24ba332355e1e3270da984baa2fd169d1"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/negotiator/node_modules/content-type",
+      "name": "content-type",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "5466b37a260068e2f45d59aa1c2e1ede62f38c85167b354961df35bc33b3e1cd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/node-int64",
+      "name": "node-int64",
+      "version": "0.4.0",
+      "license": "MIT",
+      "sha256": "bf37954b971e55205b5ade2bdf2a989e9843a2e51967e3acedb77cdf9006c743"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/object-assign",
+      "name": "object-assign",
+      "version": "4.1.1",
+      "license": "MIT",
+      "sha256": "93ba519df6f251b1634553e5e76b437ce302c40243efc795a5f649b9f479bc33"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/object-inspect",
+      "name": "object-inspect",
+      "version": "1.13.4",
+      "license": "MIT",
+      "sha256": "cc92c0d3b3362a17ef242d676604dcab705372e4f808eaee1c24a25a3d105db3"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/on-finished",
+      "name": "on-finished",
+      "version": "2.4.2",
+      "license": "MIT",
+      "sha256": "b5d05179058f515552396060b3ad15d29d2659b3b0ec65b912bfb8b21e5eb6f7"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/once",
+      "name": "once",
+      "version": "1.4.0",
+      "license": "ISC",
+      "sha256": "39ab360b04c1cb2b3fd6570fe5521d67f31db5a86b2056d65483a00dc1225e2b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/parseurl",
+      "name": "parseurl",
+      "version": "1.3.3",
+      "license": "MIT",
+      "sha256": "06ddfb4153f3b9b2883f7756527f96ccf52ecf11766a49a5597b99bba942fd34"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/path-key",
+      "name": "path-key",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "1bbb96074650f138c06283973026180209d0feab18271c3bf80e1782352f13ce"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/path-to-regexp",
+      "name": "path-to-regexp",
+      "version": "8.4.2",
+      "license": "MIT",
+      "sha256": "a2b6119410f37dd9d3092aeee06b72381f9013d2283b6ab181b620ece7f2eb19"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/pkce-challenge",
+      "name": "pkce-challenge",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sha256": "263b3400810ea607085fcd1c5fd6a5ea27ca44e96cdc185d5289e79f237d74b8"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/process-nextick-args",
+      "name": "process-nextick-args",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sha256": "0a7aea3357e6679ecc984c173a719038f5a0c1a06eb5256257a6d8483f1de8ca"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/proper-lockfile",
+      "name": "proper-lockfile",
+      "version": "4.1.2",
+      "license": "MIT",
+      "sha256": "6cb271c4f05ce3e758f620e08f268bea52ad1e1235c9a78dcd14a59d35285947"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/proxy-addr",
+      "name": "proxy-addr",
+      "version": "2.0.8",
+      "license": "MIT",
+      "sha256": "e07c819c1b08e25b290f2b532c93f1ef33256392219163ef610eb13e8c5379b5"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/qs",
+      "name": "qs",
+      "version": "6.17.1",
+      "license": "BSD-3-Clause",
+      "sha256": "507b472f2932abc3e739ce7fe3fa64293aa09d615403dcf63eb6a3d4137e38ec"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/range-parser",
+      "name": "range-parser",
+      "version": "1.3.0",
+      "license": "MIT",
+      "sha256": "1095a50a6b1dec0bbe7c07ad5371bbeba471ca1efe3eafaeda1a26664716e793"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/raw-body",
+      "name": "raw-body",
+      "version": "3.0.2",
+      "license": "MIT",
+      "sha256": "e1bd0ae76c12f75f3afebf514e0aaaa0782bd3821216ba71bf2e34ddd64ee2ee"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/readable-stream",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "license": "MIT",
+      "sha256": "bdb4ece13693e9abfa2e3e28d4c69f45a807d7b38108c00930d1014648216fe0"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/require-from-string",
+      "name": "require-from-string",
+      "version": "2.0.2",
+      "license": "MIT",
+      "sha256": "0be0336ebf1439ddb36e71f84f3ed91fa4bc0a14dfa2a85bf05b9a471cea9d10"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/retry",
+      "name": "retry",
+      "version": "0.12.0",
+      "license": "MIT",
+      "sha256": "7aca30f44f594deb78b149905be6223e0a95f685ded4e904c177d0cb7a8cc856"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/router",
+      "name": "router",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sha256": "6b1cedf0c36bbbac4fdab24b133e7f4ba6f0480d479f081437d4abd29cb272c5"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/safe-buffer",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "license": "MIT",
+      "sha256": "bc8bb3cf20cdc02004bb457d0b9ae1aeefce766655487915ea5f1fcca702758a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/safer-buffer",
+      "name": "safer-buffer",
+      "version": "2.1.2",
+      "license": "MIT",
+      "sha256": "34d450e37295860a9ec7454f09cf6eddd0a0a2c768af072c28de2e1fad0ae44e"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/send",
+      "name": "send",
+      "version": "1.2.1",
+      "license": "MIT",
+      "sha256": "864ccedcca2ac88874d83472f0ce7111faa44eb6fb565a69f50a7413fcd859a0"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/serve-static",
+      "name": "serve-static",
+      "version": "2.2.1",
+      "license": "MIT",
+      "sha256": "77c07561ea114d1330186a7ce98e395313aebd3317e0bb0c92048166d1d8d429"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/setprototypeof",
+      "name": "setprototypeof",
+      "version": "1.2.0",
+      "license": "ISC",
+      "sha256": "9ba86914bf37b8a231c7f5ad398f16e8692708b1c7a87352db90fe0821cae2fd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/shebang-command",
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sha256": "1b36ce3e8c214868e6fae1c7d6a016cc465822bf480cf0267169cb811711c48d"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/shebang-regex",
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sha256": "bc78add0c9670aa3447bbd91ca7b7d15caa09d17d6e43c675a2520b9ce625803"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/side-channel",
+      "name": "side-channel",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sha256": "a50fb52fd8a03a89612f79df436c17fde6cf71d23766344042e28684c31cfe0a"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/side-channel-list",
+      "name": "side-channel-list",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "c2cb868753094f47a1fd5c286b298572d945ad17d6ab2f7bfb58ae3ff086153b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/side-channel-map",
+      "name": "side-channel-map",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "4bb85e817f862e6115419b61f925065d42afa5e9f95ff14fd5c089ab4ac12157"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/side-channel-weakmap",
+      "name": "side-channel-weakmap",
+      "version": "1.0.2",
+      "license": "MIT",
+      "sha256": "c86cdcd9fe975bc47a3359458fd7e04edae22611c4f37eb4be34ebb363ac0076"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/signal-exit",
+      "name": "signal-exit",
+      "version": "3.0.7",
+      "license": "ISC",
+      "sha256": "79be6023f5a3be2977d22f7d1855ba87ea22f19d784ca2e42b2fe22648db331b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/statuses",
+      "name": "statuses",
+      "version": "2.0.2",
+      "license": "MIT",
+      "sha256": "9af206718bffa5f89efc4b2d8828ec38e600756f8eeedd994b10be80273fe66b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/string_decoder",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sha256": "9bb0989e364bec3eb7b5465152ad0097bd5ea46ba6a4794e2d36484b41406851"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/toidentifier",
+      "name": "toidentifier",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sha256": "ff0ffcc691886402c4204ba3ece8e20150d0fc1639a277fb01223bc9ec456401"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/type-is",
+      "name": "type-is",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "09323f7aef501a64dca53f16d2546fc09ed68e3f2a6979edbd5c755b3e3610aa"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/type-is/node_modules/content-type",
+      "name": "content-type",
+      "version": "2.1.0",
+      "license": "MIT",
+      "sha256": "5466b37a260068e2f45d59aa1c2e1ede62f38c85167b354961df35bc33b3e1cd"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/universalify",
+      "name": "universalify",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sha256": "0ef25760910eb2324ac432daf108e31ce8da793dbd00b011daffb002131e7f4f"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/unpipe",
+      "name": "unpipe",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sha256": "f3fe15dfd2d04eb7f19c47aab31756cd6ac2acbb9d50cc76c2ca294b227006d1"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/unzipper",
+      "name": "unzipper",
+      "version": "0.12.5",
+      "license": "MIT",
+      "sha256": "614cc2a47be2c2b214bcff6c6b83b7925a2d55f64f4c1af40f1d7bc9a6ab1fe7"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/util-deprecate",
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "license": "MIT",
+      "sha256": "0841b9ad7bb104b015d1919ec3c4be5250a2ba503ef0dfe607a344cab5eb199b"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/vary",
+      "name": "vary",
+      "version": "1.1.2",
+      "license": "MIT",
+      "sha256": "adc163f9a234692856a66ecf70def63ccf56f7ed73b33fba5371088f10e61b5f"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/which",
+      "name": "which",
+      "version": "2.0.2",
+      "license": "ISC",
+      "sha256": "a69d24bdae9e2af7d19654aff3f0d0eccf0b8e35cb756103982fe5bd91845950"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/wrappy",
+      "name": "wrappy",
+      "version": "1.0.2",
+      "license": "ISC",
+      "sha256": "a483a6948d2d532afa749666a96f9e9c38502dc0a973897965faa6d50a5bcdec"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/zod",
+      "name": "zod",
+      "version": "4.6.7",
+      "license": "MIT",
+      "sha256": "e8e0b7fb9e0b8b4e42a588adb187266627ddffa2a1a70306f8741ccc82850698"
+    },
+    {
+      "path": "pi-antigravity-acp-provider/node_modules/zod-to-json-schema",
+      "name": "zod-to-json-schema",
+      "version": "3.25.2",
+      "license": "ISC",
+      "sha256": "44ac75163e05925573a6153c076f39ebe0bf35d53f2e9ee0dc74b50c4b16347e"
+    },
+    {
+      "path": "typebox",
+      "name": "typebox",
+      "version": "1.3.27",
+      "license": "MIT",
+      "sha256": "ba3c2ff0ad95b1e8672f506df9a8df33af50f98799b903cc01368c52fb90c893"
+    }
+  ]
+}

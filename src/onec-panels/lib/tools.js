@@ -1,0 +1,7 @@
+import { defineTool } from '@deepseek-ai/dsh-tools'
+export const name='airules-onec-workbench-tools'
+export const inject=['tools','systemPrompt','airulesOnecWorkbench']
+export function apply(ctx){
+  ctx.tools.register(defineTool({name:'airules_background_call',description:'Выполнить отдельно зарегистрированный MCP-вызов только чтения как штатное фоновое задание DSH. Допускаются только явно проверенные инструменты из машинной настройки «Долгие операции». Исходные native guards/approvals сохраняются. Возвращает jobId, а не результат операции; результат читать через job_output.',parameters:{tool:{type:'string',required:true},arguments:{type:'object',additionalProperties:true,required:true}},output:{schema:{type:'object',additionalProperties:true},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},execute(args,exec){return ctx.airulesOnecWorkbench.background(args,exec)}}))
+  ctx.systemPrompt.section({name:'airules:onec-workbench',order:8,text:'Панель «Связи и операции» показывает фактические graph nodes/edges из успешных MCP-ответов этого сеанса и штатные background jobs. Фоновый MCP запускай через airules_background_call только для явно разрешённого read-only инструмента. jobId не означает завершение: дождись штатного job_output. Отмена не является откатом или доказательством остановки. Граф — ограниченный результат конкретного запроса, не полная карта проекта.'})
+}

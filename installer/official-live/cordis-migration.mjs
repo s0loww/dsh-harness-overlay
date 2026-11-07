@@ -114,6 +114,10 @@ const mentionsNativeFs = node => mentionsId(node, 'fs-sandbox')
 
 // Cardinality changes are reserved for this exact, reviewed global provider
 // alias. No other new root row or unrelated fragment gets this exception.
+// Provider extensions, Cursor and specialized 1C hosts belong to the existing
+// host insert row; their tools belong to the existing preset plugin sequence.
+// The ordinary id-aware three-way merge handles those additions without a new
+// root cardinality exception or replacing the user's existing runtime config.
 function nativeFsCardinality(oldFragment, newFragment, old, next) {
   if (old.length === next.length) return null
   if (!((old.length === 3 && next.length === 4) || (old.length === 4 && next.length === 3))) fail('managed block cardinality')

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "main": "lib/index.js",
-  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./tools": "./lib/tools.js", "./package.json": "./package.json" },
+  "peerDependencies": { "@deepseek-ai/dsh-tools": "0.2.1-rc.5" },
   "dependencies": { "fast-xml-parser": "4.5.7" },
   "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots"] } }
 }

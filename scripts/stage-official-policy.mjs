@@ -6,6 +6,8 @@ import { inspectPackageClosure, stagePackageClosure } from './stage-package-clos
 import { stageSharedSkills, SHARED_SKILLS } from './stage-shared-skills.mjs'
 import { stageDocumentClosure } from './stage-document-closure.mjs'
 import { stageNativeFsCompat, COMPAT_PACKAGE } from './stage-native-fs-compat.mjs'
+import { stageProviderExtensionsDependencies } from './stage-provider-extensions.mjs'
+import { adaptOnecLspPackage } from '../src/onec-lsp-compat/patch.mjs'
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const DEFAULT_LOCK = join(REPO, 'upstream', 'official-desktop', 'release.lock.json')
@@ -33,6 +35,9 @@ const SKILLS_MANAGER = join(REPO, 'src', 'skills-integration')
 const GENERAL_TOOLS = join(REPO, 'src', 'general-tools')
 const DOCUMENT_WORKBENCH = join(REPO, 'src', 'document-workbench')
 const ONEC_CAPABILITIES = join(REPO, 'src', 'onec-capability-workflows')
+const PROVIDER_EXTENSIONS = join(REPO, 'src', 'provider-extensions')
+const CURSOR_PROVIDER = join(REPO, 'src', 'cursor-provider')
+const ONEC_SPECIALIZED = join(REPO, 'src', 'onec-specialized')
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
 const canonicalData = value => Array.isArray(value) ? `[${value.map(canonicalData).join(',')}]`
@@ -275,7 +280,7 @@ function args(argv) {
   for (let index = 2; index < argv.length; index += 2) {
     const key = argv[index]
     const value = argv[index + 1]
-    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules'].includes(key) || value === undefined) throw new Error('USAGE')
+    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized'].includes(key) || value === undefined) throw new Error('USAGE')
     if (key.startsWith('--include-') && !['true', 'false'].includes(value)) throw new Error('BOOLEAN_OPTION_REQUIRED')
     out[key.slice(2)] = value
   }
@@ -283,8 +288,11 @@ function args(argv) {
   return out
 }
 
-export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules }) {
-  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false }) {
+  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+  if(includeProviderExtensions&&(!includeAcp||!includeAdditionalProviders))throw new Error('PROVIDER_EXTENSIONS_REQUIRE_ACP_AND_ADDITIONAL_PROVIDERS')
+  if(includeProviderExtensions&&(typeof nativeModules!=='string'||!isAbsolute(nativeModules)))throw new Error('PROVIDER_EXTENSIONS_EXPLICIT_NATIVE_MODULES_REQUIRED')
+  if(includeOnecSpecialized&&(!includeWorkflows||!includeOnecPanels))throw new Error('ONEC_SPECIALIZED_REQUIRE_WORKFLOWS_AND_ONEC_PANELS')
   if (includeSharedSkills && !includeDomainPresets) throw new Error('SHARED_SKILLS_REQUIRE_DOMAIN_PRESETS')
   if (typeof includeNativeFsCompat !== 'boolean') throw new Error('BOOLEAN_OPTION_REQUIRED')
   if (includeNativeFsCompat && (typeof nativeModules !== 'string' || !isAbsolute(nativeModules))) throw new Error('NATIVE_FS_EXPLICIT_MODULES_REQUIRED')
@@ -343,6 +351,9 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       ...(includeDocumentWorkbench ? [['airules-dsh-document-workbench', DOCUMENT_WORKBENCH]] : []),
       ...(includeOnecCapabilities ? [['airules-dsh-onec-capability-workflows', ONEC_CAPABILITIES]] : []),
       ...(includeNativeFsCompat ? [[COMPAT_PACKAGE, join(REPO, 'src/native-fs-compat')]] : []),
+      ...(includeProviderExtensions ? [['airules-dsh-provider-extensions', PROVIDER_EXTENSIONS]] : []),
+      ...(includeCursorProvider ? [['airules-dsh-cursor-provider', CURSOR_PROVIDER]] : []),
+      ...(includeOnecSpecialized ? [['airules-dsh-onec-specialized', ONEC_SPECIALIZED]] : []),
     ]
     for (const [name, source] of packages) {
       if (!portable(name) || await pathKind(source) !== 'directory') throw new Error(`PACKAGE_SOURCE_INVALID: ${name}`)
@@ -352,7 +363,12 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       await mkdir(dirname(target), { recursive: true })
       if (name === COMPAT_PACKAGE) { nativeFsIntegration = await stageNativeFsCompat({nativeModules, target}); continue }
       await cp(source, target, { recursive: true, force: false, errorOnExist: true,
-        ...(name === 'airules-dsh-onec-panels' ? { filter: path => !relative(source, path).split(sep).includes('node_modules') } : {}),
+        ...(['airules-dsh-onec-panels','airules-dsh-provider-extensions','airules-dsh-cursor-provider','airules-dsh-onec-specialized'].includes(name) ? { filter: async path => {
+          const parts=relative(source,path).split(sep)
+          if(parts.some(runtimeExcluded))return false
+          if((await lstat(path)).isSymbolicLink())throw new Error('OPTIONAL_PACKAGE_REPARSE_FORBIDDEN')
+          return true
+        } } : {}),
         ...(name === 'airules-dsh-workflows' ? { filter: async path => {
           const parts = relative(source, path).split(sep)
           if (parts.some(runtimeExcluded) || parts[0] === 'runtime') return false
@@ -432,6 +448,13 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       await rm(join(stage, '.acp-source-closure'), { recursive: true })
     }
     const optionalIntegrations = {}
+    if(includeProviderExtensions){
+      const dependencies=await stageProviderExtensionsDependencies({modulesRoot:sourceNodeModules,
+        targetRoot:join(stage,'payload','packages','airules-dsh-provider-extensions'),nativeModulesRoot:nativeModules})
+      optionalIntegrations.providerExtensions={package:'airules-dsh-provider-extensions',providers:['google','muse'],transport:'native-acp',
+        runtime:'explicit-installed-executable',authentication:'explicit-user-action',defaultEnabled:false,bootstrap:false,
+        dependencyLockSha256:dependencies.dependencyLockSha256,privateRuntimePackages:dependencies.privateRuntimePackages.length,nativePiAiVersion:'1.1.0'}
+    }
     if (includeDocumentWorkbench) await stageDocumentClosure({ modulesRoot: sourceNodeModules,
       targetModulesRoot: join(stage, 'payload', 'packages', 'airules-dsh-document-workbench', 'node_modules') })
     if (includeOnecPanels) {
@@ -466,6 +489,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
     await cp(join(sourceNodeModules, '@deepseek-ai', 'cosmokit'), join(lspModules, '@deepseek-ai', 'cosmokit'), { recursive: true, force: false, errorOnExist: true })
     await cp(join(sourceNodeModules, '@standard-schema', 'spec'), join(lspModules, '@standard-schema', 'spec'), { recursive: true, force: false, errorOnExist: true })
     const editorAdaptation = await adaptBslEditor(join(stage, 'payload', 'packages', 'dsh-bsl-editor'))
+    const lspActionsAdaptation = await adaptOnecLspPackage(join(stage,'payload','packages','dsh-lsp-actions'),{hostVersion:lock.hostVersion})
     let fragment = await readFile(join(PRESET, 'cordis.patch.yml'), 'utf8')
     fragment = replaceOnce(fragment,
       '          # Optional project workflow tools are inserted by the policy builder.\n',
@@ -475,8 +499,17 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       '          # Optional portable workbench tools are inserted by the policy builder.\n',
       [includeGeneralTools ? '          - id: airules-general-tools-agent\n            name: airules-dsh-general-tools/tools\n' : '',
         includeDocumentWorkbench ? '          - id: airules-document-tools\n            name: airules-dsh-document-workbench/tools\n' : '',
-        includeOnecCapabilities ? '          - id: airules-onec-capability-tools\n            name: airules-dsh-onec-capability-workflows/tools\n' : ''].join(''),
+        includeOnecCapabilities ? '          - id: airules-onec-capability-tools\n            name: airules-dsh-onec-capability-workflows/tools\n' : '',
+        includeOnecPanels ? '          - id: airules-onec-workbench-tools\n            name: airules-dsh-onec-panels/tools\n' : '',
+        includeOnecSpecialized ? '          - id: airules-onec-specialized-tools\n            name: airules-dsh-onec-specialized/tools\n' : ''].join(''),
       'portable workbench tools')
+    const newHosts=[
+      [includeProviderExtensions,'airules-provider-extensions','airules-dsh-provider-extensions'],
+      [includeCursorProvider,'airules-cursor-provider','airules-dsh-cursor-provider'],
+      [includeOnecSpecialized,'airules-onec-specialized','airules-dsh-onec-specialized'],
+    ]
+    fragment=replaceOnce(fragment,'    - id: airules-onec-bsl-editor\n',
+      newHosts.filter(([enabled])=>enabled).map(([,id,name])=>`    - id: ${id}\n      name: ${name}\n`).join('')+'    - id: airules-onec-bsl-editor\n','optional specialized host mounts')
     if (!includeModelOrchestration) {
       fragment = replaceOnce(fragment,
         "              - id: airules-managed-delegation\n                name: airules-dsh-model-orchestration/delegation\n                config:\n                  rulepackRoot: !!js dshHomePath('profiles/desktop/node_modules/airules-dsh-rulepack')\n",
@@ -504,6 +537,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       [includeGeneralTools, 'airules-general-tools', 'airules-dsh-general-tools'],
       [includeDocumentWorkbench, 'airules-documents', 'airules-dsh-document-workbench'],
       [includeOnecCapabilities, 'airules-onec-capabilities', 'airules-dsh-onec-capability-workflows'],
+      ...newHosts,
     ]) {
       const mount = `    - id: ${id}\n      name: ${name}\n`
       if (!enabled && fragment.includes(mount)) fragment = replaceOnce(fragment, mount, '', `${id} disabled mount`)
@@ -545,7 +579,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         base: { id: 'standard', hostVersion: '0.2.1-rc.5', sourceSha256: '0d398d2a6872a73a106cb3bd19303ecccf1637e1fcad4d0bf9d8a72d2c2c68f5' },
       },
       rulepack: { version: rulepackManifest.package.version, sourceDirty: rulepackManifest.source?.dirty === true, counts: rulepackManifest.counts },
-      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat) ? { integrations: {
+      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized) ? { integrations: {
         ...(nativeFsIntegration ? {nativeFsCompat: nativeFsIntegration} : {}),
         ...(openSpecIntegration ? { openspec: openSpecIntegration } : {}),
         ...(includeTelegram ? { telegram: { package: 'airules-dsh-telegram', defaultEnabled: false, autostart: false, secretStorage: 'windows-dpapi-current-user', transport: 'single-owner-long-polling' } } : {}),
@@ -553,7 +587,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         ...optionalIntegrations,
         ...(includeMcpManager ? { mcpManager: { package: 'airules-dsh-mcp-manager', bindings: 'machine-or-project-external', defaultServers: 0, authority: 'native-loopback-csrf' } } : {}),
         ...(includeAdditionalProviders ? { additionalProviders: { package: 'airules-dsh-additional-providers', authentication: 'explicit-user-action', bootstrap: false } } : {}),
-        ...(includeOnecPanels ? { onecPanels: { package: 'airules-dsh-onec-panels', readOnly: true, root: 'selected-session' } } : {}),
+        ...(includeOnecPanels ? { onecPanels: { package: 'airules-dsh-onec-panels', metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 } } : {}),
         ...(includeProjectSettings ? { projectSettings: { package: 'airules-dsh-project-settings', bindings: 'project-local', deploy: false, mcp: false } } : {}),
         ...(includeModelOrchestration ? { modelOrchestration: { package: 'airules-dsh-model-orchestration', enabledByUser: true, bindings: 'role-and-pool', globalInterception: false } } : {}),
         ...(includeDomainPresets ? { domainPresets: { package: 'airules-dsh-domain-presets', presets: ['python-airules', 'sysadmin-airules'], mcp: false, policyOwner: 'project_rules' } } : {}),
@@ -563,13 +597,15 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         ...(includeGeneralTools ? { generalTools: { package: 'airules-dsh-general-tools', defaultStyle: 'off', style: 'opt-in-lite', renderer: 'native-sandbox' } } : {}),
         ...(includeDocumentWorkbench ? { documentWorkbench: { package: 'airules-dsh-document-workbench', cache: 'project-scoped', conversion: 'local', cloud: false } } : {}),
         ...(includeOnecCapabilities ? { onecCapabilities: { package: 'airules-dsh-onec-capability-workflows', scope: '1c-airules', discovery: 'native-schemas', liveCalls: false } } : {}),
+        ...(includeCursorProvider?{cursorProvider:{package:'airules-dsh-cursor-provider',provider:'airules-cursor',authentication:'explicit-user-action',sdkVersion:'1.0.38',sdkBundled:false,bootstrap:false,nativeAccess:'build-and-native'}}:{}),
+        ...(includeOnecSpecialized?{onecSpecialized:{package:'airules-dsh-onec-specialized',scope:'1c-airules',execution:'native-sandbox',runners:'explicit-project-bindings',externalDefaultTrustedRunners:0,bundledRunner:'exact-managed-sha256',domains:['repository','ai-merge','v8unpack'],policyOwner:'project_rules'}}:{}),
       } } : {}),
       onecMechanics: {
         scope: '1c-airules-only',
         capabilities: ['xml-edt-tree', 'bsl-xml-editing', 'bsl-lsp-actions', 'bsl-diagnostics', 'safe-project-root', 'project-local-settings-contract'],
         packages: {
           'dsh-bsl-editor': { version: '0.4.0', license: 'MIT', source: 'pinned Oleg vendor copy of public package', adaptation: editorAdaptation },
-          'dsh-lsp-actions': { version: '0.4.6', license: 'Apache-2.0', source: 'pinned public package' },
+          'dsh-lsp-actions': { version: '0.4.6', license: 'Apache-2.0', source: 'pinned public package', adaptation: lspActionsAdaptation },
           dependencyClosure: ['fast-xml-parser@4.5.7 (nested)', 'strnum@1.1.2 (nested)', 'schemastery@3.18.0', '@standard-schema/spec@1.1.0 (nested)', 'cosmokit@1.8.1 (nested)', '@deepseek-ai/schemastery@3.18.5 (nested)', '@deepseek-ai/cosmokit@1.8.6 (nested)'],
         },
         lspServer: { bundled: false, mode: 'external-command-or-clean-degraded', env: ['ONEC_BSL_LS_COMMAND', 'ONEC_BSL_LS_ARGS', 'ONEC_LSP_TOOLS'] },
@@ -591,6 +627,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const manifest = await stageOfficialPolicy({ rulepack: options.rulepack, output: options.output, sourceBundle: options['source-bundle'], artifactVersion: options['artifact-version'], targetLock: options['target-lock'] ?? DEFAULT_LOCK,
       includeTelegram: options['include-telegram'] === 'true', includeAcp: options['include-acp'] === 'true', includeNativeFsCompat: options['include-native-fs-compat'] === 'true', nativeModules: options['native-modules'],
       includeSubscriptions: options['include-subscriptions'] === 'true', includeMobile: options['include-mobile'] === 'true',
+      includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',
       includeMcpManager: options['include-mcp-manager'] === 'true', includeAdditionalProviders: options['include-additional-providers'] === 'true', includeOnecPanels: options['include-onec-panels'] === 'true', includeProjectSettings: options['include-project-settings'] === 'true', includeModelOrchestration: options['include-model-orchestration'] === 'true', includeDomainPresets: options['include-domain-presets'] === 'true', domainRulesRoot: options['domain-rules-root'], includeWorkflows: options['include-workflows'] === 'true', workflowRulesRoot: options['workflow-rules-root'], includeAgentImport: options['include-agent-import'] === 'true', includeSkillsManager: options['include-skills-manager'] === 'true', includeSharedSkills: options['include-shared-skills'] === 'true', includeGeneralTools: options['include-general-tools'] === 'true', includeDocumentWorkbench: options['include-document-workbench'] === 'true', includeOnecCapabilities: options['include-onec-capabilities'] === 'true' })
     process.stdout.write(`Staged ${manifest.artifact.id} ${manifest.artifact.version}: ${Object.keys(manifest.files).length} files\n`)
   } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1 }

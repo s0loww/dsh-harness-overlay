@@ -1,0 +1,11 @@
+# Cursor subscription adapter
+
+Own DSH rc.5 provider (`airules-cursor`) and settings export (`CursorSettings`). The Cursor SDK is **not included**. An independently installed `@cursor/sdk` 1.0.38, Node >=22.13 and explicit package-directory/hash confirmation are required. No CLI credentials or environment account state is imported. This is an optional provider; other providers keep working without an SDK.
+
+The SDK is loaded only for explicit login/catalog refresh or an authorized model call. Its package-owned files are checked against the confirmed SHA-256 before each use; transitive dependencies/native runtime remain the user's separately installed trusted environment. A changed loaded SDK requires a DSH restart. No proprietary Cursor source, binaries or dependency closure is redistributed by this package. The SDK's own license and terms govern its separate installation/use.
+
+Inference requires a genuine native agent-loop request, current native BUILD state, and `danger-full-access`. There is no automatic permission escalation. The SDK agent has no filesystem/shell/task tools: only explicitly projected custom MCP tools, no MCP servers or nested agents, no project settings/directories, and a fresh private cwd/JSONL store. A custom callback never executes a DSH tool: the SDK is cancelled and settled first, then its tool call is returned to the native DSH scheduler, retaining native tool arguments and approvals.
+
+The control route is `/airules/cursor-provider`, protected by native connection authentication and a per-process CSRF token. Runtime pin/cache: the package's `dshHomePath('airules-cursor-provider')/runtime.json`. Own credential slot: `credentialKey('airules-cursor-provider','subscription')`. Export `CursorSettings` from `airules-dsh-cursor-provider/client` for the unified providers page. No independent settings navigation entry is registered.
+
+Text-only models; exact cached Cursor model/parameter selections, no fallback to `auto`. Unknown context windows use an explicitly estimated conservative 128k window. No account rotation, quota/billing promises, image support, SDK auto-install, or project-state inheritance. Real account behavior still needs user testing after installing/configuring the external runtime. Automated tests use synthetic SDK boundaries with fetch disabled.

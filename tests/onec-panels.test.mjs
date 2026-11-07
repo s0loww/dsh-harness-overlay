@@ -72,8 +72,11 @@ test('pinned Cordis context admits declared session and policy services on a rea
   new SessionProjectionRegistry(ctx)
   new SandboxPolicyService(ctx, { mode: 'read-only', workspaceRoot: root })
   let route
+  ctx.provide('jobs', {list:()=>[]})
+  ctx.provide('tools', {})
+  ctx.provide('dshHomePath', (...parts)=>join(root,...parts))
   for (const [key, value] of Object.entries(services)) ctx.provide(key, value)
-  ctx.provide('webServer', { register(value) { route = value; return () => {} } })
+  ctx.provide('webServer', { register(value) { if(value.path==='/airules/onec-panels')route = value; return () => {} } })
   const fiber = ctx.plugin({ name: plugin.name, inject: plugin.inject, apply: plugin.apply })
   await fiber.await(); t.after(() => fiber.dispose())
   assert.ok(route, 'route registered through native injection')

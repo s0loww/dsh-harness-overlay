@@ -54,6 +54,18 @@ test('assignment schema rejects invented permissions, malformed roles and unknow
   for (const value of [{ ...all, roles: ['reviewer'] }, { ...all, accessModes: ['ask'] }, { ...all, taskTypes: ['full'] }, { ...all, taskTypes: ['testing', 'testing'] }, { ...all, permission: 'full' }]) assert.throws(() => validateAssignment(value), /ASSIGNMENTS_INVALID/u)
 })
 
+test('specialized canonical skills have task/role discovery defaults without loading bodies or granting execution', () => {
+  const names=['1c-repository-manage','1c-ai-merge','v8unpack-cf','1c-element'],entries=names.map(name=>({name,description:'lazy canonical method'}))
+  for(const name of names){assert.doesNotThrow(()=>validateAssignment(DEFAULTS[name]));assert.deepEqual(DEFAULTS[name].accessModes,[])}
+  const selected=(taskType,role)=>selectCatalog(entries,{taskType,role,accessMode:'read-only'},DEFAULTS).map(row=>row.name)
+  assert.deepEqual(selected('documentation','doc-writer'),[])
+  assert.deepEqual(selected('operations','developer'),['1c-repository-manage'])
+  assert.deepEqual(selected('planning','planner'),['1c-ai-merge'])
+  assert.deepEqual(selected('testing','tester'),['v8unpack-cf','1c-element'])
+  assert.deepEqual(selected('verification','tester'),['1c-repository-manage','1c-ai-merge','v8unpack-cf'])
+  assert.ok(entries.every(entry=>!Object.hasOwn(entry,'body')))
+})
+
 test('valid skill constructor is unrestricted until explicitly assigned, without inherited Object fields', () => {
   const entries = [{ name: 'constructor', description: 'Valid custom skill' }]
   const context = { taskType: 'implementation', role: 'developer', accessMode: 'workspace-write' }

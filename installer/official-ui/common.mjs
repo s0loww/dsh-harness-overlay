@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { buildOfficialDesktopPlan, DEFAULT_RELEASE_LOCK } from '../../src/targets/official-desktop/target.mjs'
 import { canonical, directoryState, pathKind, sameState, sha256, targetState } from '../fs-state.mjs'
 import { analyzeUiCordis, mergeUiCordis } from './ui-cordis.mjs'
+import { verifyComposerHistoryCompatibility } from '../../src/composer-history-compat/patch.mjs'
 
 const MODULE_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)))
 export const REPO_ROOT = resolve(MODULE_DIR, '../..')
@@ -109,6 +110,15 @@ export async function verifyUiArtifact(artifactRoot) {
     if (!record || !HASH.test(record.sha256 ?? '') || !Number.isSafeInteger(record.bytes) || record.bytes < 0 || !sameState({ type: 'file', ...actual[path] }, { type: 'file', ...record })) {
       throw new OfficialUiInstallerError('UI_FILE_HASH_MISMATCH', path)
     }
+  }
+  const composer=manifest.packageProvenance?.find(row=>row.name==='dsh-composer-history')?.compatibility
+  if(composer!==undefined){
+    try{
+      const base=join(root,'payload/packages/dsh-composer-history')
+      const historical=['0.12.0-ui20','0.12.0-ui21'].includes(manifest.artifact.version)
+      const adaptation=verifyComposerHistoryCompatibility(...await Promise.all(['package.json','lib/index.js','lib/client.js'].map(path=>readFile(join(base,path)))),{allowHistorical:historical})
+      if(canonical(composer)!==canonical(adaptation))throw new Error('mismatch')
+    }catch{throw new OfficialUiInstallerError('UI_COMPOSER_COMPATIBILITY_MISMATCH')}
   }
   return Object.freeze({ root, manifest, manifestSha256: sha256(await readFile(join(root, 'ui-overlay-manifest.json'))) })
 }

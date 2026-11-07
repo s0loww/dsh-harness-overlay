@@ -1,9 +1,18 @@
 # DSH official Desktop overlay — release report
 
-Date: 2026-11-05
+Date: 2026-11-07
 Target: DeepSeek Harness Desktop `0.2.1-rc.5`
 
-Current installed release: [UI dev16 / policy dev36 — wave 2 skills and local tools](wave2-skills-release.md).
+Current installed release: [UI22 / policy41 — specialized components](specialized-components-release.md).
+628 source tests, 73 native checks, actual browser/Ctrl+R, candidate cycle and
+installed Desktop restart pass. Receipt integrity and 50 after-states verified;
+no real deployment or new paid model calls. Canonical airules g247add5 contains
+55 rules, 13 roles and 52 DSH skills.
+
+Previous release: [UI dev16 / policy dev39 — native BOM fix](native-bom-release.md).
+Four actual model/MCP scenarios passed on that version.
+
+Previous release: [UI dev16 / policy dev36 — wave 2 skills and local tools](wave2-skills-release.md).
 26 skills added: 48 in 1C, 18 shared across custom presets. Real local document/Office
 and Mermaid execution, session Caveman control and capability/investigation tools.
 481 source tests and 341 final native checks pass; browser and live receipt verified.

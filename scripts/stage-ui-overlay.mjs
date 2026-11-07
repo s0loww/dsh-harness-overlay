@@ -11,6 +11,8 @@ import { patchSettingsShell } from '../src/settings-shell/patch.mjs'
 import { patchNativeModelsClient, patchNativeAccountClient } from '../src/providers-settings/patch-native.mjs'
 import { directoryState } from '../installer/fs-state.mjs'
 import { patchEffortSliderClient, patchEffortSliderPackage } from '../src/effort-compat/patch-slider.mjs'
+import { adaptComposerHistoryPackage } from '../src/composer-history-compat/patch.mjs'
+import { adaptTurnNavigatorPackage } from '../src/turn-nav-compat/patch.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_INVENTORY = join(REPO, 'src/ui-overlay/ui-component-inventory.json')
@@ -169,6 +171,8 @@ async function copyPackage(source, destination, pkg) {
 }
 
 async function adaptPackageLocalization(entry, target) {
+  if(entry.name==='dsh-turn-navigator')return {compatibility:await adaptTurnNavigatorPackage(target)}
+  if(entry.name==='dsh-composer-history')return {compatibility:await adaptComposerHistoryPackage(target)}
   if (entry.name === 'dsh-effort-slider') {
     const clientPath = join(target, 'lib/client.js')
     const before = await readFile(clientPath, 'utf8'), after = patchEffortSliderClient(before)

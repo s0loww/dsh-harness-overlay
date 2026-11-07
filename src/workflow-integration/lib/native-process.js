@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { readFile, realpath, stat } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, relative, sep } from 'node:path'
 
 const MAX_OUTPUT = 1024 * 1024
 const CLEANUP_MS = 10000
@@ -25,12 +25,12 @@ export function createNativeProcessAdapter({ ctx, agent, callId, signal, id, ver
   if (!operations || typeof operations !== 'object' || Array.isArray(operations)) throw fail('NATIVE_WORKFLOW_OPERATIONS_REQUIRED')
   for (const [name, config] of Object.entries(operations)) {
     if (!config || typeof config.command !== 'string' || !isAbsolute(config.command) || config.command.includes('\0') ||
-        typeof config.args !== 'function' || config.validator !== 'process-exit' || !Array.isArray(config.effects) ||
+        typeof config.args !== 'function' || config.workingDirectory !== undefined && typeof config.workingDirectory !== 'function' || config.validator !== 'process-exit' || !Array.isArray(config.effects) ||
         config.effects.some(effect => !ALLOWED_EFFECTS.has(effect))) throw fail('NATIVE_WORKFLOW_OPERATION_REJECTED')
     const paths = [...(config.fingerprintPaths ?? [])]
     if (paths.some(path => typeof path !== 'string' || !isAbsolute(path))) throw fail('NATIVE_WORKFLOW_FINGERPRINT_REJECTED')
     const inputSchema = structuredClone(config.inputSchema)
-    registered.set(name, { command: config.command, args: config.args, paths, inputSchema, effects: [...config.effects] })
+    registered.set(name, { command: config.command, args: config.args, workingDirectory: config.workingDirectory, paths, inputSchema, effects: [...config.effects] })
     described[name] = { inputSchema, resultSchema: structuredClone(core.PROCESS_RESULT_SCHEMA),
       effects: [...config.effects], validator: 'process-exit',
       ...(config.resourcesRequired === undefined ? {} : { resourcesRequired: config.resourcesRequired }) }
@@ -45,7 +45,7 @@ export function createNativeProcessAdapter({ ctx, agent, callId, signal, id, ver
       }
       return core.digest({ descriptor, moduleHash: createHash('sha256').update(await readFile(new URL(import.meta.url))).digest('hex'),
         files: [...files.entries()].sort(([a], [b]) => a.localeCompare(b)),
-        builders: [...registered].map(([name, config]) => [name, config.args.toString()]) })
+        builders: [...registered].map(([name, config]) => [name, config.args.toString(), config.workingDirectory?.toString() ?? null]) })
     },
     async execute(operation, inputs, context = {}) {
       const config = registered.get(operation)
@@ -65,6 +65,15 @@ export function createNativeProcessAdapter({ ctx, agent, callId, signal, id, ver
       } catch { throw fail('NATIVE_WORKFLOW_POLICY_MISMATCH') }
       if (signal?.aborted || context.signal?.aborted) return { data: { exitCode: null, signal: null, timedOut: false, aborted: true,
         outputLimitExceeded: false, stdoutBytes: 0, stderrBytes: 0, startError: null, terminationConfirmed: true }, mutationState: 'not-applied' }
+      if (config.workingDirectory) {
+        try {
+          const requested = config.workingDirectory(structuredClone(inputs), Object.freeze({ ...context, cwd }))
+          if (typeof requested !== 'string' || !isAbsolute(requested) || requested.includes('\0')) throw fail('NATIVE_WORKFLOW_WORKING_DIRECTORY_INVALID')
+          const childCwd = await realpath(requested), rel = relative(root, childCwd)
+          if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`) || !(await stat(childCwd)).isDirectory()) throw fail('NATIVE_WORKFLOW_WORKING_DIRECTORY_INVALID')
+          cwd = childCwd
+        } catch { throw fail('NATIVE_WORKFLOW_WORKING_DIRECTORY_INVALID') }
+      }
       let command, args
       try {
         command = await realpath(config.command)

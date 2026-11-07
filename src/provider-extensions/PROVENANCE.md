@@ -1,0 +1,5 @@
+# Происхождение
+
+Новая реализация boundary/configuration/auth integration. Аудит источника: `dsh-1c-bundle/lib/{gemini-subscription.mjs,muse-subscription.mjs,subscription-runtimes.mjs}`. Эти файлы, готовые аккаунты и бинарники в исходники не копируются. Google использует публичные классы `AntigravityRuntime` / `AntigravityAcpConnection` из `pi-antigravity-acp-provider@0.1.17-bundle.5` (MIT) с явным runtime; автоматический managed setup отключён фактом передачи connectionFactory. Muse использует `spawnMspConnection` из `@muse-code/sdk@1.4.14` (MIT). Generation и native permissions принадлежат уже перенесённому `@zaimokuza/dsh-acp-adapter@0.2.1-rc.3.1` (MIT).
+
+Зависимости с их LICENSE/NOTICE и замкнутым графом разрешаются сборщиком в ignored runtime. Не объявляется, что local bundle patch Google идентичен текущему upstream. Его точная версия, происхождение и checksums должны оставаться в package closure manifest. Исходники плагина не включают чужие приватные библиотеки, installer, пользовательские токены или авторизационные файлы.

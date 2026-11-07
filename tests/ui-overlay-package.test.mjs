@@ -72,7 +72,15 @@ test('stages a hash-pinned UI-only official-desktop artifact', async t => {
     assert.equal(provenance.origin, 'npm-registry')
     assert.match(provenance.integrity, /^sha512-/u)
     const client = await readFile(join(output, record.source, provenance.cleanClient.path))
-    assert.equal(createHash('sha256').update(client).digest('hex'), row[1])
+    const stagedHash=createHash('sha256').update(client).digest('hex')
+    if(row[0]==='dsh-turn-navigator'){
+      assert.equal(provenance.compatibility.sourceClientSha256,row[1])
+      assert.equal(provenance.compatibility.stagedClientSha256,'9dd9bb662611c2d4562130e1acd728abd2b3d675f2cf89a3bfe256b1682f1b93')
+      assert.equal(stagedHash,provenance.compatibility.stagedClientSha256)
+      assert.equal(provenance.compatibility.contract,'native-html-selector-and-text-icons-no-legacy-primitives')
+      assert.doesNotMatch(client.toString(),/_deepseek_ai_dsh_client_ui_primitives\./u)
+      assert.match(client.toString(),/setRailMode\(event\.target\.value\)/u)
+    }else assert.equal(stagedHash,row[1])
     assert.doesNotMatch(client.toString('utf8'), /projectPresetUi/u)
   }
   const sleepRecord = official.packages.find(item => item.name === 'dsh-sleep-send')

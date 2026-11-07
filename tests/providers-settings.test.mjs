@@ -79,16 +79,43 @@ function harness(stateValues = [], nativeOverride) {
 }
 function flatten(node) { return !node || typeof node !== 'object' ? [] : [node, ...(node.children || []).flatMap(flatten)] }
 
-test('one unified section declares the native account slot', () => {
+test('one unified section leaves the sign-in slot owned by native onboarding', () => {
   const { plugin } = harness()
   const registrations = []
   plugin.apply({ effect(fn) { fn() }, slots: { inject(name, fn) { assert.equal(name, 'settings.section'); fn() }, register(meta, component) { registrations.push({ meta, component }) } } })
   assert.equal(registrations.length, 1)
   assert.equal(registrations[0].meta.id, 'airules-providers-settings')
-  assert.equal(registrations[0].meta.children['settings.models.sign-in'].scope, 'root')
+  assert.equal(registrations[0].meta.children, undefined)
   assert.equal(registrations[0].component, plugin.ProvidersPage)
   assert.equal(plugin.matches({ id: 'gateway', name: 'Gateway', models: [{ id: 'python-special' }] }, 'PYTHON'), true)
   assert.equal(plugin.matches({ id: 'gateway', name: 'Gateway' }, 'doesnotexist'), false)
+})
+
+test('actual native slot registry admits native models and unified providers in either order', async () => {
+  const { SlotCore } = await import(new URL('lib/index.js', slotsSdk))
+  const patched = patchNativeModelsClient(await readFile(pinnedPath, 'utf8'))
+  for (const ownFirst of [true, false]) {
+    const ledger = new SlotCore()
+    ledger.register({ name: 'root', children: { 'settings.section': { kind: 'list', scope: 'root' }, 'settings.onboarding': { kind: 'list', scope: 'root' } } }, () => null)
+    const storeFactory = snapshot => ({ getSnapshot: () => snapshot, subscribe: () => () => {}, update(fn) { fn(snapshot) } })
+    const native = load(patched, { react: {}, 'react/jsx-runtime': { jsx: h }, '@deepseek-ai/dsh-client-ui-primitives': {}, '@deepseek-ai/dsh-client-store': { createSnapshotStore: storeFactory } }).plugin
+    const own = harness([], native.airulesProviders).plugin
+    const ctx = { settingsSchema: {}, configForms: { describe: () => ({}), get: () => ({}) }, locale: { bind: () => key => key }, effect() {}, slots: { inject(name, fn) { fn() }, register: (meta, component) => ledger.register(meta, component) } }
+    for (const plugin of ownFirst ? [own, native] : [native, own]) plugin.apply(ctx)
+    assert.ok(ledger.entries('settings.section').some(entry => entry.options.id === 'airules-providers-settings'))
+    assert.ok(ledger.entries('settings.section').some(entry => entry.options.id === 'models'))
+    const onboardings = ledger.entries('settings.onboarding').filter(entry => entry.options.id === 'deepseek-official')
+    assert.equal(onboardings.length, 1)
+    assert.equal(ledger.spec('settings.models.sign-in').scope, 'root')
+    assert.equal(ledger.records.get('settings.models.sign-in').declaredBy, 'an entry in "settings.onboarding"')
+    assert.throws(() => ledger.register({ name: 'settings.section', id: 'duplicate-owner', children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } } }, () => null), /already declared/)
+  }
+})
+
+test('unready account bridge renders bounded loading without borrowing native slot ownership', () => {
+  const { plugin } = harness(['', 'subscriptions', []])
+  const tree = plugin.ProvidersPage({ ctx: { connection: { rpc: {} } }, renderSlot() { throw new Error('must not consume another entry child slot') } })
+  assert.ok(flatten(tree).some(node => node.props.role === 'status' && node.children.join('').includes('аккаунта DeepSeek')))
 })
 
 test('subscription cards embed actual account/model and Kimi controls; group and search filter providers', () => {

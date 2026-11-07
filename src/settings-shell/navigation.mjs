@@ -1,6 +1,6 @@
 export const GROUPS = ['Основное', 'Проект 1С', 'Модели и агенты', 'Инструменты и MCP', 'Контекст и история', 'Интерфейс', 'Другие расширения']
 export const UNIFIED_PROVIDERS = 'airules-providers-settings'
-export const PROVIDER_ALIASES = ['account', 'models', 'dsh-subscriptions', 'airules-subscriptions', 'subscriptions', 'kimi', 'kimi-account', 'airules-kimi', 'airules-kimi-provider']
+export const PROVIDER_ALIASES = ['account', 'models', 'dsh-subscriptions', 'airules-subscriptions', 'subscriptions', 'kimi', 'kimi-account', 'airules-kimi', 'airules-kimi-provider', 'airules-api-plans', 'airules-provider-drivers']
 export const SECTION_META = {
   general: ['Основное', 'Общие параметры приложения.'],
   account: ['Основное', 'Аккаунт DeepSeek и доступ к сервису.'],
@@ -15,6 +15,8 @@ export const SECTION_META = {
   'onec-project': ['Проект 1С', 'Локальные параметры проекта 1С.'],
   'dsh-bsl-editor': ['Проект 1С', 'Редактор BSL/XML и дерево исходников.'],
   'airules-onec-panels': ['Проект 1С', 'Структура локальных метаданных и форм.'],
+  'airules-onec-specialized': ['Проект 1С', 'Хранилище конфигурации, сравнение обновлений и бинарные артефакты.', 'Хранилище и обновления'],
+  'airules-onec-background': ['Инструменты и MCP', 'Проверенные методы MCP для фонового выполнения.', 'Долгие операции'],
   'airules-mcp-manager': ['Инструменты и MCP', 'Подключения MCP этой машины. Проектный фасад настраивается отдельно.'],
   'airules-workflows': ['Инструменты и MCP', 'Проектные проверки, планы и результаты; реальный деплой отключён.', 'Проверки и деплой'],
   'mcp': ['Инструменты и MCP', 'Подключённые инструменты MCP.'],

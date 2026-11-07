@@ -21,3 +21,9 @@ requests on the static fallback (HTTP 405). Native admission, JSON RPC framing
 and disposal remain owned by the host. Regression exercises the real pinned
 WebServer Service, HostConnectionService and LlmRuntime; a plain webServer mock
 does not enforce the native injection contract.
+
+The internal `apply(ctx, config, host)` entry point additionally accepts an
+explicit absolute `host.authStorePath` for an isolated acceptance host. This
+is not a profile/UI setting. Account listing, refresh/CAS and controller
+operations use the same selected store; omitting the argument preserves the
+normal installation path. Acceptance does not copy account or session files.

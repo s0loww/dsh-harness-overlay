@@ -44,6 +44,13 @@ node scripts/probe-project-orchestration.mjs --candidate-root <isolated-candidat
 `modelOrchestration: NOT_RUN`, `projectVerification: NOT_CERTIFIED`.
 Непроходящий sandbox/линтер не заменяется автоматическим повышением прав.
 
+BSL LS 1.0.7 на выбранном UTF-8-BOM исходнике может выдавать lexer notice у
+BOM и предупреждения совместимости Java. Ограниченный stderr observer сохраняет
+только boolean/category (`bsl-lexer-warning`, `jvm-compatibility-warning`),
+не сырой лог. BOM и байты оригинала не исправляются ради зелёного результата.
+Успешный exit процесса и уменьшение диагностик не считаются компиляцией 1С
+или подтверждением отсутствия синтаксических и бизнес-ошибок.
+
 Следующий живой шаг — запуск согласованной задачи моделью на этой же копии,
 с реальным `airules_delegate` и проверкой результата/модели/effort. Рабочие
 файлы и базы по-прежнему не являются целью приёмочного изменения. Реальный

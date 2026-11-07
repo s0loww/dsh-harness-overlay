@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import z from "@deepseek-ai/schemastery";
 import * as llm from "@deepseek-ai/dsh-llm";
 import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, LlmAdapter, LlmError, QUOTA_EXCEEDED_CODE, ReasoningEffortId, attributionHeaders, errorChain, isContextWindowExceededError, isQuotaExceededError, resolveRetryPolicy } from "@deepseek-ai/dsh-llm";
@@ -2454,10 +2455,10 @@ var AccountTokenManager = class {
 		this.options = options;
 		const provider = options.provider;
 		this.io = options.io ?? {
-			list: () => listAccounts(provider),
-			get: (account) => getAccountSession(provider, account),
-			save: (account, session, previous) => saveAccountSession(provider, account, session, authFilePath(), provider === "codex" ? previous?.accessToken : void 0),
-			remove: (account) => deleteAccountSession(provider, account)
+			list: () => listAccounts(provider, options.authStorePath),
+			get: (account) => getAccountSession(provider, account, options.authStorePath),
+			save: (account, session, previous) => saveAccountSession(provider, account, session, options.authStorePath, provider === "codex" ? previous?.accessToken : void 0),
+			remove: (account) => deleteAccountSession(provider, account, options.authStorePath)
 		};
 	}
 	/** The provider's accounts, default first (straight from the store). */
@@ -2532,7 +2533,7 @@ var AccountTokenManager = class {
 				...this.options.makeOptions(account),
 				load: () => io.get(account),
 				...(this.options.provider === "codex" ? { onInvalid: async session => {
-					await markAccountRequiresLogin("codex", account, session.accessToken);
+					await markAccountRequiresLogin("codex", account, session.accessToken, this.options.authStorePath);
 					this.options.onAccountRemoved?.(account);
 				} } : {}),
 				save: (session, previous) => io.save(account, session, previous),
@@ -8753,7 +8754,7 @@ var SubscriptionsAuthController = class {
 	* cannot be read off the flow manager.
 	*/
 	claims = /* @__PURE__ */ new Map();
-	constructor(flows, deviceFlows, onAuthChanged, resolveAttachments, usageFetchers = {}, readClaudeCreds = readClaudeCodeCredentials, poolUsage = void 0, accountTokens = new Map()) {
+	constructor(flows, deviceFlows, onAuthChanged, resolveAttachments, usageFetchers = {}, readClaudeCreds = readClaudeCodeCredentials, poolUsage = void 0, accountTokens = new Map(), authStorePath) {
 		this.flows = flows;
 		this.deviceFlows = deviceFlows;
 		this.onAuthChanged = onAuthChanged;
@@ -8762,6 +8763,7 @@ var SubscriptionsAuthController = class {
 		this.readClaudeCreds = readClaudeCreds;
 		this.poolUsage = poolUsage;
 		this.accountTokens = accountTokens;
+		this.authStorePath = authStorePath;
 	}
 	usage(provider, account, signal, force = false) {
 		const fetcher = this.usageFetchers[provider];
@@ -8785,7 +8787,7 @@ var SubscriptionsAuthController = class {
 		};
 	}
 	async status(provider) {
-		const entries = await listAccounts(provider);
+		const entries = await listAccounts(provider, this.authStorePath);
 		const detail = this.lastError.get(provider);
 		return {
 			busy: this.flows.isBusy(provider) || this.deviceFlows.isBusy(provider) || this.finalizing.has(provider),
@@ -8808,7 +8810,7 @@ var SubscriptionsAuthController = class {
 		};
 	}
 	async login(provider, method, account) {
-		if (account !== void 0 && (provider !== "codex" || await getAccountSession(provider, account) === void 0)) throw new Error("Подписка для повторного входа не найдена. Обновите список подписок.");
+		if (account !== void 0 && (provider !== "codex" || await getAccountSession(provider, account, this.authStorePath) === void 0)) throw new Error("Подписка для повторного входа не найдена. Обновите список подписок.");
 		this.lastLogin.delete(provider);
 		this.lastError.delete(provider);
 		if (provider === "claude" && method === "keychain") {
@@ -8875,7 +8877,7 @@ var SubscriptionsAuthController = class {
 			if (this.claims.get(provider) !== claim) return;
 			const account = accountKeyOf(provider, session);
 			if (targetAccount !== void 0 && account !== targetAccount) throw new Error("Вход выполнен в другой аккаунт. Выбранная подписка не изменена. Войдите в нужный аккаунт или используйте «Добавить аккаунт» для подключения другого.");
-			const existing = await getAccountSession(provider, account);
+			const existing = await getAccountSession(provider, account, this.authStorePath);
 			if (this.claims.get(provider) !== claim) return;
 			if (targetAccount !== void 0 && existing === void 0) throw new Error("Выбранная подписка уже удалена. Для подключения используйте «Добавить аккаунт».");
 			await this.persist(provider, session);
@@ -8914,7 +8916,7 @@ var SubscriptionsAuthController = class {
 		}
 	}
 	persist(provider, session) {
-		return saveAccountSession(provider, accountKeyOf(provider, session), session);
+		return saveAccountSession(provider, accountKeyOf(provider, session), session, this.authStorePath);
 	}
 	/**
 	* Settle once no OAuth completion is running for a provider.
@@ -8947,7 +8949,7 @@ var SubscriptionsAuthController = class {
 		this.flows.pending(provider)?.cancel();
 		this.deviceFlows.pending(provider)?.cancel();
 		if (provider === "codex" && this.accountTokens.has(provider)) await this.accountTokens.get(provider).removeAccount(account);
-		else await deleteAccountSession(provider, account);
+		else await deleteAccountSession(provider, account, this.authStorePath);
 		if (this.lastLogin.get(provider)?.account === account) this.lastLogin.delete(provider);
 		this.finalizing.delete(provider);
 		this.loginTargets.delete(provider);
@@ -8955,15 +8957,18 @@ var SubscriptionsAuthController = class {
 		this.onAuthChanged(provider, account);
 	}
 	async setEnabled(provider, account, enabled) {
-		await setAccountEnabled(provider, account, enabled);
+		await setAccountEnabled(provider, account, enabled, this.authStorePath);
 		this.onAuthChanged(provider, account);
 	}
 	async setDefault(provider, account) {
-		await setDefaultAccount(provider, account);
+		await setDefaultAccount(provider, account, this.authStorePath);
 		this.onAuthChanged(provider, account);
 	}
 };
-function apply(ctx, config = {}) {
+function apply(ctx, config = {}, host = {}) {
+	// Internal host injection only: profiles/UI keep the normal installation store.
+	const authStorePath = host.authStorePath;
+	if (authStorePath !== void 0 && (typeof authStorePath !== "string" || !isAbsolute(authStorePath))) throw new TypeError("authStorePath must be an absolute path");
 	const preferences = getProviderSettingsStore();
 	const codexVersion = new CodexClientVersionCache();
 	const providers = [...new Set(config.providers ?? [...PROVIDER_IDS])];
@@ -9008,6 +9013,7 @@ function apply(ctx, config = {}) {
 	for (const provider of providers) switch (provider) {
 		case "codex": {
 			const tokens = new AccountTokenManager({
+				authStorePath,
 				provider: "codex",
 				displayName: "OpenAI (OAuth)",
 				makeOptions: () => ({
@@ -9046,6 +9052,7 @@ function apply(ctx, config = {}) {
 		}
 		case "claude": {
 			const tokens = new AccountTokenManager({
+				authStorePath,
 				provider: "claude",
 				displayName: "Claude (Subscription)",
 				makeOptions: () => ({
@@ -9078,6 +9085,7 @@ function apply(ctx, config = {}) {
 		}
 		case "grok": {
 			const tokens = new AccountTokenManager({
+				authStorePath,
 				provider: "grok",
 				displayName: "Grok (Subscription)",
 				makeOptions: () => ({
@@ -9110,6 +9118,7 @@ function apply(ctx, config = {}) {
 		}
 		case "copilot": {
 			const tokens = new AccountTokenManager({
+				authStorePath,
 				provider: "copilot",
 				displayName: "GitHub Copilot",
 				makeOptions: () => ({
@@ -9217,7 +9226,7 @@ function apply(ctx, config = {}) {
 		fullCatalogs.set(provider, list);
 		adapter.listModels = async (route) => (await list(route)).filter((model) => preferences.visible(provider, model.id));
 	}
-	const authController = new SubscriptionsAuthController(flows, deviceFlows, authChanged, resolveAttachments, usageFetchers, void 0, poolUsage, accountTokens);
+	const authController = new SubscriptionsAuthController(flows, deviceFlows, authChanged, resolveAttachments, usageFetchers, void 0, poolUsage, accountTokens, authStorePath);
 	registerAuthRpc(ctx, authController, {
 		modelUsage: (sessionId, provider, model, signal) => modelUsageForRoute({ sessionId, provider, model, signal, pool: poolAdapter, adapters, accountTokens, controller: authController, llm: ctx.llm }),
 		async speed(sessionId) {

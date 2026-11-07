@@ -13,9 +13,14 @@
 В частности, сохраняется расхождение LICENSE/metadata Telegram. Приватное
 хранение не обозначает проверку прав на публичную поставку этих компонентов.
 
-Актуальная установленная версия: UI dev16 / policy dev36. Текущая работа:
-пересборка встроенного airules из Git-коммита `243ce44` и проверка на отдельном
-стенде. Порядок подготовки исходников описан в
+Актуальная установленная версия: UI dev16 / policy dev37, встроенный airules
+`0.12.0-g243ce44` из чистого Git-коммита `243ce44`. Пересборка, локальные
+проверки, candidate rollback/reapply и запуск установленного Desktop проверены.
+Живая модельная приёмка охватывает DeepSeek Flash 4.1 High и Sol 6.1 Medium,
+каждый без MCP и с MCP. Делегирование, reasoning и инструменты подтверждены;
+полная приёмка выявила потерю UTF-8 BOM штатным редактором. См.
+[`результаты живых проверок`](docs/live-model-acceptance.md).
+Порядок подготовки исходников описан в
 [`docs/BUILD-PREREQUISITES.md`](docs/BUILD-PREREQUISITES.md).
 
 `.gitattributes` сохраняет исходные байты, BOM и окончания строк: exact-text
@@ -112,6 +117,7 @@ prompts, tools или skills.
 
 ```powershell
 node scripts/stage-official-policy.mjs `
+  --source-bundle "E:\path\to\dsh-1c-bundle" `
   --rulepack "D:\path\to\airules-rulepack" `
   --artifact-version "0.12.0-dev7" `
   --output "dist\airules-official-policy-0.12.0-dev7"

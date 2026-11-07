@@ -1,6 +1,13 @@
 # Desktop integration rollout
 
-Current installed release: [UI dev16 / policy dev36 — wave 2 skills and local tools](wave2-skills-release.md).
+Current installed release: [UI dev16 / policy dev37 — canonical airules and acceptance](airules-g243ce44-release.md).
+Clean canonical source `243ce44`, explicit source-bundle input, project priority
+contract and OpenAI native-runtime acceptance. 503 source tests and 341 native
+checks passed; installed receipt has zero drift. Four live-model/MCP scenarios
+completed functional checks; strict acceptance exposes native UTF-8 BOM loss.
+Their separate evidence retains FAIL/PARTIAL rather than claiming full PASS.
+
+Previous installed release: [UI dev16 / policy dev36 — wave 2 skills and local tools](wave2-skills-release.md).
 26 additional skills, real local document/Office and Mermaid backends, opt-in
 Caveman and 1C capability/investigation workflows. 481 source tests, 341 final
 native checks, browser QA and 46-operation live receipt verified.

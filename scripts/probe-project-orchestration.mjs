@@ -152,13 +152,35 @@ export async function main(argv = process.argv.slice(2)) {
     check('explicit installed BSL binary', (await lstat(executable)).isFile() && executable.toLowerCase().endsWith('.exe'))
     report.bslBinary = { name: 'bsl-language-server', sha256: hash(await readFile(executable)) }
     const core = await loadRuntime(), reports = ['before', 'after']
-    const adapter = createNativeProcessAdapter({ ctx, agent, callId: `bsl-acceptance-${id}`, id: 'acceptance.bsl', core,
+    let activePhase
+    report.lintWarnings = {}
+    const observedContext = { sandboxPolicy: ctx.sandboxPolicy, sandbox: ctx.sandbox, subprocess: {
+      spawn(options) {
+        const phase = activePhase, handle = ctx.subprocess.spawn(options)
+        const warnings = { parseWarningsObserved: false, jvmCompatibilityWarningsObserved: false, categories: [], observedBytes: 0 }
+        report.lintWarnings[phase] = warnings
+        let tail = ''
+        handle.stderr.on('data', data => {
+          const bytes = Buffer.from(data); warnings.observedBytes += bytes.length
+          // Keep only a short rolling fragment for split warning keywords.
+          // Raw stderr, source text and absolute paths are never persisted.
+          const text = tail + bytes.subarray(0, Math.max(0, 32768 - Math.min(32768, warnings.observedBytes - bytes.length))).toString('utf8')
+          if (/token recognition error|syntax error/iu.test(text)) warnings.parseWarningsObserved = true
+          if (/terminally deprecated|restricted method|sun\.misc\.Unsafe/iu.test(text)) warnings.jvmCompatibilityWarningsObserved = true
+          tail = text.slice(-128)
+          warnings.categories = [warnings.parseWarningsObserved && 'bsl-lexer-warning', warnings.jvmCompatibilityWarningsObserved && 'jvm-compatibility-warning'].filter(Boolean)
+        })
+        return handle
+      },
+    } }
+    const adapter = createNativeProcessAdapter({ ctx: observedContext, agent, callId: `bsl-acceptance-${id}`, id: 'acceptance.bsl', core,
       nativeHelpers: { scrubbedParentEnv, classifyRunnerFailure, matchesSignature }, operations: { analyze: {
         command: executable, args: input => ['analyze', '-s', join(runRoot, 'src'), '-r', 'json', '-o', join(runRoot, 'artifacts', input.phase)],
         inputSchema: { type: 'object', required: ['phase'], properties: { phase: { type: 'string', enum: reports } }, additionalProperties: false },
         effects: ['startsProcess', 'readsSource', 'writesFilesystem'], validator: 'process-exit',
       } } })
     async function analyze(phase) {
+      activePhase = phase
       await mkdir(join(runRoot, 'artifacts', phase))
       const result = await adapter.execute('analyze', { phase }, { cwd: runRoot, timeoutMs: 60000, runId: id, stepId: phase, artifactDir: join(runRoot, 'artifacts', phase), signal: signal() })
       report[`${phase}Process`] = result.data

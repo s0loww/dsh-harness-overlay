@@ -3,12 +3,15 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current installed release: [Memory panel, original history and reviewed lessons](memory-improvements-release.md).
-UI `0.14.0-host022-ui1`, policy `0.14.0-dev3`, canonical airules `16410f4` / 0.14.0.
-846 source tests passed, one obsolete pre-upgrade live test skipped; final memory
-regression 49/49, mounted candidate 146 checks, visible startup and installed UI pass.
-All 55 owned after-states verified with zero drift. No paid model request or real
-1C deployment. The proposed persistent Cognee/Memoria/both policy is the next iteration.
+Current release: [Persistent memory policy and remaining candidates](memory-policy-release.md).
+UI `0.15.0-host022-ui1`, policy `0.15.0-dev6`, canonical airules `72ed6f6` / 0.15.0.
+944 source tests passed, one obsolete pre-upgrade live test skipped; native mounted
+candidate acceptance passed 166 checks. Candidate rollback/reapply and visible
+startup passed. Installed after-state and UI evidence are recorded in the linked
+release report. No paid model request or real 1C deployment.
+
+Previous release: [Memory panel, original history and reviewed lessons](memory-improvements-release.md),
+UI 0.14.0-host022-ui1 / policy 0.14.0-dev3.
 
 Previous host upgrade: [DSH 0.2.2 / UI5 / policy50 — continuity and local memory](host022-continuity-release.md).
 Official signed NSIS completed, Windows registration and uninstaller verified.

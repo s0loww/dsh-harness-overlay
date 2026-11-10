@@ -21,7 +21,7 @@ export function activeScope(ctx, sessionId, { writing = false, global = false, e
   if (!['read-only', 'workspace-write', 'danger-full-access'].includes(policy?.mode) || policy.sessionId !== sessionId || typeof policy.workspaceRoot !== 'string' || resolve(policy.workspaceRoot) !== resolve(session.header.cwd)) throw new Error('MEMORY_NATIVE_POLICY_REQUIRED')
   if (writing && policy.mode === 'read-only' || global && policy.mode !== 'danger-full-access') throw new Error(global ? 'MEMORY_FULL_ACCESS_REQUIRED' : 'MEMORY_WRITE_REQUIRED')
   if ((writing || global) && session.header.origin === 'subagent') throw new Error('MEMORY_ORCHESTRATOR_WRITE_REQUIRED')
-  return { root: resolve(session.header.cwd), dataset: datasetForRoot(resolve(session.header.cwd)), agent, mode: policy.mode, writable: policy.mode !== 'read-only', globalWritable: policy.mode === 'danger-full-access' }
+  return { root: resolve(session.header.cwd), dataset: datasetForRoot(resolve(session.header.cwd)), agent, mode: policy.mode, policy, writable: policy.mode !== 'read-only', globalWritable: policy.mode === 'danger-full-access' }
 }
 async function bodyOf(request) {
   let bytes = 0; const chunks = []
@@ -73,7 +73,7 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     return services.get(key)
   }
   async function perform(input, execution) {
-    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['action', 'sessionId', 'query', 'topK', 'text', 'title', 'taskId', 'confirm', 'expectedRevision'].includes(key))) throw new Error('MEMORY_INPUT_INVALID')
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['action', 'sessionId', 'query', 'topK', 'text', 'title', 'taskId', 'confirm', 'expectedRevision','expectedAuthRevision'].includes(key))) throw new Error('MEMORY_INPUT_INVALID')
     const action = input.action ?? 'status'
     if (!['status', 'documents', 'recall', 'graph', 'remember', 'process', 'task'].includes(action)) throw new Error('MEMORY_ACTION_INVALID')
     const writing = ['remember', 'process'].includes(action)
@@ -82,6 +82,7 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     if (!snapshot.config.enabled) throw new Error('MEMORY_DISABLED')
     if (input.expectedRevision !== undefined && input.expectedRevision !== snapshot.revision) throw new Error('MEMORY_CONFIG_STALE')
     const auth = await credentials()
+    if (input.expectedAuthRevision !== undefined && input.expectedAuthRevision !== auth.revision) throw new Error('MEMORY_CONFIG_STALE')
     execution?.signal?.throwIfAborted()
     if (writing) {
       if (input.confirm !== true) throw new Error('MEMORY_CONFIRM_REQUIRED')
@@ -201,5 +202,5 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
       return send(code.includes('STALE') ? 409 : 400, { ok: false, error: code, message: messages[code] ?? 'Операция Cognee не завершена. Проверьте локальный сервис и совместимость API. При неизвестном исходе записи сначала проверьте документы; не отправляйте повторно.' })
     }
   }
-  return { act, handler, configuration }
+  return { act, handler, configuration, configure, async readiness() { const snapshot=await configuration(); if(!snapshot.config.enabled)throw new Error('MEMORY_DISABLED'); const auth=await credentials(); return { ...snapshot, authRevision:auth.revision } } }
 }

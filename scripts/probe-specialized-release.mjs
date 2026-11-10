@@ -151,7 +151,7 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     app=await runProfile({profile:'desktop',environment:loadLayeredEnv('dsh',candidate),patchFiles:[patch],args:[]})
     const ctx=app.ctx
     ctx.on('agent/request',()=>{report.modelRequestAttempts++;throw new Error('RELEASE_PROBE_MODEL_REQUEST_FORBIDDEN')},{prepend:true})
-    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized',...(extraAcceptance?['airules_memory','airules_continuity','history_search','history_read','airules_knowledge','airules_skill_eval']:[])].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
+    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized',...(extraAcceptance?['airules_memory','airules_continuity','history_search','history_read','airules_knowledge','airules_skill_eval','airules_links','airules_describe_image','mcp__memory_fixture__search','mcp__memory_fixture__save']:[])].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
     ctx.subprocess.spawn=options=>{
       const argv=options?.argv??[],at=argv.indexOf('--no-optional-locks'),tail=at>=0?argv.slice(at):[]
       const readonlyGit=extraAcceptance&&at>0&&/(?:^|[\\/])git(?:\.exe)?$/iu.test(argv[at-1])&&tail[1]==='-C'&&typeof tail[2]==='string'&&relative(candidate,resolve(tail[2])).startsWith('specialized-release-fixtures')&&tail[3]==='-c'&&tail[4]==='core.fsmonitor=false'&&tail[5]==='-c'&&tail[6]==='core.untrackedCache=false'&&JSON.stringify(tail.slice(7))===JSON.stringify(['rev-parse','HEAD'])

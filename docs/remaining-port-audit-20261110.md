@@ -1,5 +1,11 @@
 # Remaining donor ports after UI22 / policy41
 
+Status update 2026-11-11: memory policy/model profiles, history, continuity,
+reviewed knowledge, skill evaluation, evidence links and runtime utilities now
+have implementations. See [current release](memory-policy-release.md) and the
+[installed Rewind comparison](checkpoint-rewind-audit-20261111.md). The text below
+is the original audit baseline; its uncompleted-status statements are historical.
+
 Read-only audit dated 2026-11-10. Baseline: `specialized-components-release.md`.
 Donor source: the user's `DSH-Desktop-1C-0.1.0` release, package `dsh-1c-bundle`.
 This audit does not execute donor services, migrate state or certify live accounts.

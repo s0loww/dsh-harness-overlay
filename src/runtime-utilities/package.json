@@ -1,0 +1,10 @@
+{
+  "name": "airules-dsh-runtime-utilities",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "type": "module",
+  "main": "lib/host.js",
+  "exports": { ".": "./lib/host.js", "./host": "./lib/host.js", "./agent": "./lib/agent.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "peerDependencies": { "@deepseek-ai/cordis": "4.0.5 || 4.1.0", "@deepseek-ai/dsh-llm": "0.2.2-rc.1", "@deepseek-ai/dsh-tools": "0.2.2-rc.1" },
+  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots"] } }
+}

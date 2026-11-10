@@ -1,0 +1,9 @@
+{
+  "name": "airules-dsh-evidence-links",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "type": "module",
+  "main": "lib/agent.js",
+  "exports": { ".": "./lib/agent.js", "./agent": "./lib/agent.js", "./core": "./lib/core.js", "./package.json": "./package.json" },
+  "peerDependencies": { "@deepseek-ai/dsh-tools": "0.2.1-rc.5 || 0.2.2-rc.1" }
+}

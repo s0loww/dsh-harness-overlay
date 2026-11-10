@@ -28,9 +28,13 @@ export async function historyRecallAcceptance({ ctx, agents, check, report, cand
     await writeFile(join(candidate, 'smoke/history-recall-diagnostic.json'), JSON.stringify(report.historyRecallDiagnostic, null, 2), { mode: 0o600 })
     check(`${row.preset} mounted search reads current native journal`, before.isError === false && before.value?.hits?.length === 1 && before.value.hits[0].event_id === `s:${encodeURIComponent(row.id)}:${source.seq}`)
     const compactId = `recall-native-${randomUUID()}`
-    session.append('compaction/start', { compactionId: compactId })
+    session.append('compaction/start', { compactionId: compactId, turn: null })
+    session.append('compaction/summary', { compactionId: compactId,
+      summary: [{ type: 'text', text: 'Replacement summary without original needle' }],
+      shadowedRange: { start: source.seq, end: source.seq }, shadowedSeqs: [source.seq],
+      shadowedTokenCount: 1, provider: 'synthetic-fixture', model: 'no-model' })
     appendUser(session, 'Replacement summary without original needle', { surfaceOp: { op: 'replace', startSeq: source.seq, endSeq: source.seq }, sourceEventSeqs: [source.seq] })
-    session.append('compaction/end', { compactionId: compactId })
+    session.append('compaction/end', { compactionId: compactId, turn: null })
     appendUser(session, 'Locate the original evidence after compaction')
     const after = await invoke(row, 'history_search', { query: needle })
     check(`${row.preset} mounted search reads original source after native compact replacement`, after.isError === false && after.value?.hits?.length === 1 && after.value.hits[0].event_id === before.value.hits[0].event_id && after.value.snapshot !== before.value.snapshot)

@@ -5,7 +5,8 @@ export const DOMAINS = Object.freeze({
   python: { id: 'python-airules', name: 'Python', description: 'Python: окружение, реализация, тестирование и проверка кода. Проектные инструкции и разрешения наследуются.', order: 3 },
   sysadmin: { id: 'sysadmin-airules', name: 'Системное администрирование', description: 'Диагностика и эксплуатация: доказательства, безопасное изменение, проверка и откат. Проектные ограничения имеют приоритет.', order: 4 },
 })
-export function createPresets({ python = true, sysadmin = true, platform = process.platform, workflows = false, sharedSkills = false, generalTools = false, documents = false, memory = false, continuity = false } = {}) {
+export function createPresets({ python = true, sysadmin = true, platform = process.platform, workflows = false, sharedSkills = false, generalTools = false, documents = false, memory = false, continuity = false, historyRecall = false, skillEvaluation = false, reviewedKnowledge = false } = {}) {
+  if ([historyRecall, skillEvaluation, reviewedKnowledge].some(value => typeof value !== 'boolean')) throw new Error('PORTABLE_MEMORY_BOOLEAN_REQUIRED')
   if (typeof memory !== 'boolean') throw new Error('MEMORY_BOOLEAN_REQUIRED')
   if (typeof workflows !== 'boolean') throw new Error('WORKFLOWS_BOOLEAN_REQUIRED')
   if (typeof sharedSkills !== 'boolean') throw new Error('SHARED_SKILLS_BOOLEAN_REQUIRED')
@@ -23,6 +24,9 @@ export function createPresets({ python = true, sysadmin = true, platform = proce
     if (generalTools) plugins.push({ id: 'airules-general-tools', name: 'airules-dsh-general-tools/tools' })
     if (continuity) plugins.push({id:'airules-continuity-agent',name:'airules-dsh-context-continuity/agent'})
     if (memory) plugins.push({ id: 'airules-memory-tools', name: 'airules-dsh-memory-workspace/tools' })
+    if (historyRecall) plugins.push({ id: 'airules-history-recall', name: 'airules-dsh-history-recall/agent' })
+    if (skillEvaluation) plugins.push({ id: 'airules-skill-evaluation', name: 'airules-dsh-skill-evaluation/agent' })
+    if (reviewedKnowledge) plugins.push({ id: 'airules-reviewed-knowledge', name: 'airules-reviewed-knowledge/agent' })
     if (documents) plugins.push({ id: 'airules-document-tools', name: 'airules-dsh-document-workbench/tools' })
     return { ...meta, plugins }
   })

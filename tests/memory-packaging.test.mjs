@@ -7,6 +7,19 @@ import { stageOfficialPolicy } from '../scripts/stage-official-policy.mjs'
 import { groupSections } from '../src/settings-shell/navigation.mjs'
 const feature = { package:'airules-dsh-memory-workspace', defaultEnabled:false, endpoint:'machine-loopback', scope:'native-project-dataset', processing:'explicit-local', migration:false, policyOwner:'project_rules' }
 const manifest = { integrations: { memoryWorkspace: feature } }
+test('portable memory companions stay opt-in and installer rejects forged authority or missing owner',async()=>{
+  const integrations={memoryWorkspace:feature,historyRecall:{package:'airules-dsh-history-recall',scope:'custom-presets-only',automaticWrites:false},skillEvaluation:{package:'airules-dsh-skill-evaluation',scope:'custom-presets-only',automaticWrites:false},reviewedKnowledge:{package:'airules-reviewed-knowledge',scope:'custom-presets-only',automaticWrites:false}}
+  const names=policyPackageNames({integrations})
+  for(const key of ['historyRecall','skillEvaluation','reviewedKnowledge']) {
+    assert.ok(names.includes(integrations[key].package))
+    assert.throws(()=>policyPackageNames({integrations:{...integrations,[key]:{...integrations[key],automaticWrites:true}}}),/POLICY_INTEGRATION_INVALID/)
+    for(const preset of createPresets({[key]:true})) assert.equal(preset.plugins.filter(row=>row.name===integrations[key].package+'/agent').length,1)
+    for(const preset of createPresets()) assert.equal(preset.plugins.filter(row=>row.name===integrations[key].package+'/agent').length,0)
+  }
+  assert.throws(()=>policyPackageNames({integrations:{reviewedKnowledge:integrations.reviewedKnowledge}}),/POLICY_INTEGRATION_INVALID/)
+  await assert.rejects(stageOfficialPolicy({includeReviewedKnowledge:true}),/REQUIRES_MEMORY_WORKSPACE/)
+  for(const option of ['includeHistoryRecall','includeSkillEvaluation','includeReviewedKnowledge']) await assert.rejects(stageOfficialPolicy({[option]:'true'}),/BOOLEAN_OPTION_REQUIRED/)
+})
 test('memory artifact declares disabled machine-local connection with no data or embedded endpoint', () => {
   assert.ok(policyPackageNames(manifest).includes(feature.package))
   const ordered=policyPackageNames({integrations:{onecPanels:{package:'airules-dsh-onec-panels',metadataReadOnly:true,root:'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0},memoryWorkspace:feature}})

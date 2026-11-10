@@ -119,7 +119,7 @@ export function policyPackageNames(manifest) {
   if (manifest.integrations === undefined) return [...PACKAGES]
   const integrations = manifest.integrations
   if (!integrations || typeof integrations !== 'object' || Array.isArray(integrations)
-    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].includes(key))
+    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge'].includes(key))
     || Object.keys(integrations).length === 0) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
   const packages = [...PACKAGES]
   const feature = integrations.openspec
@@ -167,12 +167,16 @@ export function policyPackageNames(manifest) {
     ['additionalProviders', 'airules-dsh-additional-providers', { authentication: 'explicit-user-action', bootstrap: false }],
     ['onecPanels', 'airules-dsh-onec-panels', { metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 }],
     ['memoryWorkspace','airules-dsh-memory-workspace',{defaultEnabled:false,endpoint:'machine-loopback',scope:'native-project-dataset',processing:'explicit-local',migration:false,policyOwner:'project_rules'}],
+    ['historyRecall','airules-dsh-history-recall',{scope:'custom-presets-only',automaticWrites:false}],
+    ['skillEvaluation','airules-dsh-skill-evaluation',{scope:'custom-presets-only',automaticWrites:false}],
+    ['reviewedKnowledge','airules-reviewed-knowledge',{scope:'custom-presets-only',automaticWrites:false}],
     ['contextContinuity','airules-dsh-context-continuity',{policyOwner:'project_rules',mode:'minimal',memoryWrites:false}],
     ['projectSettings', 'airules-dsh-project-settings', { bindings: 'project-local', deploy: false, mcp: false }],
     ['modelOrchestration', 'airules-dsh-model-orchestration', { enabledByUser: true, bindings: 'role-and-pool', globalInterception: false }],
     ['domainPresets', 'airules-dsh-domain-presets', { presets: ['python-airules', 'sysadmin-airules'], mcp: false, policyOwner: 'project_rules' }],
   ]) {
     if (integrations[key] === undefined) continue
+    if (key === 'reviewedKnowledge' && !integrations.memoryWorkspace) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
     if(key==='contextContinuity'){
       const {canonical:closure,...base}=integrations[key]??{}
       if(manifest.target?.hostVersion!=='0.2.2-rc.1'||canonical(base)!==canonical({package:name,...fields}))throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
@@ -225,7 +229,7 @@ export function policyPackageNames(manifest) {
 }
 
 export function verifyNewFeatureMounts(fragment,integrations){
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
   let rows
   try {
     validatePolicyFragment(fragment)
@@ -238,6 +242,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
   const plugins=preset.config.plugins
   const count=(node,name)=>!node||typeof node!=='object'?0:(node.name===name?1:0)+Object.values(node).reduce((sum,value)=>sum+(Array.isArray(value)?value.reduce((n,row)=>n+count(row,name),0):count(value,name)),0)
   for(const [key,id,name]of[
+    ['reviewedKnowledge','airules-reviewed-knowledge-host','airules-reviewed-knowledge/host'],
     ['memoryWorkspace','airules-memory','airules-dsh-memory-workspace'],
     ['contextContinuity','airules-continuity','airules-dsh-context-continuity'],
     ['providerExtensions','airules-provider-extensions','airules-dsh-provider-extensions'],
@@ -248,6 +253,9 @@ export function verifyNewFeatureMounts(fragment,integrations){
     if(found.length!==expected||count(rows,name)!==expected||found.some(row=>canonical(row)!==canonical({id,name})))throw new OfficialUiInstallerError('POLICY_NEW_FEATURE_MOUNT_INVALID')
   }
   for(const [enabled,id,name]of[
+    [!!integrations.historyRecall,'airules-history-recall','airules-dsh-history-recall/agent'],
+    [!!integrations.skillEvaluation,'airules-skill-evaluation','airules-dsh-skill-evaluation/agent'],
+    [!!integrations.reviewedKnowledge,'airules-reviewed-knowledge','airules-reviewed-knowledge/agent'],
     [!!integrations.memoryWorkspace,'airules-memory-tools','airules-dsh-memory-workspace/tools'],
     [!!integrations.contextContinuity,'airules-continuity-agent','airules-dsh-context-continuity/agent'],
     [!!integrations.onecPanels,'airules-onec-workbench-tools','airules-dsh-onec-panels/tools'],
@@ -261,7 +269,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
 
 async function verifyNewFeaturePayload(root,manifest){
   const integrations=manifest.integrations??{}
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
   const fragment=await readFile(join(root,'cordis.policy.fragment.yml'),'utf8')
   verifyNewFeatureMounts(fragment,integrations)
   if(integrations.contextContinuity){

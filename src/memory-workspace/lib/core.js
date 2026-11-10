@@ -259,7 +259,12 @@ export function createMemoryService({ endpoint = 'http://127.0.0.1:18080', apiKe
     },
     async task(root, { taskId } = {}) {
       await loadJournal()
-      const selected = await scoped(root), { ops } = await capabilities()
+      const selected = await dataset(root)
+      if (!selected.id) {
+        const pending = processing.get(selected.name), unconfirmed = !!pending || !!taskId
+        return { dataset: selected.name, missingDataset: true, status: unconfirmed ? 'UNCONFIRMED' : 'DATASET_PROCESSING_NOT_STARTED', unknownOutcome: unconfirmed, taskId: clean(taskId || pending?.receipt?.taskId, 128) || null, exactTask: false }
+      }
+      const { ops } = await capabilities()
       if (!ops.status) fail('COGNEE_CAPABILITY_UNAVAILABLE')
       const param = parameter(ops.status, ['dataset', 'dataset_ids', 'datasetIds'])
       if (!param) fail('COGNEE_SCHEMA_UNSUPPORTED')

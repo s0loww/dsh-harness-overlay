@@ -44,6 +44,15 @@ test('Windows project identity is stable across case/separators and distinct by 
   assert.notEqual(datasetForRoot('D:/projects/a'), datasetForRoot('D:/projects/b'))
   assert.throws(() => datasetForRoot('relative/path'), /PROJECT_ROOT_REQUIRED/)
 })
+
+test('processing status for an empty project is not-started without guessing a foreign dataset',async()=>{
+  const {service,calls}=fixture({datasets:[]})
+  const result=await service.task(root)
+  assert.equal(result.missingDataset,true);assert.equal(result.status,'DATASET_PROCESSING_NOT_STARTED');assert.equal(result.exactTask,false)
+  assert.equal(calls.some(row=>row.pathname.includes('/status/')||row.pathname.includes('/pipeline-runs')),false)
+  const previous=await service.task(root,{taskId:'unconfirmed-old-task'})
+  assert.equal(previous.status,'UNCONFIRMED');assert.equal(previous.unknownOutcome,true);assert.equal(previous.exactTask,false)
+})
 test('endpoint only permits numeric HTTP loopback and no URL credentials, path or redirects', () => {
   assert.equal(validateEndpoint('http://127.0.0.1:18080'), 'http://127.0.0.1:18080')
   for (const value of ['https://127.0.0.1:18080', 'http://localhost:18080', 'http://example.com', 'http://user:password@127.0.0.1', 'http://127.0.0.1/a', 'http://127.0.0.1/?token=x']) assert.throws(() => validateEndpoint(value), /COGNEE_LOOPBACK_REQUIRED/)

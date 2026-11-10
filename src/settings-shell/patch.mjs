@@ -37,7 +37,9 @@ export function patchSettingsShell(original, { hostVersion = '0.2.1-rc.5' } = {}
       children: [navIcon(row.id), (0, react_jsx_runtime.jsx)("span", { className: SettingsRoot_module_css_default.navLabel, children: row.label })]
     }, row.id))]
   }, group.label))` + source.slice(end + endToken.length)
-  source = once(source, 'className: SettingsRoot_module_css_default.panel,', 'className: SettingsRoot_module_css_default.panel,\n style: { width: "min(1120px, calc(100vw - 48px))" },')
-  source = once(source, 'className: SettingsRoot_module_css_default.nav,', 'className: SettingsRoot_module_css_default.nav,\n style: { width: 238, flexShrink: 0 },')
+  // Keep the grid track and the navigation in agreement. A fixed nav width
+  // over the native 188px track paints its scrollbar over the settings form.
+  source = once(source, 'className: SettingsRoot_module_css_default.panel,', 'className: SettingsRoot_module_css_default.panel,\n style: { width: "min(1120px, calc(100vw - 48px))", gridTemplateColumns: "minmax(170px, 22%) minmax(0, 1fr)" },')
+  source = once(source, 'className: SettingsRoot_module_css_default.nav,', 'className: SettingsRoot_module_css_default.nav,\n style: { width: "100%", minWidth: 0, overflow: "hidden" },')
   return eol === '\r\n' ? source.replace(/\n/gu, '\r\n') : source
 }

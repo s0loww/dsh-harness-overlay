@@ -29,6 +29,57 @@ async function fixture(t) {
   return { root, config, configPath, authPath, agent, policy, ctx, calls, messages, factories, controller, request, view: view.body, exec: { agent, callId: 'test-call', signal: new AbortController().signal } }
 }
 
+test('Memoria catalogue is scoped, read-only, and independent of Cognee credentials/configuration', async t => {
+  const f = await fixture(t)
+  f.ctx.tools = { schemas: agent => { assert.equal(agent, f.agent); return [
+    { name: 'mcp__memora__search', description: 'Find notes', parameters: { type: 'object' } },
+    { name: 'mcp__memoria__save', description: 'Save note' },
+    { name: 'mcp__other__search' }, { name: 'shell' },
+  ] } }
+  await writeFile(f.configPath, JSON.stringify({ ...f.config, enabled: false }))
+  await rm(f.authPath)
+  const result = await f.request('GET', { action: 'memoraCatalog', sessionId: 'one' })
+  assert.equal(result.code, 200)
+  assert.deepEqual(result.body.tools.map(row => row.name), ['mcp__memora__search', 'mcp__memoria__save'])
+  assert.equal(result.body.availability, 'catalog-only'); assert.equal(result.body.connected, null)
+  assert.deepEqual(f.factories, []); assert.deepEqual(f.calls, []); assert.deepEqual(f.messages, [])
+  assert.equal((await f.request('GET', { action: 'memoraCatalog', sessionId: 'foreign' })).code, 400)
+})
+
+test('a backend result is not released after native scope revocation or credential/config rotation', async t => {
+  for (const change of ['policy', 'agent', 'config', 'auth']) {
+    const f = await fixture(t)
+    let finish
+    const controller=createController(f.ctx,{configPath:f.configPath,serviceFactory:()=>({status:()=>new Promise(resolve=>{finish=resolve})})})
+    const pending=controller.act({action:'status',sessionId:'one'},f.exec)
+    while (!finish) await new Promise(resolve=>setImmediate(resolve))
+    if (change==='policy') f.policy.mode='read-only'
+    if (change==='agent') f.ctx.agents.get=()=>({...f.agent})
+    if (change==='config') await writeFile(f.configPath,JSON.stringify({...f.config,enabled:false}))
+    if (change==='auth') await writeFile(f.authPath,JSON.stringify({apiKey:'rotated-fixture'}))
+    finish({privateResult:'stale fixture'})
+    await assert.rejects(pending,/MEMORY_(?:SCOPE_CHANGED|ACTIVE_PROJECT_REQUIRED|CONFIG_STALE)/)
+  }
+})
+
+test('Memoria intent requires CSRF, visible tool, explicit confirmation and native writable lead; never executes from HTTP', async t => {
+  const f = await fixture(t)
+  f.ctx.tools = { schemas: () => [{ name: 'mcp__memora__search' }] }
+  const input = { action: 'memoraSubmit', sessionId: 'one', tool: 'mcp__memora__search', arguments: { query: 'fixture' }, confirm: true }
+  assert.equal((await f.request('GET', input)).code, 405)
+  assert.equal((await f.request('POST', input)).code, 403)
+  for (const change of [{ confirm: false }, { tool: 'shell' }, { arguments: [] }, { dataset: 'foreign' }]) assert.equal((await f.request('POST', { ...input, ...change }, f.view.csrfToken)).code, 400)
+  f.policy.mode = 'read-only'
+  assert.equal((await f.request('POST', input, f.view.csrfToken)).body.error, 'MEMORY_WRITE_REQUIRED')
+  f.policy.mode = 'workspace-write'; f.agent.session.header.origin = 'subagent'
+  assert.equal((await f.request('POST', input, f.view.csrfToken)).body.error, 'MEMORY_ORCHESTRATOR_WRITE_REQUIRED')
+  delete f.agent.session.header.origin
+  const result = await f.request('POST', input, f.view.csrfToken)
+  assert.equal(result.body.submitted, true); assert.equal(result.body.backend, 'memora')
+  assert.equal(f.messages.length, 1); assert.ok(f.messages[0].content[0].text.includes('fixture'))
+  assert.deepEqual(f.calls, []); assert.deepEqual(f.factories, [])
+})
+
 test('memory HTTP native admission, GET mutation and CSRF reject without backend or chat effects', async t => {
   const f = await fixture(t)
   for (const action of ['configure', 'remember', 'process', 'recall']) assert.equal((await f.request('GET', { action, sessionId: 'one' })).code, 405)
@@ -127,6 +178,7 @@ test('controller single-flight rejects another operation and configuration chang
   const configure = await f.request('POST', { action: 'configure', sessionId: 'one', expectedRevision: f.view.revision, config: { ...f.config, endpoint: 'http://127.0.0.1:18081' } }, f.view.csrfToken)
   assert.equal(configure.body.error, 'MEMORY_OPERATION_BUSY')
   assert.equal(JSON.parse(await readFile(f.configPath)).endpoint, f.config.endpoint)
+  f.policy.mode = 'workspace-write'
   decide('allowed-once'); await pending
   await writeFile(f.authPath, JSON.stringify({ apiKey: 'new-key-after-completion' }))
   await f.controller.act({ action: 'status', sessionId: 'one' }, f.exec)

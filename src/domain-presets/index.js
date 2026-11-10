@@ -3,7 +3,7 @@ import z from '@deepseek-ai/schemastery'
 import { createPresets } from './composition.mjs'
 export const name = 'airules-domain-presets'
 export const inject = ['agentPresets']
-export const Config = z.object({ python: z.boolean().default(true), sysadmin: z.boolean().default(true), workflows: z.boolean().default(false), sharedSkills: z.boolean().default(false), generalTools: z.boolean().default(false), documents: z.boolean().default(false), memory: z.boolean().default(false), continuity: z.boolean().default(false) })
+export const Config = z.object({ python: z.boolean().default(true), sysadmin: z.boolean().default(true), workflows: z.boolean().default(false), sharedSkills: z.boolean().default(false), generalTools: z.boolean().default(false), documents: z.boolean().default(false), memory: z.boolean().default(false), continuity: z.boolean().default(false), historyRecall: z.boolean().default(false), skillEvaluation: z.boolean().default(false), reviewedKnowledge: z.boolean().default(false) })
 export function apply(ctx, config = {}) {
   for (const preset of createPresets(config)) ctx.plugin(AgentPreset, preset)
 }

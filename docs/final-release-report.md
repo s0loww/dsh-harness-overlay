@@ -1,9 +1,16 @@
 # DSH official Desktop overlay — release report
 
-Date: 2026-11-10
+Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current installed release: [DSH 0.2.2 / UI5 / policy50 — continuity and local memory](host022-continuity-release.md).
+Current installed release: [Memory panel, original history and reviewed lessons](memory-improvements-release.md).
+UI `0.14.0-host022-ui1`, policy `0.14.0-dev3`, canonical airules `16410f4` / 0.14.0.
+846 source tests passed, one obsolete pre-upgrade live test skipped; final memory
+regression 49/49, mounted candidate 146 checks, visible startup and installed UI pass.
+All 55 owned after-states verified with zero drift. No paid model request or real
+1C deployment. The proposed persistent Cognee/Memoria/both policy is the next iteration.
+
+Previous host upgrade: [DSH 0.2.2 / UI5 / policy50 — continuity and local memory](host022-continuity-release.md).
 Official signed NSIS completed, Windows registration and uninstaller verified.
 774 source tests passed before install; finalizer regression 14/14 and the
 four live model routes passed (62 requests). Native mounted continuity,

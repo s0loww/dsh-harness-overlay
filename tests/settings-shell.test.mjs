@@ -29,6 +29,9 @@ test('pinned adaptation preserves native modal/actions/onboarding/content and is
   assert.equal(patchSettingsShell(patched), patched)
   for (const anchor of ['useModalLayer)(panel, true, onClose)', '"data-shortcut-modal": "settings"', 'renderSlot("settings.action", {})', 'renderSlot("settings.section", { close: onClose }, { only: active })', 'createSettingsShellStore()', 'shellInstance.actions.open()', 'renderSlot("settings.onboarding", {']) assert.ok(patched.includes(anchor), anchor)
   assert.ok(patched.includes('role: "group", "aria-label": group.label'))
+  assert.ok(patched.includes('gridTemplateColumns: "minmax(170px, 22%) minmax(0, 1fr)"'))
+  assert.ok(patched.includes('width: "100%", minWidth: 0, overflow: "hidden"'))
+  assert.ok(!patched.includes('style: { width: 238'))
   assert.throws(() => patchSettingsShell(source.replace('function SettingsPanel', 'function OtherPanel')), /BASELINE_CHANGED/u)
 })
 

@@ -114,4 +114,3 @@ export async function runNativeContinuityProbe({sdkRoot=join(repo,'var/host-upgr
  return {schemaVersion:1,sdkRoot,checks,modelRequests:0,mcpCalls:0,deployments:0}
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))console.log(JSON.stringify(await runNativeContinuityProbe({sdkRoot:process.argv[2]&&resolve(process.argv[2])}),null,2))
-

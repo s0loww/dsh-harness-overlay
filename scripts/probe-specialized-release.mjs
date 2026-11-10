@@ -122,7 +122,7 @@ export async function inspectProviderCards(modules){
     metadataOnly:true,browserMounted:false}
 }
 
-export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifactRoot,servePreview=false,previewTimeoutMs=600000}){
+export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifactRoot,servePreview=false,previewTimeoutMs=600000,extraAcceptance}){
   const candidate=assertCandidatePath(candidateRoot)
   await preflightCandidate({candidateRoot:candidate,uiArtifactRoot,policyArtifactRoot})
   const installed=join(candidate,'home/profiles/desktop/node_modules'),smoke=join(candidate,'smoke')
@@ -143,7 +143,7 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     app=await runProfile({profile:'desktop',environment:loadLayeredEnv('dsh',candidate),patchFiles:[patch],args:[]})
     const ctx=app.ctx
     ctx.on('agent/request',()=>{report.modelRequestAttempts++;throw new Error('RELEASE_PROBE_MODEL_REQUEST_FORBIDDEN')},{prepend:true})
-    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized'].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
+    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized',...(extraAcceptance?['airules_memory']:[])].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
     ctx.subprocess.spawn=()=>{report.nativeSubprocessAttempts++;throw new Error('RELEASE_PROBE_RUNNER_FORBIDDEN')}
     report.plugins=[...ctx.loader.entries()].filter(row=>PACKAGES.includes(row.options?.name)).map(row=>({id:row.options.id,name:row.options.name,state:row.fiber?.state??null}))
     check('all three installed release plugins started',report.plugins.length===3&&report.plugins.every(row=>row.state===2))
@@ -178,7 +178,7 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     report.lspCompatibility.serverExecution='NOT_RUN'
     check('installed LSP compatibility metadata and unchanged entry are pinned',report.lspCompatibility.hashes.hostVersion==='0.2.1-rc.5')
     const rulepack=join(installed,'airules-dsh-rulepack'),manifest=JSON.parse(await readFile(join(rulepack,'manifest.json'),'utf8'))
-    check('release declares fifty-two packaged skills',manifest.counts.skills===52)
+    check('release declares canonical packaged skill inventory',manifest.counts.skills===manifest.inventories.skills.length&&manifest.counts.skills>=52)
     for(const row of agents){
       const registry=ctx.agentPresets.serviceFor(row.agent,'skills')??ctx.skills,snapshot=await registry.snapshot({cwd:row.root,scope:row.agent})
       check(`${row.preset} native skill inventory complete`,snapshot.complete)
@@ -219,6 +219,7 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     check('two XML exports produce a bounded local comparison',comparison.ok&&comparison.result.status==='local-comparison'&&comparison.result.objects.length===1&&comparison.result.objects[0].classification==='twice-changed'&&comparison.result.execution==='not-performed')
     check('local AI comparison plan makes no apply/deploy claim',plan.ok&&plan.result.execution==='local-plan-only'&&plan.result.objects.length===1&&plan.result.reason==='NO_MERGE_APPLY_IMPLEMENTED')
     report.localComparison={objects:comparison.result.objects.length,classification:comparison.result.objects[0].classification,execution:comparison.result.execution,planExecution:plan.result.execution}
+    if(extraAcceptance)await extraAcceptance({ctx,request,agents,check,report,installed,candidate,setSandboxMode})
     const bindingBefore=await readFile(join(onec.root,'.dsh/onec-specialized.json')),runnerBefore=await readFile(join(onec.root,initial.runnerTemplate.path))
     setSandboxMode(onec.agent.session,'read-only')
     check('native read-only denies binding changes',(await request(api,{body:{action:'save-binding',expectedVersion:save.binding.version,text},token:initial.csrfToken})).error==='SPECIALIZED_WORKSPACE_WRITE_REQUIRED')

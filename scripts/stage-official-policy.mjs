@@ -25,6 +25,7 @@ const MOBILE = join(REPO, 'src', 'mobile-access')
 const MOBILE_LOCK = join(REPO, 'upstream', 'mobile-closure.lock.json')
 const MCP_MANAGER = join(REPO, 'src', 'mcp-manager')
 const ADDITIONAL_PROVIDERS = join(REPO, 'src', 'additional-providers')
+const MEMORY_WORKSPACE = join(REPO, 'src', 'memory-workspace')
 const ONEC_PANELS = join(REPO, 'src', 'onec-panels')
 const PROJECT_SETTINGS = join(REPO, 'src', 'project-settings')
 const MODEL_ORCHESTRATION = join(REPO, 'src', 'model-orchestration')
@@ -280,7 +281,7 @@ function args(argv) {
   for (let index = 2; index < argv.length; index += 2) {
     const key = argv[index]
     const value = argv[index + 1]
-    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized'].includes(key) || value === undefined) throw new Error('USAGE')
+    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized', '--include-memory-workspace'].includes(key) || value === undefined) throw new Error('USAGE')
     if (key.startsWith('--include-') && !['true', 'false'].includes(value)) throw new Error('BOOLEAN_OPTION_REQUIRED')
     out[key.slice(2)] = value
   }
@@ -288,8 +289,8 @@ function args(argv) {
   return out
 }
 
-export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false }) {
-  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false }) {
+  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
   if(includeProviderExtensions&&(!includeAcp||!includeAdditionalProviders))throw new Error('PROVIDER_EXTENSIONS_REQUIRE_ACP_AND_ADDITIONAL_PROVIDERS')
   if(includeProviderExtensions&&(typeof nativeModules!=='string'||!isAbsolute(nativeModules)))throw new Error('PROVIDER_EXTENSIONS_EXPLICIT_NATIVE_MODULES_REQUIRED')
   if(includeOnecSpecialized&&(!includeWorkflows||!includeOnecPanels))throw new Error('ONEC_SPECIALIZED_REQUIRE_WORKFLOWS_AND_ONEC_PANELS')
@@ -341,6 +342,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       ...(includeMcpManager ? [['airules-dsh-mcp-manager', MCP_MANAGER]] : []),
       ...(includeAdditionalProviders ? [['airules-dsh-additional-providers', ADDITIONAL_PROVIDERS]] : []),
       ...(includeOnecPanels ? [['airules-dsh-onec-panels', ONEC_PANELS]] : []),
+      ...(includeMemoryWorkspace ? [['airules-dsh-memory-workspace', MEMORY_WORKSPACE]] : []),
       ...(includeProjectSettings ? [['airules-dsh-project-settings', PROJECT_SETTINGS]] : []),
       ...(includeModelOrchestration ? [['airules-dsh-model-orchestration', MODEL_ORCHESTRATION]] : []),
       ...(includeDomainPresets ? [['airules-dsh-domain-presets', DOMAIN_PRESETS]] : []),
@@ -390,6 +392,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         }
         if (includeSharedSkills) await stageSharedSkills(join(stage, 'payload', 'packages', 'airules-dsh-rulepack'), target, [
           ...SHARED_SKILLS,
+          ...(includeMemoryWorkspace ? ['memory-workspace'] : []),
           ...(includeGeneralTools ? ['caveman', 'api-conventions', 'craft-mermaid', 'creating-dsh-plugins'] : []),
           ...(includeDocumentWorkbench ? ['document-import', 'office', 'office-docx', 'office-xlsx', 'office-pptx', 'office-render', 'office-recalculate', 'office-export-pdf'] : []),
           ...(includeOnecCapabilities && includeTelegram ? ['telegram'] : []),
@@ -501,9 +504,11 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         includeDocumentWorkbench ? '          - id: airules-document-tools\n            name: airules-dsh-document-workbench/tools\n' : '',
         includeOnecCapabilities ? '          - id: airules-onec-capability-tools\n            name: airules-dsh-onec-capability-workflows/tools\n' : '',
         includeOnecPanels ? '          - id: airules-onec-workbench-tools\n            name: airules-dsh-onec-panels/tools\n' : '',
+        includeMemoryWorkspace ? '          - id: airules-memory-tools\n            name: airules-dsh-memory-workspace/tools\n' : '',
         includeOnecSpecialized ? '          - id: airules-onec-specialized-tools\n            name: airules-dsh-onec-specialized/tools\n' : ''].join(''),
       'portable workbench tools')
     const newHosts=[
+      [includeMemoryWorkspace,'airules-memory','airules-dsh-memory-workspace'],
       [includeProviderExtensions,'airules-provider-extensions','airules-dsh-provider-extensions'],
       [includeCursorProvider,'airules-cursor-provider','airules-dsh-cursor-provider'],
       [includeOnecSpecialized,'airules-onec-specialized','airules-dsh-onec-specialized'],
@@ -543,9 +548,9 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       if (!enabled && fragment.includes(mount)) fragment = replaceOnce(fragment, mount, '', `${id} disabled mount`)
       if (enabled && !fragment.includes(mount)) throw new Error(`INTEGRATION_MOUNT_MISSING: ${id}`)
     }
-    if (includeDomainPresets && (includeWorkflows || includeSharedSkills || includeGeneralTools || includeDocumentWorkbench)) fragment = replaceOnce(fragment,
+    if (includeDomainPresets && (includeWorkflows || includeSharedSkills || includeGeneralTools || includeDocumentWorkbench || includeMemoryWorkspace)) fragment = replaceOnce(fragment,
       '    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n',
-      `    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n      config:\n${includeWorkflows ? '        workflows: true\n' : ''}${includeSharedSkills ? '        sharedSkills: true\n' : ''}${includeGeneralTools ? '        generalTools: true\n' : ''}${includeDocumentWorkbench ? '        documents: true\n' : ''}`, 'domain workflow tools and shared skills')
+      `    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n      config:\n${includeWorkflows ? '        workflows: true\n' : ''}${includeSharedSkills ? '        sharedSkills: true\n' : ''}${includeGeneralTools ? '        generalTools: true\n' : ''}${includeDocumentWorkbench ? '        documents: true\n' : ''}${includeMemoryWorkspace ? '        memory: true\n' : ''}`, 'domain workflow tools and shared skills')
     const adapterMount = "    - id: airules-acp-adapter\n      name: '@zaimokuza/dsh-acp-adapter'\n      inject: [llm, sessions, subprocess, dshHomePath, attachments, sessionProjections, permissionPresets, acpPermissionPolicy]\n      config:\n        agents: {}\n        toolApprovalDefault: ask\n"
     if (!includeAcp && fragment.includes(adapterMount)) fragment = replaceOnce(fragment, adapterMount, '', 'ACP native adapter disabled mount')
     if (includeAcp && !fragment.includes(adapterMount)) throw new Error('INTEGRATION_MOUNT_MISSING: airules-acp-adapter')
@@ -579,7 +584,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         base: { id: 'standard', hostVersion: '0.2.1-rc.5', sourceSha256: '0d398d2a6872a73a106cb3bd19303ecccf1637e1fcad4d0bf9d8a72d2c2c68f5' },
       },
       rulepack: { version: rulepackManifest.package.version, sourceDirty: rulepackManifest.source?.dirty === true, counts: rulepackManifest.counts },
-      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized) ? { integrations: {
+      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace) ? { integrations: {
         ...(nativeFsIntegration ? {nativeFsCompat: nativeFsIntegration} : {}),
         ...(openSpecIntegration ? { openspec: openSpecIntegration } : {}),
         ...(includeTelegram ? { telegram: { package: 'airules-dsh-telegram', defaultEnabled: false, autostart: false, secretStorage: 'windows-dpapi-current-user', transport: 'single-owner-long-polling' } } : {}),
@@ -587,6 +592,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         ...optionalIntegrations,
         ...(includeMcpManager ? { mcpManager: { package: 'airules-dsh-mcp-manager', bindings: 'machine-or-project-external', defaultServers: 0, authority: 'native-loopback-csrf' } } : {}),
         ...(includeAdditionalProviders ? { additionalProviders: { package: 'airules-dsh-additional-providers', authentication: 'explicit-user-action', bootstrap: false } } : {}),
+        ...(includeMemoryWorkspace ? { memoryWorkspace: {package:'airules-dsh-memory-workspace',defaultEnabled:false,endpoint:'machine-loopback',scope:'native-project-dataset',processing:'explicit-local',migration:false,policyOwner:'project_rules'} } : {}),
         ...(includeOnecPanels ? { onecPanels: { package: 'airules-dsh-onec-panels', metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 } } : {}),
         ...(includeProjectSettings ? { projectSettings: { package: 'airules-dsh-project-settings', bindings: 'project-local', deploy: false, mcp: false } } : {}),
         ...(includeModelOrchestration ? { modelOrchestration: { package: 'airules-dsh-model-orchestration', enabledByUser: true, bindings: 'role-and-pool', globalInterception: false } } : {}),
@@ -627,7 +633,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const manifest = await stageOfficialPolicy({ rulepack: options.rulepack, output: options.output, sourceBundle: options['source-bundle'], artifactVersion: options['artifact-version'], targetLock: options['target-lock'] ?? DEFAULT_LOCK,
       includeTelegram: options['include-telegram'] === 'true', includeAcp: options['include-acp'] === 'true', includeNativeFsCompat: options['include-native-fs-compat'] === 'true', nativeModules: options['native-modules'],
       includeSubscriptions: options['include-subscriptions'] === 'true', includeMobile: options['include-mobile'] === 'true',
-      includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',
+      includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',includeMemoryWorkspace:options['include-memory-workspace']==='true',
       includeMcpManager: options['include-mcp-manager'] === 'true', includeAdditionalProviders: options['include-additional-providers'] === 'true', includeOnecPanels: options['include-onec-panels'] === 'true', includeProjectSettings: options['include-project-settings'] === 'true', includeModelOrchestration: options['include-model-orchestration'] === 'true', includeDomainPresets: options['include-domain-presets'] === 'true', domainRulesRoot: options['domain-rules-root'], includeWorkflows: options['include-workflows'] === 'true', workflowRulesRoot: options['workflow-rules-root'], includeAgentImport: options['include-agent-import'] === 'true', includeSkillsManager: options['include-skills-manager'] === 'true', includeSharedSkills: options['include-shared-skills'] === 'true', includeGeneralTools: options['include-general-tools'] === 'true', includeDocumentWorkbench: options['include-document-workbench'] === 'true', includeOnecCapabilities: options['include-onec-capabilities'] === 'true' })
     process.stdout.write(`Staged ${manifest.artifact.id} ${manifest.artifact.version}: ${Object.keys(manifest.files).length} files\n`)
   } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1 }

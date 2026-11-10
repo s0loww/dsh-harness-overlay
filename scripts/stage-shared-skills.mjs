@@ -3,7 +3,7 @@ import { cp, lstat, mkdir, readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export const SHARED_SKILLS = Object.freeze(['handoff', 'skill-maintainer', 'security-baseline', 'architecture-evolution', 'technical-debt'])
-export const WORKBENCH_SHARED_SKILLS = Object.freeze(['caveman', 'api-conventions', 'craft-mermaid', 'creating-dsh-plugins', 'document-import', 'office', 'office-docx', 'office-xlsx', 'office-pptx', 'office-render', 'office-recalculate', 'office-export-pdf', 'telegram'])
+export const WORKBENCH_SHARED_SKILLS = Object.freeze(['caveman', 'api-conventions', 'craft-mermaid', 'creating-dsh-plugins', 'document-import', 'office', 'office-docx', 'office-xlsx', 'office-pptx', 'office-render', 'office-recalculate', 'office-export-pdf', 'telegram', 'memory-workspace'])
 const hash = data => createHash('sha256').update(data).digest('hex')
 const fail = () => { throw new Error('SHARED_SKILL_CLOSURE_INVALID') }
 

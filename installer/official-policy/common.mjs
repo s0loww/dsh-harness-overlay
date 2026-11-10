@@ -119,7 +119,7 @@ export function policyPackageNames(manifest) {
   if (manifest.integrations === undefined) return [...PACKAGES]
   const integrations = manifest.integrations
   if (!integrations || typeof integrations !== 'object' || Array.isArray(integrations)
-    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized'].includes(key))
+    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].includes(key))
     || Object.keys(integrations).length === 0) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
   const packages = [...PACKAGES]
   const feature = integrations.openspec
@@ -163,6 +163,7 @@ export function policyPackageNames(manifest) {
   for (const [key, name, fields] of [
     ['additionalProviders', 'airules-dsh-additional-providers', { authentication: 'explicit-user-action', bootstrap: false }],
     ['onecPanels', 'airules-dsh-onec-panels', { metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 }],
+    ['memoryWorkspace','airules-dsh-memory-workspace',{defaultEnabled:false,endpoint:'machine-loopback',scope:'native-project-dataset',processing:'explicit-local',migration:false,policyOwner:'project_rules'}],
     ['projectSettings', 'airules-dsh-project-settings', { bindings: 'project-local', deploy: false, mcp: false }],
     ['modelOrchestration', 'airules-dsh-model-orchestration', { enabledByUser: true, bindings: 'role-and-pool', globalInterception: false }],
     ['domainPresets', 'airules-dsh-domain-presets', { presets: ['python-airules', 'sysadmin-airules'], mcp: false, policyOwner: 'project_rules' }],
@@ -211,7 +212,7 @@ export function policyPackageNames(manifest) {
 }
 
 export function verifyNewFeatureMounts(fragment,integrations){
-  if(!['providerExtensions','cursorProvider','onecSpecialized'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
   let rows
   try {
     validatePolicyFragment(fragment)
@@ -224,6 +225,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
   const plugins=preset.config.plugins
   const count=(node,name)=>!node||typeof node!=='object'?0:(node.name===name?1:0)+Object.values(node).reduce((sum,value)=>sum+(Array.isArray(value)?value.reduce((n,row)=>n+count(row,name),0):count(value,name)),0)
   for(const [key,id,name]of[
+    ['memoryWorkspace','airules-memory','airules-dsh-memory-workspace'],
     ['providerExtensions','airules-provider-extensions','airules-dsh-provider-extensions'],
     ['cursorProvider','airules-cursor-provider','airules-dsh-cursor-provider'],
     ['onecSpecialized','airules-onec-specialized','airules-dsh-onec-specialized'],
@@ -232,6 +234,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
     if(found.length!==expected||count(rows,name)!==expected||found.some(row=>canonical(row)!==canonical({id,name})))throw new OfficialUiInstallerError('POLICY_NEW_FEATURE_MOUNT_INVALID')
   }
   for(const [enabled,id,name]of[
+    [!!integrations.memoryWorkspace,'airules-memory-tools','airules-dsh-memory-workspace/tools'],
     [!!integrations.onecPanels,'airules-onec-workbench-tools','airules-dsh-onec-panels/tools'],
     [!!integrations.onecSpecialized,'airules-onec-specialized-tools','airules-dsh-onec-specialized/tools'],
   ]){
@@ -243,7 +246,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
 
 async function verifyNewFeaturePayload(root,manifest){
   const integrations=manifest.integrations??{}
-  if(!['providerExtensions','cursorProvider','onecSpecialized'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
   const fragment=await readFile(join(root,'cordis.policy.fragment.yml'),'utf8')
   verifyNewFeatureMounts(fragment,integrations)
   if(integrations.providerExtensions){

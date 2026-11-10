@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "roots": {
+    "chokidar": "5.0.0",
+    "koffi": "3.1.1",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "@deepseek-ai/dsh-fs-patch": "0.2.2-rc.1"
+  },
+  "optionalDependencySelection": {
+    "koffi": [
+      "@koromix/koffi-win32-x64"
+    ]
+  },
+  "packages": [
+    {
+      "path": "@deepseek-ai/cosmokit",
+      "name": "@deepseek-ai/cosmokit",
+      "version": "1.9.0",
+      "license": "MIT",
+      "sha256": "61aefad0e6a7295d984b7179f46b58ce0153e209f78c9145863227e363813d6d"
+    },
+    {
+      "path": "@deepseek-ai/dsh-fs-patch",
+      "name": "@deepseek-ai/dsh-fs-patch",
+      "version": "0.2.2-rc.1",
+      "license": "MIT",
+      "sha256": "4c97529de1c970dd9faadd134d61515932e959ed31b2d1485d663c2045d4dff3"
+    },
+    {
+      "path": "@deepseek-ai/schemastery",
+      "name": "@deepseek-ai/schemastery",
+      "version": "3.19.0",
+      "license": "MIT",
+      "sha256": "0bc33911656297329e02bbf413e86a81e99fa62d07299177015a7b1842c54fad"
+    },
+    {
+      "path": "@koromix/koffi-win32-x64",
+      "name": "@koromix/koffi-win32-x64",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "69cd628eef468b4c058bb7f35733084b2970c764946a53b7f29ad2bdbdcc9101"
+    },
+    {
+      "path": "@standard-schema/spec",
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sha256": "7892fb3ec38ab29ec936a0d1941c016ecfa483004a5deecd2c73e71187f55a95"
+    },
+    {
+      "path": "chokidar",
+      "name": "chokidar",
+      "version": "5.0.0",
+      "license": "MIT",
+      "sha256": "3d824c9ed65a5b55adfbae7515f186831f3b35047ac528cd808a8e2c09a72f8f"
+    },
+    {
+      "path": "koffi",
+      "name": "koffi",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sha256": "1d64583d489392ac595e1229863eddd897839cfb5a587f0daf0ad364fc10c166"
+    },
+    {
+      "path": "readdirp",
+      "name": "readdirp",
+      "version": "5.1.1",
+      "license": "MIT",
+      "sha256": "82ec9cc3c7652c8d16de0ee58aa6aac9c14f806ce29c405b2538b80f4cc12be8"
+    }
+  ]
+}

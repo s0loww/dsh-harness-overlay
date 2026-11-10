@@ -270,7 +270,7 @@ export async function launchCandidateSmoke({ visible = false, timeoutMs = 20_000
   const metadata = { schemaVersion: 1, status: 'running', pid: child.pid, visible, startedAt, executable: relative(preflight.root, preflight.executable).replaceAll('\\', '/'), args }
   await writeFile(reportPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8')
   try {
-    await wait(Math.min(timeoutMs, 15_000))
+    await wait(timeoutMs)
     if (!alive(child)) throw new CandidateSmokeError('CANDIDATE_EXITED_EARLY', `exit=${child.exitCode} signal=${child.signalCode}`)
     child.kill()
     if (!await waitForExit(child, 10_000)) throw new CandidateSmokeError('CANDIDATE_GRACEFUL_STOP_TIMEOUT', `pid=${child.pid}`)

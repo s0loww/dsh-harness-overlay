@@ -4,10 +4,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve, isAbsolute, relative, sep } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
+import {resolveNativeHostOptions} from './native-host-options.mjs'
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const NATIVE = join(REPO, 'var/asar-extract-rc5/dsh/node_modules')
 const DEFAULT_POLICY = join(REPO,'dist/airules-official-policy-0.12.0-dev39')
-const mod = name => import(pathToFileURL(join(NATIVE, '@deepseek-ai', name, 'lib/index.js')))
+const mod = (name,modules=NATIVE) => import(pathToFileURL(join(modules, '@deepseek-ai', name, 'lib/index.js')))
 export const MATRIX = Object.freeze([
   { id: 'deepseek-local', provider: 'deepseek-account', model: 'deepseek-flash', effort: 'high', mcp: false },
   { id: 'deepseek-mcp', provider: 'deepseek-account', model: 'deepseek-flash', effort: 'high', mcp: true },
@@ -38,8 +39,9 @@ export async function loadSubscriptionPlugin(directory, dependencies = NATIVE, p
   return import(pathToFileURL(join(pkg,'lib/index.js')))
 }
 
-export async function mountMetadataHost({directory, authStorePath, credentialsPath, policyArtifactRoot = DEFAULT_POLICY}) {
+export async function mountMetadataHost({directory, authStorePath, credentialsPath, policyArtifactRoot = DEFAULT_POLICY,nativeModules,releaseLockPath}) {
   if (![directory,authStorePath,credentialsPath].every(isAbsolute)) throw new Error('EXPLICIT_ABSOLUTE_STORAGE_PATHS_REQUIRED')
+  const runtime=await resolveNativeHostOptions({nativeModules,releaseLockPath}),mod=name=>import(pathToFileURL(join(runtime.nativeModules,'@deepseek-ai',name,'lib/index.js')))
   const [{Context},{LlmRuntime},{LocalCredentialProvider},{AuthorizationService},{PlatformAccount},deepseek] = await Promise.all([
     mod('cordis'),mod('dsh-llm'),mod('dsh-credentials-local'),mod('dsh-authorization'),mod('dsh-deepseek-account-platform'),mod('dsh-llm-deepseek-account'),
   ])
@@ -51,7 +53,7 @@ export async function mountMetadataHost({directory, authStorePath, credentialsPa
   await mount('acceptance-authorization',scope=>new AuthorizationService(scope),['credentials'])
   await mount('acceptance-deepseek-account',scope=>new PlatformAccount(scope),['credentials','authorization'])
   await mount('acceptance-deepseek-llm',scope=>deepseek.apply(scope,{}),['llm'])
-  const subscription = await loadSubscriptionPlugin(directory, NATIVE, policyArtifactRoot)
+  const subscription = await loadSubscriptionPlugin(directory, runtime.nativeModules, policyArtifactRoot)
   await mount('acceptance-openai',scope=>subscription.apply(scope,{providers:['codex'],pool:{enabled:false}}, {authStorePath}),['llm'])
   return {ctx,llm:ctx.llm,readiness:async()=>{
     const entries=await ctx.llm.registration('codex').adapter.options.tokens.list(true)
@@ -113,7 +115,7 @@ export function evaluateLiveReport(report) {
 async function registerBoundedLint(host,{candidate,runRoot,binary,report}) {
   const base=join(candidate,'home/profiles/desktop/node_modules/airules-dsh-workflows')
   const [{createNativeProcessAdapter},{loadRuntime},{scrubbedParentEnv},{classifyRunnerFailure,matchesSignature},{defineTool}]=await Promise.all([
-    import(pathToFileURL(join(base,'lib/native-process.js'))),import(pathToFileURL(join(base,'lib/runtime.js'))),mod('dsh-subprocess'),mod('dsh-sandbox'),mod('dsh-tools'),
+    import(pathToFileURL(join(base,'lib/native-process.js'))),import(pathToFileURL(join(base,'lib/runtime.js'))),mod('dsh-subprocess',host.nativeModules),mod('dsh-sandbox',host.nativeModules),mod('dsh-tools',host.nativeModules),
   ])
   const core=await loadRuntime();let counter=0
   async function analyze(agent,signal) {
@@ -151,7 +153,7 @@ ${mcp?'Parent and at least one child MUST each actually call '+DOC_TOOL+' with E
 function parse(argv) {
   const options = {}
   for(let index=0;index<argv.length;index+=2) {
-    if(!['--metadata-only','--auth-store','--credentials-store','--output','--run','--candidate-root','--project-root','--source-relative','--bsl-ls','--mcp-config','--policy-artifact','--ui-artifact'].includes(argv[index]) || !argv[index+1]) throw new Error('EXPLICIT_PROBE_ARGUMENTS_REQUIRED')
+    if(!['--metadata-only','--auth-store','--credentials-store','--output','--run','--candidate-root','--project-root','--source-relative','--bsl-ls','--mcp-config','--policy-artifact','--ui-artifact','--native-modules','--release-lock'].includes(argv[index]) || !argv[index+1]) throw new Error('EXPLICIT_PROBE_ARGUMENTS_REQUIRED')
     options[argv[index].slice(2)] = argv[index+1]
   }
   return options
@@ -201,7 +203,7 @@ export async function main(argv=process.argv.slice(2)) {
       mcpConfig={serverName:'1C-docs-mcp',transport:'streamable-http',url:raw.url,headers:raw.headers??{}}
     }
     const {bootNativeHost}=await import('./live-native-host.mjs')
-    host=await bootNativeHost({candidateRoot:candidate,runRoot,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],provider:route.provider,model:route.model,effort:route.effort,guard,mcpConfig,onEvent,maxRequests:24,policyArtifactRoot,uiArtifactRoot})
+    host=await bootNativeHost({candidateRoot:candidate,runRoot,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],provider:route.provider,model:route.model,effort:route.effort,guard,mcpConfig,onEvent,maxRequests:24,policyArtifactRoot,uiArtifactRoot,nativeModules:options['native-modules'],releaseLockPath:options['release-lock']})
     report.runtimeProof=host.runtimeProof
     parentId=report.parentId=host.agent.id
     report.mcpRegistered=host.ctx.tools.schemas(host.agent).filter(tool=>tool.name.startsWith('mcp__')).length
@@ -252,7 +254,7 @@ async function metadataMain(options) {
   process.env.DSH_HOME=join(directory,'home');process.env.DSH_AGENTS_HOME=join(directory,'home-agents');process.env.DSH_TELEMETRY_DISABLED='1'
   let host
   try {
-    host=await mountMetadataHost({directory,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],policyArtifactRoot:resolve(options['policy-artifact']??DEFAULT_POLICY)})
+    host=await mountMetadataHost({directory,authStorePath:options['auth-store'],credentialsPath:options['credentials-store'],policyArtifactRoot:resolve(options['policy-artifact']??DEFAULT_POLICY),nativeModules:options['native-modules'],releaseLockPath:options['release-lock']})
     const readiness=await host.readiness(),result=[]
     for(const provider of ['codex','deepseek-account']) {
       const models=await host.llm.listModels(provider)

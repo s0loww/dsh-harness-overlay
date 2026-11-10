@@ -106,7 +106,16 @@ export function validateUiOverlayManifest(manifest, inventory) {
   assert(manifest.sourceRelease?.releaseId === inventory.source.releaseId, 'UI_OVERLAY_SOURCE_RELEASE_MISMATCH')
   assert(manifest.target?.unknownTargetPolicy === 'block', 'UI_OVERLAY_UNKNOWN_TARGET_NOT_BLOCKED')
   assert(manifest.target?.releaseIds?.includes(inventory.source.releaseId), 'UI_OVERLAY_TARGET_RELEASE_MISSING')
-  assert(manifest.target?.hostVersions?.includes(inventory.source.hostVersion), 'UI_OVERLAY_TARGET_HOST_MISSING')
+  const targetHost = manifest.target?.hostVersions
+  const native022 = Array.isArray(targetHost) && targetHost.length === 1 && targetHost[0] === '0.2.2-rc.1'
+  assert(native022 || targetHost?.includes(inventory.source.hostVersion), 'UI_OVERLAY_TARGET_HOST_MISSING')
+  if (native022) {
+    assert(manifest.target.releaseIds.includes('official-desktop-0.2.2-rc.1'), 'UI_OVERLAY_NATIVE_TARGET_MISSING')
+    for (const name of ['general','models','account'].map(suffix=>'@deepseek-ai/dsh-client-ui-settings-'+suffix)) {
+      const row=manifest.packageProvenance?.find(row=>row.name===name)
+      assert(row?.origin==='official-native-compat' && row.hostVersion==='0.2.2-rc.1' && row.version==='0.2.2-rc.1' && HASH.test(row.sourceDirectorySha256??''), 'UI_OVERLAY_NATIVE_PROVENANCE_INVALID', name)
+    }
+  }
   assert(HASH.test(manifest.target?.baselineLockSha256 ?? ''), 'UI_OVERLAY_BASELINE_HASH_INVALID')
   for (const value of Object.values(object(manifest.separation, 'UI_OVERLAY_SEPARATION_MISSING'))) {
     assert(value === false, 'UI_OVERLAY_LAYER_LEAK')

@@ -25,6 +25,7 @@ const MOBILE = join(REPO, 'src', 'mobile-access')
 const MOBILE_LOCK = join(REPO, 'upstream', 'mobile-closure.lock.json')
 const MCP_MANAGER = join(REPO, 'src', 'mcp-manager')
 const ADDITIONAL_PROVIDERS = join(REPO, 'src', 'additional-providers')
+const CONTEXT_CONTINUITY = join(REPO, 'src', 'context-continuity')
 const MEMORY_WORKSPACE = join(REPO, 'src', 'memory-workspace')
 const ONEC_PANELS = join(REPO, 'src', 'onec-panels')
 const PROJECT_SETTINGS = join(REPO, 'src', 'project-settings')
@@ -281,7 +282,7 @@ function args(argv) {
   for (let index = 2; index < argv.length; index += 2) {
     const key = argv[index]
     const value = argv[index + 1]
-    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized', '--include-memory-workspace'].includes(key) || value === undefined) throw new Error('USAGE')
+    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized', '--include-memory-workspace', '--include-context-continuity', '--continuity-rules-root'].includes(key) || value === undefined) throw new Error('USAGE')
     if (key.startsWith('--include-') && !['true', 'false'].includes(value)) throw new Error('BOOLEAN_OPTION_REQUIRED')
     out[key.slice(2)] = value
   }
@@ -289,8 +290,8 @@ function args(argv) {
   return out
 }
 
-export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false }) {
-  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false, includeContextContinuity = false, continuityRulesRoot }) {
+  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace,includeContextContinuity].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
   if(includeProviderExtensions&&(!includeAcp||!includeAdditionalProviders))throw new Error('PROVIDER_EXTENSIONS_REQUIRE_ACP_AND_ADDITIONAL_PROVIDERS')
   if(includeProviderExtensions&&(typeof nativeModules!=='string'||!isAbsolute(nativeModules)))throw new Error('PROVIDER_EXTENSIONS_EXPLICIT_NATIVE_MODULES_REQUIRED')
   if(includeOnecSpecialized&&(!includeWorkflows||!includeOnecPanels))throw new Error('ONEC_SPECIALIZED_REQUIRE_WORKFLOWS_AND_ONEC_PANELS')
@@ -315,8 +316,15 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
   }
   const lockBytes = await readFile(targetLock)
   const lock = JSON.parse(lockBytes.toString('utf8').replace(/^\uFEFF/u, ''))
-  if (lock.target !== 'official-desktop' || lock.hostVersion !== '0.2.1-rc.5') throw new Error('TARGET_LOCK_INVALID')
+  if (lock.target !== 'official-desktop' || !['0.2.1-rc.5','0.2.2-rc.1'].includes(lock.hostVersion)) throw new Error('TARGET_LOCK_INVALID')
 
+  let standardSha256='0d398d2a6872a73a106cb3bd19303ecccf1637e1fcad4d0bf9d8a72d2c2c68f5'
+  if(lock.hostVersion==='0.2.2-rc.1') {
+    if(typeof nativeModules!=='string'||!isAbsolute(nativeModules))throw new Error('NATIVE_MODULES_REQUIRED')
+    const standard=await readFile(join(nativeModules,'@deepseek-ai/dsh-web-app/presets/standard.patch.yml'))
+    standardSha256=sha256(standard)
+    if(standardSha256!=='3006cc3780cddaa7fb0089e5854e6bbef4409cf1d425930fd835226b95660afd')throw new Error('NATIVE_STANDARD_DRIFT')
+  }
   const bundle = await resolvePolicySourceBundle(sourceBundle)
   const sourceNodeModules = join(bundle, 'node_modules')
   const parent = dirname(destination)
@@ -324,7 +332,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
   const stage = join(parent, `.${destination.split(sep).at(-1)}.staging-${randomUUID()}`)
   await mkdir(stage)
   try {
-    let nativeFsIntegration
+    let nativeFsIntegration, continuityIntegration
     const packages = [
       ['airules-dsh-provider', PROVIDER],
       ['airules-dsh-rulepack', rulepackRoot],
@@ -343,6 +351,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       ...(includeAdditionalProviders ? [['airules-dsh-additional-providers', ADDITIONAL_PROVIDERS]] : []),
       ...(includeOnecPanels ? [['airules-dsh-onec-panels', ONEC_PANELS]] : []),
       ...(includeMemoryWorkspace ? [['airules-dsh-memory-workspace', MEMORY_WORKSPACE]] : []),
+      ...(includeContextContinuity ? [['airules-dsh-context-continuity', CONTEXT_CONTINUITY]] : []),
       ...(includeProjectSettings ? [['airules-dsh-project-settings', PROJECT_SETTINGS]] : []),
       ...(includeModelOrchestration ? [['airules-dsh-model-orchestration', MODEL_ORCHESTRATION]] : []),
       ...(includeDomainPresets ? [['airules-dsh-domain-presets', DOMAIN_PRESETS]] : []),
@@ -363,7 +372,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       if (name === '@zaimokuza/dsh-acp-adapter') continue
       const target = join(stage, 'payload', 'packages', name)
       await mkdir(dirname(target), { recursive: true })
-      if (name === COMPAT_PACKAGE) { nativeFsIntegration = await stageNativeFsCompat({nativeModules, target}); continue }
+      if (name === COMPAT_PACKAGE) { nativeFsIntegration = await stageNativeFsCompat({nativeModules, target,hostVersion:lock.hostVersion}); continue }
       await cp(source, target, { recursive: true, force: false, errorOnExist: true,
         ...(['airules-dsh-onec-panels','airules-dsh-provider-extensions','airules-dsh-cursor-provider','airules-dsh-onec-specialized'].includes(name) ? { filter: async path => {
           const parts=relative(source,path).split(sep)
@@ -377,8 +386,46 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
           if ((await lstat(path)).isSymbolicLink()) throw new Error('WORKFLOW_REPARSE_FORBIDDEN')
           return true
         } } : {}) })
+      if(['airules-dsh-workflows','airules-dsh-onec-panels','airules-dsh-general-tools','dsh-openspec-workflow','airules-dsh-document-workbench'].includes(name)){
+        const source=join(REPO,'src/native-tools-compat',lock.hostVersion==='0.2.2-rc.1'?'rc022.js':'rc5.js')
+        await writeFile(join(target,'lib/native-tools.js'),await readFile(source))
+      }
+      if (name === 'airules-dsh-context-continuity') {
+        if (typeof continuityRulesRoot !== 'string' || !isAbsolute(continuityRulesRoot)) throw new Error('CONTINUITY_CANONICAL_ROOT_REQUIRED')
+        const source=join(continuityRulesRoot,'core/tools/continuity'), runtime=join(target,'runtime/continuity')
+        await mkdir(runtime,{recursive:true})
+        const files={}
+        for(const file of ['contract.json','checkpoint.schema.json','fixtures.json']){
+          const path=join(source,file),info=await lstat(path)
+          if(!info.isFile()||info.isSymbolicLink())throw new Error('CONTINUITY_CANONICAL_FILE_REJECTED')
+          const bytes=await readFile(path);JSON.parse(bytes)
+          const embedded=await readFile(join(rulepackRoot,'contract/continuity',file))
+          if(!bytes.equals(embedded))throw new Error('CONTINUITY_RULEPACK_CANONICAL_MISMATCH')
+          await writeFile(join(runtime,file),bytes,{flag:'wx'});files[file]={sha256:sha256(bytes),bytes:bytes.length}
+        }
+        continuityIntegration={package:name,policyOwner:'project_rules',mode:'minimal',memoryWrites:false,canonical:{files,digest:digestData(files)}}
+      }
+      if (lock.hostVersion==='0.2.2-rc.1' && name!=='airules-dsh-rulepack') {
+        const path=join(target,'package.json'),pkg=await readJson(path)
+        for(const key of Object.keys(pkg.peerDependencies??{})) if(pkg.peerDependencies[key]==='0.2.1-rc.5' && key.startsWith('@deepseek-ai/')){
+          const native=await readJson(join(nativeModules,key,'package.json'))
+          if(native.name!==key||native.version!==lock.hostVersion)throw new Error('NATIVE_HOST_PEER_MISMATCH')
+          pkg.peerDependencies[key]=lock.hostVersion
+        }
+        await writeFile(path,JSON.stringify(pkg,null,2)+'\n')
+      }
       if (name === 'airules-dsh-general-tools') await verifyMermaidRuntime(join(stage, 'payload', 'packages', 'airules-dsh-rulepack'), target)
       if (name === 'airules-dsh-domain-presets') {
+        if(lock.hostVersion==='0.2.2-rc.1') {
+          const file=join(target,'standard.plugins.json'),base=await readJson(file)
+          base.find(row=>row.id==='tool-fs').config={applyPatch:false}
+          const subagent=base.find(row=>row.id==='subagents')??base.find(row=>Array.isArray(row.config)&&row.config.some(x=>x.id==='tool-subagent'))
+          if(!subagent)throw new Error('DOMAIN_SUBAGENT_BASE_MISSING')
+          subagent.config=subagent.config.filter(row=>row.id!=='tool-subagent-list-agents')
+          const config=subagent.config.find(row=>row.id==='tool-subagent').config
+          delete config.modelSelectionSettings;config.modelSelection=true;config.modelDiscovery=true
+          await writeFile(file,JSON.stringify(base,null,2)+'\n')
+        }
         for (const domain of ['python', 'sysadmin']) for (const kind of ['rules', 'skills']) {
           const canonicalSource = join(resolve(domainRulesRoot), domain, kind)
           if (await pathKind(canonicalSource) !== 'directory') throw new Error('CANONICAL_DOMAIN_RULES_REQUIRED')
@@ -427,7 +474,18 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         await mkdir(dirname(target), { recursive: true })
         await cp(join(modules, row.path), target, { recursive: true, force: false, errorOnExist: true })
       }
-      const adapterManifest = await readJson(join(adapter, 'package.json'))
+      const adapterManifestBytes=await readFile(join(adapter,'package.json'))
+      const adapterManifest = JSON.parse(adapterManifestBytes)
+      let engineAdaptation
+      if(lock.hostVersion==='0.2.2-rc.1'){
+        if(adapterManifest.engines?.dsh!=='0.2.1-rc.3 || 0.2.1-rc.5')throw new Error('ACP_SOURCE_ENGINE_DRIFT')
+        if(sha256(adapterManifestBytes)!=='940e499d84127eb1634ebd684e5d722150f7b54b05c675d28644717269927736')throw new Error('ACP_SOURCE_MANIFEST_DRIFT')
+        adapterManifest.engines.dsh=lock.hostVersion
+        const stagedManifestBytes=Buffer.from(JSON.stringify(adapterManifest,null,2)+'\n')
+        if(sha256(stagedManifestBytes)!=='7cf400f2cd2b713a7bf44086948467035994df0d7766acfd8174ac1e2bc376ac')throw new Error('ACP_STAGED_MANIFEST_DRIFT')
+        engineAdaptation={sourceManifestSha256:sha256(adapterManifestBytes),stagedManifestSha256:sha256(stagedManifestBytes),fromEngine:'0.2.1-rc.3 || 0.2.1-rc.5',toEngine:lock.hostVersion}
+        await writeFile(join(adapter,'package.json'),stagedManifestBytes)
+      }
       const nativeClosure = await inspectPackageClosure({ modulesRoot: adapterModules, roots: adapterManifest.dependencies })
       const wrapperModules = join(stage, 'payload', 'packages', 'airules-dsh-acp', 'node_modules')
       const sdk = join(wrapperModules, '@agentclientprotocol', 'sdk')
@@ -447,16 +505,17 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       acpIntegration = { package: 'airules-dsh-acp', defaultEnabled: false, inbound: 'local-named-pipe', outbound: 'native-external-agent',
         adapterVersion: '0.2.1-rc.3.1', sdkVersion: '1.5.1', dependencyLockSha256: sha256(await readFile(ACP_LOCK)),
         privateRuntimePackages: nativeClosure.packages.length + 2,
-        adaptation: { sourceSha256: sha256(Buffer.from(source)), stagedSha256: sha256(Buffer.from(adapted)) } }
+        adaptation: { sourceSha256: sha256(Buffer.from(source)), stagedSha256: sha256(Buffer.from(adapted)) },
+        ...(engineAdaptation?{engineAdaptation}:{}) }
       await rm(join(stage, '.acp-source-closure'), { recursive: true })
     }
     const optionalIntegrations = {}
     if(includeProviderExtensions){
       const dependencies=await stageProviderExtensionsDependencies({modulesRoot:sourceNodeModules,
-        targetRoot:join(stage,'payload','packages','airules-dsh-provider-extensions'),nativeModulesRoot:nativeModules})
+        targetRoot:join(stage,'payload','packages','airules-dsh-provider-extensions'),nativeModulesRoot:nativeModules,hostVersion:lock.hostVersion})
       optionalIntegrations.providerExtensions={package:'airules-dsh-provider-extensions',providers:['google','muse'],transport:'native-acp',
         runtime:'explicit-installed-executable',authentication:'explicit-user-action',defaultEnabled:false,bootstrap:false,
-        dependencyLockSha256:dependencies.dependencyLockSha256,privateRuntimePackages:dependencies.privateRuntimePackages.length,nativePiAiVersion:'1.1.0'}
+        dependencyLockSha256:dependencies.dependencyLockSha256,privateRuntimePackages:dependencies.privateRuntimePackages.length,nativePiAiVersion:dependencies.externalPeers[0].version}
     }
     if (includeDocumentWorkbench) await stageDocumentClosure({ modulesRoot: sourceNodeModules,
       targetModulesRoot: join(stage, 'payload', 'packages', 'airules-dsh-document-workbench', 'node_modules') })
@@ -494,6 +553,12 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
     const editorAdaptation = await adaptBslEditor(join(stage, 'payload', 'packages', 'dsh-bsl-editor'))
     const lspActionsAdaptation = await adaptOnecLspPackage(join(stage,'payload','packages','dsh-lsp-actions'),{hostVersion:lock.hostVersion})
     let fragment = await readFile(join(PRESET, 'cordis.patch.yml'), 'utf8')
+    if(lock.hostVersion==='0.2.2-rc.1'){
+      fragment=replaceOnce(fragment,"          - id: tool-fs\n            name: '@deepseek-ai/dsh-tool-fs'\n","          - id: tool-fs\n            name: '@deepseek-ai/dsh-tool-fs'\n            config:\n              applyPatch: false\n",'022 native patch optout')
+      fragment=replaceOnce(fragment,"              - id: tool-subagent-list-agents\n                name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'\n",'','022 native consolidated subagent control')
+      fragment=replaceOnce(fragment,'                  modelSelectionSettings: true\n','                  modelSelection: true\n                  modelDiscovery: true\n','022 native model discovery')
+    }
+
     fragment = replaceOnce(fragment,
       '          # Optional project workflow tools are inserted by the policy builder.\n',
       includeWorkflows ? '          - id: airules-workflow-tools\n            name: airules-dsh-workflows/tools\n' : '',
@@ -504,10 +569,12 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         includeDocumentWorkbench ? '          - id: airules-document-tools\n            name: airules-dsh-document-workbench/tools\n' : '',
         includeOnecCapabilities ? '          - id: airules-onec-capability-tools\n            name: airules-dsh-onec-capability-workflows/tools\n' : '',
         includeOnecPanels ? '          - id: airules-onec-workbench-tools\n            name: airules-dsh-onec-panels/tools\n' : '',
+        includeContextContinuity ? '          - id: airules-continuity-agent\n            name: airules-dsh-context-continuity/agent\n' : '',
         includeMemoryWorkspace ? '          - id: airules-memory-tools\n            name: airules-dsh-memory-workspace/tools\n' : '',
         includeOnecSpecialized ? '          - id: airules-onec-specialized-tools\n            name: airules-dsh-onec-specialized/tools\n' : ''].join(''),
       'portable workbench tools')
     const newHosts=[
+      [includeContextContinuity,'airules-continuity','airules-dsh-context-continuity'],
       [includeMemoryWorkspace,'airules-memory','airules-dsh-memory-workspace'],
       [includeProviderExtensions,'airules-provider-extensions','airules-dsh-provider-extensions'],
       [includeCursorProvider,'airules-cursor-provider','airules-dsh-cursor-provider'],
@@ -548,9 +615,9 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       if (!enabled && fragment.includes(mount)) fragment = replaceOnce(fragment, mount, '', `${id} disabled mount`)
       if (enabled && !fragment.includes(mount)) throw new Error(`INTEGRATION_MOUNT_MISSING: ${id}`)
     }
-    if (includeDomainPresets && (includeWorkflows || includeSharedSkills || includeGeneralTools || includeDocumentWorkbench || includeMemoryWorkspace)) fragment = replaceOnce(fragment,
+    if (includeDomainPresets && (includeWorkflows || includeSharedSkills || includeGeneralTools || includeDocumentWorkbench || includeMemoryWorkspace || includeContextContinuity)) fragment = replaceOnce(fragment,
       '    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n',
-      `    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n      config:\n${includeWorkflows ? '        workflows: true\n' : ''}${includeSharedSkills ? '        sharedSkills: true\n' : ''}${includeGeneralTools ? '        generalTools: true\n' : ''}${includeDocumentWorkbench ? '        documents: true\n' : ''}${includeMemoryWorkspace ? '        memory: true\n' : ''}`, 'domain workflow tools and shared skills')
+      `    - id: airules-domain-presets\n      name: airules-dsh-domain-presets\n      config:\n${includeWorkflows ? '        workflows: true\n' : ''}${includeSharedSkills ? '        sharedSkills: true\n' : ''}${includeGeneralTools ? '        generalTools: true\n' : ''}${includeDocumentWorkbench ? '        documents: true\n' : ''}${includeMemoryWorkspace ? '        memory: true\n' : ''}${includeContextContinuity ? '        continuity: true\n' : ''}`, 'domain workflow tools and shared skills')
     const adapterMount = "    - id: airules-acp-adapter\n      name: '@zaimokuza/dsh-acp-adapter'\n      inject: [llm, sessions, subprocess, dshHomePath, attachments, sessionProjections, permissionPresets, acpPermissionPolicy]\n      config:\n        agents: {}\n        toolApprovalDefault: ask\n"
     if (!includeAcp && fragment.includes(adapterMount)) fragment = replaceOnce(fragment, adapterMount, '', 'ACP native adapter disabled mount')
     if (includeAcp && !fragment.includes(adapterMount)) throw new Error('INTEGRATION_MOUNT_MISSING: airules-acp-adapter')
@@ -581,10 +648,11 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       separation: { mcpBindings: 'excluded', credentials: 'excluded', runtimeState: 'excluded', olegFullCanon: 'excluded' },
       preset: {
         id: '1c-airules', label: '1С', extensionPoint: '@deepseek-ai/dsh-agent-preset', scope: 'composition',
-        base: { id: 'standard', hostVersion: '0.2.1-rc.5', sourceSha256: '0d398d2a6872a73a106cb3bd19303ecccf1637e1fcad4d0bf9d8a72d2c2c68f5' },
+        base: { id: 'standard', hostVersion: lock.hostVersion, sourceSha256: standardSha256 },
       },
       rulepack: { version: rulepackManifest.package.version, sourceDirty: rulepackManifest.source?.dirty === true, counts: rulepackManifest.counts },
-      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace) ? { integrations: {
+      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace || includeContextContinuity) ? { integrations: {
+        ...(continuityIntegration ? {contextContinuity:continuityIntegration} : {}),
         ...(nativeFsIntegration ? {nativeFsCompat: nativeFsIntegration} : {}),
         ...(openSpecIntegration ? { openspec: openSpecIntegration } : {}),
         ...(includeTelegram ? { telegram: { package: 'airules-dsh-telegram', defaultEnabled: false, autostart: false, secretStorage: 'windows-dpapi-current-user', transport: 'single-owner-long-polling' } } : {}),
@@ -633,7 +701,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const manifest = await stageOfficialPolicy({ rulepack: options.rulepack, output: options.output, sourceBundle: options['source-bundle'], artifactVersion: options['artifact-version'], targetLock: options['target-lock'] ?? DEFAULT_LOCK,
       includeTelegram: options['include-telegram'] === 'true', includeAcp: options['include-acp'] === 'true', includeNativeFsCompat: options['include-native-fs-compat'] === 'true', nativeModules: options['native-modules'],
       includeSubscriptions: options['include-subscriptions'] === 'true', includeMobile: options['include-mobile'] === 'true',
-      includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',includeMemoryWorkspace:options['include-memory-workspace']==='true',
+      includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',includeMemoryWorkspace:options['include-memory-workspace']==='true',includeContextContinuity:options['include-context-continuity']==='true',continuityRulesRoot:options['continuity-rules-root'],
       includeMcpManager: options['include-mcp-manager'] === 'true', includeAdditionalProviders: options['include-additional-providers'] === 'true', includeOnecPanels: options['include-onec-panels'] === 'true', includeProjectSettings: options['include-project-settings'] === 'true', includeModelOrchestration: options['include-model-orchestration'] === 'true', includeDomainPresets: options['include-domain-presets'] === 'true', domainRulesRoot: options['domain-rules-root'], includeWorkflows: options['include-workflows'] === 'true', workflowRulesRoot: options['workflow-rules-root'], includeAgentImport: options['include-agent-import'] === 'true', includeSkillsManager: options['include-skills-manager'] === 'true', includeSharedSkills: options['include-shared-skills'] === 'true', includeGeneralTools: options['include-general-tools'] === 'true', includeDocumentWorkbench: options['include-document-workbench'] === 'true', includeOnecCapabilities: options['include-onec-capabilities'] === 'true' })
     process.stdout.write(`Staged ${manifest.artifact.id} ${manifest.artifact.version}: ${Object.keys(manifest.files).length} files\n`)
   } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1 }

@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, mkdir, writeFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -88,7 +89,7 @@ export function createToolRecoveryProvider({ ctx, scope, config, core, execution
       const signals = [context.signal, execution.signal].filter(Boolean)
       const signal = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
       signal?.throwIfAborted()
-      const raw = await ctx.tools.execute({ name: config.tool, agent: execution.agent, parent: execution.token,
+      const raw = await executeNativeTool(ctx,{ name: config.tool, agent: execution.agent, parent: execution.token,
         callId: `${execution.callId}:recovery:${context.recoveryId}`, rootCallId: execution.rootCallId ?? execution.callId,
         arguments: { schemaVersion: 1, projectId: config.projectId, ...identities }, signal })
       signal?.throwIfAborted()

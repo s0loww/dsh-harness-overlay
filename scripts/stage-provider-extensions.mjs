@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { inspectPackageClosure,stagePackageClosure } from './stage-package-closure.mjs'
 
+const nativeVersion=hostVersion=>{if(hostVersion==='0.2.1-rc.5')return '1.1.0';if(hostVersion==='0.2.2-rc.1')return '1.3.0';throw new Error('PROVIDER_EXTENSIONS_HOST_VERSION_REJECTED')}
 const LOCK=new URL('../upstream/provider-extensions-closure.lock.json',import.meta.url)
 const ROOTS={'@muse-code/sdk':'1.4.14','pi-antigravity-acp-provider':'0.1.17-bundle.5',typebox:'1.3.27'}
 const LICENSES=new Set(['MIT','Apache-2.0','ISC','BSD-2-Clause','BSD-3-Clause'])
@@ -40,18 +41,19 @@ async function nativePeer(nativeModulesRoot,targetRoot){
 }
 
 /** Cold import only; constructors, OAuth, CLI installation and requests are forbidden. */
-export async function verifyProviderExtensionsImports({targetRoot,nativeModulesRoot}){
+export async function verifyProviderExtensionsImports({targetRoot,nativeModulesRoot,hostVersion='0.2.1-rc.5'}){
+  const expectedVersion=nativeVersion(hostVersion)
   const target=await directory(targetRoot),peer=await nativePeer(nativeModulesRoot,target)
   await directory(peer)
   const metadata=JSON.parse(await readFile(join(peer,'package.json'),'utf8'))
-  if(metadata.name!=='@earendil-works/pi-ai'||metadata.version!=='1.1.0')throw new Error('PROVIDER_EXTENSIONS_NATIVE_PEER_MISMATCH')
+  if(metadata.name!=='@earendil-works/pi-ai'||metadata.version!==expectedVersion)throw new Error('PROVIDER_EXTENSIONS_NATIVE_PEER_MISMATCH')
   const nativeEntry=join(peer,'dist','index.js'),entryInfo=await lstat(nativeEntry)
   if(!entryInfo.isFile()||entryInfo.isSymbolicLink())throw new Error('PROVIDER_EXTENSIONS_NATIVE_PEER_ENTRY_REJECTED')
   const temporary=await mkdtemp(join(target,'.provider-import-probe-'))
   try {
     await cp(join(target,'node_modules'),join(temporary,'node_modules'),{recursive:true,errorOnExist:true,force:false})
     const peerShim=join(temporary,'node_modules','@earendil-works','pi-ai');await mkdir(peerShim,{recursive:true})
-    await writeFile(join(peerShim,'package.json'),JSON.stringify({name:'@earendil-works/pi-ai',version:'1.1.0',type:'module',exports:'./native-peer.mjs'}))
+    await writeFile(join(peerShim,'package.json'),JSON.stringify({name:'@earendil-works/pi-ai',version:expectedVersion,type:'module',exports:'./native-peer.mjs'}))
     // This re-export uses the real pinned host SDK and its own resolved dependencies.
     // It neither copies a donor pi-ai nor synthesizes provider behavior.
     await writeFile(join(peerShim,'native-peer.mjs'),`export * from ${JSON.stringify(pathToFileURL(nativeEntry).href)}\n`)
@@ -74,14 +76,14 @@ globalThis.fetch=deny;globalThis.WebSocket=class{constructor(){deny()}};syncBuil
 const [muse,runtime,connection,auth,pi]=await Promise.all([
 import('@muse-code/sdk'),import('pi-antigravity-acp-provider/dist/runtime.js'),import('pi-antigravity-acp-provider/dist/acp/connection.js'),import('pi-antigravity-acp-provider/dist/acp/antigravity.js'),import('@earendil-works/pi-ai')])
 for(const value of [muse.spawnMspConnection,runtime.AntigravityRuntime,connection.AntigravityAcpConnection,auth.inspectAntigravityAuth,auth.clearAntigravityCredentials,pi.collapseSystemMessages,pi.getCurrentSystemPrompt,pi.getCurrentTools,pi.normalizeContext])if(typeof value!=='function')throw new Error('PROVIDER_IMPORT_API_MISMATCH')
-process.stdout.write(JSON.stringify({muse:true,googleRuntime:true,googleConnection:true,googleAuth:true,nativePiAi:'1.1.0',networkUsed:false,runtimeStarted:false}))
+process.stdout.write(JSON.stringify({muse:true,googleRuntime:true,googleConnection:true,googleAuth:true,nativePiAi:${JSON.stringify(expectedVersion)},networkUsed:false,runtimeStarted:false}))
 `)
     const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>/^(?:PATH|PATHEXT|SystemRoot|WINDIR|COMSPEC|SYSTEMDRIVE|TEMP|TMP)$/iu.test(key)))
     env.ELECTRON_RUN_AS_NODE='1'
     let output
     try{output=await execFileAsync(process.execPath,[probe],{cwd:temporary,env,windowsHide:true,timeout:30000,maxBuffer:64*1024})}
     catch{throw new Error('PROVIDER_EXTENSIONS_IMPORT_PROBE_FAILED')}
-    try{const result=JSON.parse(output.stdout);if(!result.muse||!result.googleRuntime||result.nativePiAi!=='1.1.0'||result.networkUsed||result.runtimeStarted)throw new Error();return result}
+    try{const result=JSON.parse(output.stdout);if(!result.muse||!result.googleRuntime||result.nativePiAi!==expectedVersion||result.networkUsed||result.runtimeStarted)throw new Error();return result}
     catch{throw new Error('PROVIDER_EXTENSIONS_IMPORT_PROBE_INVALID')}
   }finally{
     if(!inside(target,resolve(temporary))||resolve(temporary)===target)throw new Error('PROVIDER_EXTENSIONS_TEMP_ESCAPE')
@@ -90,13 +92,14 @@ process.stdout.write(JSON.stringify({muse:true,googleRuntime:true,googleConnecti
 }
 
 /** Copy a pinned library-only closure into an already copied source plugin. */
-export async function stageProviderExtensionsDependencies({modulesRoot,targetRoot,nativeModulesRoot}){
+export async function stageProviderExtensionsDependencies({modulesRoot,targetRoot,nativeModulesRoot,hostVersion='0.2.1-rc.5'}){
+  const expectedVersion=nativeVersion(hostVersion)
   const source=await directory(modulesRoot),target=await directory(targetRoot),targetModules=join(target,'node_modules')
   if(inside(source,target)||inside(target,source))throw new Error('PROVIDER_EXTENSIONS_SELF_COPY_REJECTED')
   const bytes=await readFile(LOCK),lock=JSON.parse(bytes);validateLock(lock)
   // Fail before copy when the required native ABI cannot be supplied to the probe.
   const peer=await nativePeer(nativeModulesRoot,target),peerMeta=JSON.parse(await readFile(join(peer,'package.json'),'utf8'))
-  if(peerMeta.name!=='@earendil-works/pi-ai'||peerMeta.version!=='1.1.0')throw new Error('PROVIDER_EXTENSIONS_NATIVE_PEER_MISMATCH')
+  if(peerMeta.name!=='@earendil-works/pi-ai'||peerMeta.version!==expectedVersion)throw new Error('PROVIDER_EXTENSIONS_NATIVE_PEER_MISMATCH')
   const plugin=JSON.parse(await readFile(join(target,'package.json'),'utf8'))
   if(plugin.name!=='airules-dsh-provider-extensions')throw new Error('PROVIDER_EXTENSIONS_TARGET_PACKAGE_REJECTED')
   const actual=await inspectPackageClosure({modulesRoot:source,roots:lock.roots})
@@ -104,7 +107,7 @@ export async function stageProviderExtensionsDependencies({modulesRoot,targetRoo
   for(const row of lock.packages)await safeFiles(join(source,row.path))
   await directory(targetModules,true)
   await stagePackageClosure({modulesRoot:source,targetModulesRoot:targetModules,lock})
-  const importProbe=await verifyProviderExtensionsImports({targetRoot:target,nativeModulesRoot})
+  const importProbe=await verifyProviderExtensionsImports({targetRoot:target,nativeModulesRoot,hostVersion})
   return {dependencyLockSha256:hash(bytes),privateRuntimePackages:lock.packages.map(({name,version,license,sha256,path})=>({name,version,license,sha256,path})),
-    importProbe,externalPeers:[{name:'@earendil-works/pi-ai',version:'1.1.0',providedBy:'native-host'}],networkUsed:false,installScriptsExecuted:false,runtimeBinariesCopied:false}
+    importProbe,externalPeers:[{name:'@earendil-works/pi-ai',version:expectedVersion,providedBy:'native-host'}],networkUsed:false,installScriptsExecuted:false,runtimeBinariesCopied:false}
 }

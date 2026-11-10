@@ -6,9 +6,9 @@ import { DEFAULT_RELEASE_LOCK, verifyOfficialDesktop } from '../../src/targets/o
 import { canonical, directoryState, sameState, sha256, targetState } from '../fs-state.mjs'
 import { beneath, loadCandidate, OfficialUiInstallerError } from '../official-ui/common.mjs'
 import { analyzePolicyCordis, mergePolicyCordis,validatePolicyFragment } from './policy-cordis.mjs'
-import { NATIVE_FS_VERSION, NATIVE_FS_INPUT_SHA256, NATIVE_FS_OUTPUT_SHA256, NATIVE_FS_SANDBOX_INPUT_SHA256, NATIVE_FS_SANDBOX_OUTPUT_SHA256 } from '../../src/native-fs-compat/patch.mjs'
+import { nativeFsProfile } from '../../src/native-fs-compat/patch.mjs'
 import { inspectPackageClosure } from '../../scripts/stage-package-closure.mjs'
-import { ONEC_LSP_HOST_VERSION,ONEC_LSP_MANIFEST_SHA256,ONEC_LSP_STAGED_MANIFEST_SHA256,ONEC_LSP_ENTRY_SHA256 } from '../../src/onec-lsp-compat/patch.mjs'
+import { verifyOnecLspCompatibility } from '../../src/onec-lsp-compat/patch.mjs'
 import YAML from '../vendor/yaml/dist/index.js'
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)))
@@ -119,7 +119,7 @@ export function policyPackageNames(manifest) {
   if (manifest.integrations === undefined) return [...PACKAGES]
   const integrations = manifest.integrations
   if (!integrations || typeof integrations !== 'object' || Array.isArray(integrations)
-    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].includes(key))
+    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].includes(key))
     || Object.keys(integrations).length === 0) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
   const packages = [...PACKAGES]
   const feature = integrations.openspec
@@ -136,12 +136,15 @@ export function policyPackageNames(manifest) {
   }
   const acp = integrations.acp
   if (acp !== undefined) {
-    const { adapterVersion, sdkVersion, dependencyLockSha256, privateRuntimePackages, adaptation, ...base } = acp ?? {}
+    const { adapterVersion, sdkVersion, dependencyLockSha256, privateRuntimePackages, adaptation, engineAdaptation, ...base } = acp ?? {}
     if (canonical(base) !== canonical({ package: 'airules-dsh-acp', defaultEnabled: false, inbound: 'local-named-pipe', outbound: 'native-external-agent' })
       || adapterVersion !== '0.2.1-rc.3.1' || sdkVersion !== '1.5.1' || !HASH.test(dependencyLockSha256 ?? '')
       || !Number.isInteger(privateRuntimePackages) || privateRuntimePackages < 2
       || !adaptation || Object.keys(adaptation).sort().join(',') !== 'sourceSha256,stagedSha256'
       || !HASH.test(adaptation.sourceSha256 ?? '') || !HASH.test(adaptation.stagedSha256 ?? '')) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
+    if(manifest.target?.hostVersion==='0.2.2-rc.1'){
+      if(canonical(engineAdaptation)!==canonical({sourceManifestSha256:'940e499d84127eb1634ebd684e5d722150f7b54b05c675d28644717269927736',stagedManifestSha256:'7cf400f2cd2b713a7bf44086948467035994df0d7766acfd8174ac1e2bc376ac',fromEngine:'0.2.1-rc.3 || 0.2.1-rc.5',toEngine:'0.2.2-rc.1'}))throw new OfficialUiInstallerError('POLICY_ACP_ENGINE_ADAPTATION_INVALID')
+    }else if(engineAdaptation!==undefined)throw new OfficialUiInstallerError('POLICY_ACP_ENGINE_ADAPTATION_INVALID')
     packages.push('airules-dsh-acp')
     packages.push('@zaimokuza/dsh-acp-adapter')
   }
@@ -164,11 +167,20 @@ export function policyPackageNames(manifest) {
     ['additionalProviders', 'airules-dsh-additional-providers', { authentication: 'explicit-user-action', bootstrap: false }],
     ['onecPanels', 'airules-dsh-onec-panels', { metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 }],
     ['memoryWorkspace','airules-dsh-memory-workspace',{defaultEnabled:false,endpoint:'machine-loopback',scope:'native-project-dataset',processing:'explicit-local',migration:false,policyOwner:'project_rules'}],
+    ['contextContinuity','airules-dsh-context-continuity',{policyOwner:'project_rules',mode:'minimal',memoryWrites:false}],
     ['projectSettings', 'airules-dsh-project-settings', { bindings: 'project-local', deploy: false, mcp: false }],
     ['modelOrchestration', 'airules-dsh-model-orchestration', { enabledByUser: true, bindings: 'role-and-pool', globalInterception: false }],
     ['domainPresets', 'airules-dsh-domain-presets', { presets: ['python-airules', 'sysadmin-airules'], mcp: false, policyOwner: 'project_rules' }],
   ]) {
     if (integrations[key] === undefined) continue
+    if(key==='contextContinuity'){
+      const {canonical:closure,...base}=integrations[key]??{}
+      if(manifest.target?.hostVersion!=='0.2.2-rc.1'||canonical(base)!==canonical({package:name,...fields}))throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
+      workflowKeys(closure,['files','digest']);workflowKeys(closure.files,['contract.json','checkpoint.schema.json','fixtures.json'])
+      for(const row of Object.values(closure.files))workflowFileRow(row)
+      if(workflowDigest(closure.files)!==closure.digest)throw new OfficialUiInstallerError('POLICY_CONTINUITY_CANONICAL_INVALID')
+      packages.push(name);continue
+    }
     const legacyDomain = key === 'domainPresets' && canonical(integrations[key]) === canonical({ package: name, presets: ['python-airules', 'sysadmin-airules'], mcp: false })
     const legacyPanels=key==='onecPanels'&&canonical(integrations[key])===canonical({package:name,readOnly:true,root:'selected-session'})
     if (!legacyDomain&&!legacyPanels && canonical(integrations[key]) !== canonical({ package: name, ...fields })) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
@@ -191,13 +203,14 @@ export function policyPackageNames(manifest) {
   }
   if (integrations.nativeFsCompat !== undefined) {
     const {dependencyLockSha256, ...rest} = integrations.nativeFsCompat ?? {}
-    if (!HASH.test(dependencyLockSha256 ?? '') || canonical(rest) !== canonical({package:'airules-dsh-native-fs',patch:'utf8-bom-edit-v1',hostVersion:NATIVE_FS_VERSION,
-      localInputSha256:NATIVE_FS_INPUT_SHA256,localOutputSha256:NATIVE_FS_OUTPUT_SHA256,sandboxInputSha256:NATIVE_FS_SANDBOX_INPUT_SHA256,sandboxOutputSha256:NATIVE_FS_SANDBOX_OUTPUT_SHA256,privateRuntimePackages:7,target:'win32-x64'})) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_INVALID')
+    let native;try{native=nativeFsProfile(manifest.target?.hostVersion??'0.2.1-rc.5')}catch{throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_INVALID')}
+    if (!HASH.test(dependencyLockSha256 ?? '') || canonical(rest) !== canonical({package:'airules-dsh-native-fs',patch:native.patch,hostVersion:native.version,
+      localInputSha256:native.localInput,localOutputSha256:native.localOutput,sandboxInputSha256:native.sandboxInput,sandboxOutputSha256:native.sandboxOutput,privateRuntimePackages:native.version==='0.2.2-rc.1'?8:7,target:'win32-x64'})) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_INVALID')
     packages.push('airules-dsh-native-fs')
   }
   if(integrations.providerExtensions!==undefined){
     const {dependencyLockSha256,...base}=integrations.providerExtensions??{}
-    if(!integrations.acp||!integrations.additionalProviders||!HASH.test(dependencyLockSha256??'')||canonical(base)!==canonical({package:'airules-dsh-provider-extensions',providers:['google','muse'],transport:'native-acp',runtime:'explicit-installed-executable',authentication:'explicit-user-action',defaultEnabled:false,bootstrap:false,privateRuntimePackages:117,nativePiAiVersion:'1.1.0'}))throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
+    if(!integrations.acp||!integrations.additionalProviders||!HASH.test(dependencyLockSha256??'')||canonical(base)!==canonical({package:'airules-dsh-provider-extensions',providers:['google','muse'],transport:'native-acp',runtime:'explicit-installed-executable',authentication:'explicit-user-action',defaultEnabled:false,bootstrap:false,privateRuntimePackages:117,nativePiAiVersion:manifest.target?.hostVersion==='0.2.2-rc.1'?'1.3.0':'1.1.0'}))throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
     packages.push('airules-dsh-provider-extensions')
   }
   if(integrations.cursorProvider!==undefined){
@@ -212,7 +225,7 @@ export function policyPackageNames(manifest) {
 }
 
 export function verifyNewFeatureMounts(fragment,integrations){
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
   let rows
   try {
     validatePolicyFragment(fragment)
@@ -226,6 +239,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
   const count=(node,name)=>!node||typeof node!=='object'?0:(node.name===name?1:0)+Object.values(node).reduce((sum,value)=>sum+(Array.isArray(value)?value.reduce((n,row)=>n+count(row,name),0):count(value,name)),0)
   for(const [key,id,name]of[
     ['memoryWorkspace','airules-memory','airules-dsh-memory-workspace'],
+    ['contextContinuity','airules-continuity','airules-dsh-context-continuity'],
     ['providerExtensions','airules-provider-extensions','airules-dsh-provider-extensions'],
     ['cursorProvider','airules-cursor-provider','airules-dsh-cursor-provider'],
     ['onecSpecialized','airules-onec-specialized','airules-dsh-onec-specialized'],
@@ -235,6 +249,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
   }
   for(const [enabled,id,name]of[
     [!!integrations.memoryWorkspace,'airules-memory-tools','airules-dsh-memory-workspace/tools'],
+    [!!integrations.contextContinuity,'airules-continuity-agent','airules-dsh-context-continuity/agent'],
     [!!integrations.onecPanels,'airules-onec-workbench-tools','airules-dsh-onec-panels/tools'],
     [!!integrations.onecSpecialized,'airules-onec-specialized-tools','airules-dsh-onec-specialized/tools'],
   ]){
@@ -246,9 +261,15 @@ export function verifyNewFeatureMounts(fragment,integrations){
 
 async function verifyNewFeaturePayload(root,manifest){
   const integrations=manifest.integrations??{}
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
   const fragment=await readFile(join(root,'cordis.policy.fragment.yml'),'utf8')
   verifyNewFeatureMounts(fragment,integrations)
+  if(integrations.contextContinuity){
+    const prefix='payload/packages/airules-dsh-context-continuity/runtime/continuity/'
+    const expected=integrations.contextContinuity.canonical.files
+    const actual=Object.fromEntries(Object.entries(manifest.files).filter(([path])=>path.startsWith(prefix)).map(([path,row])=>[path.slice(prefix.length),row]))
+    if(workflowCanonical(actual)!==workflowCanonical(expected))throw new OfficialUiInstallerError('POLICY_CONTINUITY_CANONICAL_MISMATCH')
+  }
   if(integrations.providerExtensions){
     const bytes=await readFile(join(ROOT,'upstream/provider-extensions-closure.lock.json')),lock=JSON.parse(bytes)
     if(sha256(bytes)!==integrations.providerExtensions.dependencyLockSha256||lock.packages.length!==117)throw new OfficialUiInstallerError('POLICY_PROVIDER_EXTENSIONS_LOCK_MISMATCH')
@@ -292,17 +313,24 @@ export async function verifyPolicyArtifact(artifactRoot) {
     if (!row || !HASH.test(row.sha256 ?? '') || row.bytes !== actual[path]?.bytes || row.sha256 !== actual[path]?.sha256) throw new OfficialUiInstallerError('POLICY_FILE_HASH_MISMATCH', path)
   }
   const packageNames = policyPackageNames(manifest)
+  if(manifest.integrations?.acp?.engineAdaptation){
+    const bytes=await readFile(join(root,'payload/packages/@zaimokuza/dsh-acp-adapter/package.json'))
+    if(sha256(bytes)!==manifest.integrations.acp.engineAdaptation.stagedManifestSha256||JSON.parse(bytes).engines?.dsh!==manifest.target.hostVersion)throw new OfficialUiInstallerError('POLICY_ACP_ENGINE_PAYLOAD_MISMATCH')
+  }
   const lspCompatibility=manifest.onecMechanics?.packages?.['dsh-lsp-actions']?.adaptation
   if(lspCompatibility!==undefined){
-    const expected={sourceManifestSha256:ONEC_LSP_MANIFEST_SHA256,stagedManifestSha256:ONEC_LSP_STAGED_MANIFEST_SHA256,sourceEntrySha256:ONEC_LSP_ENTRY_SHA256,hostVersion:ONEC_LSP_HOST_VERSION,contract:'exact-rc5-native-agent-lsp-admission-no-server-proof'}
     const base=join(root,'payload/packages/dsh-lsp-actions')
-    if(canonical(lspCompatibility)!==canonical(expected)||manifest.target.hostVersion!==ONEC_LSP_HOST_VERSION||sha256(await readFile(join(base,'package.json')))!==ONEC_LSP_STAGED_MANIFEST_SHA256||sha256(await readFile(join(base,'lib/index.js')))!==ONEC_LSP_ENTRY_SHA256)throw new OfficialUiInstallerError('POLICY_LSP_COMPATIBILITY_MISMATCH')
+    try {
+      const expected=verifyOnecLspCompatibility(await readFile(join(base,'package.json')),await readFile(join(base,'lib/index.js')),{hostVersion:manifest.target.hostVersion})
+      if(canonical(lspCompatibility)!==canonical(expected))throw new Error('mismatch')
+    }catch{throw new OfficialUiInstallerError('POLICY_LSP_COMPATIBILITY_MISMATCH')}
   }
   if (manifest.integrations?.nativeFsCompat) {
     const base = join(root, 'payload/packages/airules-dsh-native-fs'), feature = manifest.integrations.nativeFsCompat
-    const lockBytes = await readFile(join(ROOT, 'upstream/native-fs-closure.lock.json')), lock = JSON.parse(lockBytes)
-    if (sha256(lockBytes) !== feature.dependencyLockSha256 || sha256(await readFile(join(base, 'lib/local.js'))) !== NATIVE_FS_OUTPUT_SHA256
-      || sha256(await readFile(join(base, 'lib/index.js'))) !== NATIVE_FS_SANDBOX_OUTPUT_SHA256) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_HASH_MISMATCH')
+    const native=nativeFsProfile(manifest.target.hostVersion)
+    const lockBytes = await readFile(join(ROOT, 'upstream',native.lock)), lock = JSON.parse(lockBytes)
+    if (sha256(lockBytes) !== feature.dependencyLockSha256 || sha256(await readFile(join(base, 'lib/local.js'))) !== native.localOutput
+      || sha256(await readFile(join(base, 'lib/index.js'))) !== native.sandboxOutput) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_COMPAT_HASH_MISMATCH')
     const closure = await inspectPackageClosure({modulesRoot:join(base,'node_modules'),roots:lock.roots,optionalDependencySelection:lock.optionalDependencySelection})
     if (canonical(closure) !== canonical(lock)) throw new OfficialUiInstallerError('POLICY_NATIVE_FS_CLOSURE_MISMATCH')
     const fragment = await readFile(join(root, 'cordis.policy.fragment.yml'), 'utf8')

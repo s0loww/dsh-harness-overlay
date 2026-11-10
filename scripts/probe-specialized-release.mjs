@@ -1,3 +1,4 @@
+import {executeProbeTool} from './probe-tool-call.mjs'
 import assert from 'node:assert/strict'
 import { createHash,randomUUID } from 'node:crypto'
 import { mkdir,readFile,writeFile,access,rm } from 'node:fs/promises'
@@ -17,7 +18,7 @@ const sha=value=>createHash('sha256').update(value).digest('hex')
 const tick=ms=>new Promise(resolve=>setTimeout(resolve,ms))
 export function parseArguments(argv){
   const values={servePreview:false,previewTimeoutMs:600000}
-  const keys={'--candidate-root':'candidateRoot','--ui-artifact':'uiArtifactRoot','--policy-artifact':'policyArtifactRoot','--preview-timeout-ms':'previewTimeoutMs'}
+  const keys={'--candidate-root':'candidateRoot','--ui-artifact':'uiArtifactRoot','--policy-artifact':'policyArtifactRoot','--preview-timeout-ms':'previewTimeoutMs','--native-modules':'nativeModules','--release-lock':'releaseLockPath'}
   for(let index=0;index<argv.length;index++){
     const key=argv[index]
     if(key==='--serve-preview'){values.servePreview=true;continue}
@@ -67,7 +68,7 @@ export async function persistPreviewFixture(ctx,{root,agent,id}){
   return {workspaceId:String(workspace.id),sessionId:id,persisted:true,attached:true}
 }
 function textValues(value){if(typeof value==='string')return[value];if(Array.isArray(value))return value.flatMap(textValues);return value&&typeof value==='object'?Object.values(value).flatMap(textValues):[]}
-export function composerProvenanceProof(value){
+export function composerProvenanceProof(value,{hostVersion='0.2.1-rc.5'}={}){
   const found=[]
   function visit(row){if(!row||typeof row!=='object')return;if(Object.keys(COMPOSER_SOURCE).every(key=>typeof row[key]==='string')&&typeof row.stagedClientSha256==='string')found.push(row);for(const child of Object.values(row))visit(child)}
   visit(value)
@@ -75,15 +76,15 @@ export function composerProvenanceProof(value){
   const proof=found[0]
   for(const[key,expected]of Object.entries(COMPOSER_SOURCE))assert.equal(proof[key],expected,'pinned composer source provenance')
   for(const key of ['stagedManifestSha256','stagedClientSha256'])assert.match(proof[key],/^[a-f0-9]{64}$/u)
-  assert.equal(proof.hostVersion,'0.2.1-rc.5')
-  assert.equal(proof.contract,'exact-rc5-retained-chat-projection-no-storage-migration')
+  assert.ok(['0.2.1-rc.5','0.2.2-rc.1'].includes(hostVersion));assert.equal(proof.hostVersion,hostVersion)
+  assert.equal(proof.contract,hostVersion==='0.2.1-rc.5'?'exact-rc5-retained-chat-projection-no-storage-migration':'exact-rc022-retained-chat-projection-no-storage-migration')
   return proof
 }
-export async function inspectComposerCompatibility(modules,uiArtifactRoot){
+export async function inspectComposerCompatibility(modules,uiArtifactRoot,{hostVersion='0.2.1-rc.5'}={}){
   const manifest=JSON.parse(await readFile(join(uiArtifactRoot,'ui-overlay-manifest.json'),'utf8'))
-  const row=manifest.packageProvenance.find(value=>value.name==='dsh-composer-history'),proof=composerProvenanceProof(row)
+  const row=manifest.packageProvenance.find(value=>value.name==='dsh-composer-history'),proof=composerProvenanceProof(row,{hostVersion})
   const packageBytes=await Promise.all(['package.json','lib/index.js','lib/client.js'].map(file=>readFile(join(modules,'dsh-composer-history',file))))
-  const verified=verifyComposerHistoryCompatibility(...packageBytes)
+  const verified=verifyComposerHistoryCompatibility(...packageBytes,{hostVersion})
   for(const[key,value]of Object.entries(verified))assert.equal(proof[key],value,'composer compatibility matches reviewed staged bytes')
   for(const file of ['package.json','lib/index.js','lib/client.js']){
     const installed=await readFile(join(modules,'dsh-composer-history',file)),path=`payload/packages/dsh-composer-history/${file}`
@@ -122,16 +123,22 @@ export async function inspectProviderCards(modules){
     metadataOnly:true,browserMounted:false}
 }
 
-export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifactRoot,servePreview=false,previewTimeoutMs=600000,extraAcceptance}){
+export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifactRoot,servePreview=false,previewTimeoutMs=600000,extraAcceptance,nativeModules,releaseLockPath}){
   const candidate=assertCandidatePath(candidateRoot)
-  await preflightCandidate({candidateRoot:candidate,uiArtifactRoot,policyArtifactRoot})
+  const declaredHost=JSON.parse(await readFile(join(candidate,'candidate-manifest.json'),'utf8')).source?.hostVersion
+  if(!['0.2.1-rc.5','0.2.2-rc.1'].includes(declaredHost))throw new Error('RELEASE_PROBE_HOST_UNSUPPORTED')
+  const verified=await preflightCandidate({candidateRoot:candidate,uiArtifactRoot,policyArtifactRoot,releaseLockPath:releaseLockPath??(declaredHost==='0.2.2-rc.1'?join(REPO,'upstream/official-desktop/0.2.2-rc.1/release.lock.json'):undefined)})
+  const hostVersion=verified.hostVersion
+  if(nativeModules)process.env.AIRULES_PROBE_NATIVE_MODULES=resolve(nativeModules)
+  if(hostVersion==='0.2.2-rc.1'&&!nativeModules)throw new Error('RELEASE_PROBE_NATIVE_MODULES_REQUIRED')
   const installed=join(candidate,'home/profiles/desktop/node_modules'),smoke=join(candidate,'smoke')
   await mkdir(smoke,{recursive:true})
   const report={schemaVersion:1,acceptanceScope:'native-host-installed-bytes-and-authenticated-loopback',browserAcceptance:'requires-separate-browser-proof',
     artifacts:{ui:JSON.parse(await readFile(join(uiArtifactRoot,'ui-overlay-manifest.json'),'utf8')).artifact,policy:JSON.parse(await readFile(join(policyArtifactRoot,'official-policy-manifest.json'),'utf8')).artifact},
     checks:[],modelRequestAttempts:0,externalConnectionAttempts:0,mcpCallsExecuted:0,projectRunnersExecuted:0,realOnecCalls:0,deploymentsExecuted:0,unexpectedTools:[],nativeSubprocessAttempts:0}
   const check=(name,passed)=>{report.checks.push({name,passed:!!passed});assert.ok(passed,name)}
-  const modules=join(REPO,'var/asar-extract-rc5/dsh/node_modules/@deepseek-ai'),patch=join(candidate,'specialized-release-probe.patch.yml')
+  const modules=nativeModules?join(resolve(nativeModules),'@deepseek-ai'):join(REPO,'var/asar-extract-rc5/dsh/node_modules/@deepseek-ai'),patch=join(candidate,'specialized-release-probe.patch.yml')
+  assert.equal(JSON.parse(await readFile(join(modules,'dsh/package.json'),'utf8')).version,hostVersion,'probe SDK matches verified candidate')
   await writeFile(patch,'- id: web-runtime\n  config:\n    openBrowser: false\n    printUrl: false\n    surfaceContext: false\n- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n    compression: gzip\n    compressionLevel: 1\n    compressionThresholdBytes: 1024\n- id: ui-settings-general\n  name: \'@deepseek-ai/dsh-client-ui-settings-general\'\n  config:\n    welcomeNoticeVersion: 2026-09-28.1\n')
   process.env.DSH_HOME=join(candidate,'home');process.env.DSH_AGENTS_HOME=join(candidate,'home-agents');process.env.DSH_TELEMETRY='off';process.env.DSH_TELEMETRY_DISABLED='1'
   process.chdir(candidate)
@@ -140,17 +147,23 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
   const deadline=setTimeout(()=>{process.stderr.write('SPECIALIZED_RELEASE_PROBE_TIMEOUT\n');process.exit(2)},180000)
   try {
     const {runProfile}=await import(pathToFileURL(join(modules,'dsh/lib/profile-boot.js'))),{loadLayeredEnv}=await import(pathToFileURL(join(modules,'dsh-app-boot/lib/index.js'))),{setSandboxMode}=await import(pathToFileURL(join(modules,'dsh-sandbox-policy/lib/index.js')))
+    process.env.DSH_CLIENT_VERSION=hostVersion
     app=await runProfile({profile:'desktop',environment:loadLayeredEnv('dsh',candidate),patchFiles:[patch],args:[]})
     const ctx=app.ctx
     ctx.on('agent/request',()=>{report.modelRequestAttempts++;throw new Error('RELEASE_PROBE_MODEL_REQUEST_FORBIDDEN')},{prepend:true})
-    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized',...(extraAcceptance?['airules_memory']:[])].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
-    ctx.subprocess.spawn=()=>{report.nativeSubprocessAttempts++;throw new Error('RELEASE_PROBE_RUNNER_FORBIDDEN')}
+    ctx.tools.guard(execution=>{if(['skill','airules_onec_specialized',...(extraAcceptance?['airules_memory','airules_continuity']:[])].includes(execution.name))return;report.unexpectedTools.push(execution.name);return 'RELEASE_PROBE_TOOL_FORBIDDEN'})
+    ctx.subprocess.spawn=options=>{
+      const argv=options?.argv??[],at=argv.indexOf('--no-optional-locks'),tail=at>=0?argv.slice(at):[]
+      const readonlyGit=extraAcceptance&&at>0&&/(?:^|[\\/])git(?:\.exe)?$/iu.test(argv[at-1])&&tail[1]==='-C'&&typeof tail[2]==='string'&&relative(candidate,resolve(tail[2])).startsWith('specialized-release-fixtures')&&tail[3]==='-c'&&tail[4]==='core.fsmonitor=false'&&tail[5]==='-c'&&tail[6]==='core.untrackedCache=false'&&JSON.stringify(tail.slice(7))===JSON.stringify(['rev-parse','HEAD'])
+      if(readonlyGit){report.blockedMechanicalGitAttempts=(report.blockedMechanicalGitAttempts??0)+1;throw new Error('RELEASE_PROBE_MECHANICAL_GIT_BLOCKED')}
+      report.nativeSubprocessAttempts++;throw new Error('RELEASE_PROBE_RUNNER_FORBIDDEN')
+    }
     report.plugins=[...ctx.loader.entries()].filter(row=>PACKAGES.includes(row.options?.name)).map(row=>({id:row.options.id,name:row.options.name,state:row.fiber?.state??null}))
     check('all three installed release plugins started',report.plugins.length===3&&report.plugins.every(row=>row.state===2))
     check('installed specialized and native workbench services exist',!!ctx.airulesOnecSpecialized&&!!ctx.airulesOnecWorkbench)
     const composer=[...ctx.loader.entries()].filter(row=>row.options?.name==='dsh-composer-history')
     check('installed composer history global fiber is active',composer.length===1&&composer[0].fiber?.state===2)
-    report.composerCompatibility=await inspectComposerCompatibility(installed,uiArtifactRoot)
+    report.composerCompatibility=await inspectComposerCompatibility(installed,uiArtifactRoot,{hostVersion})
     check('composer source and staged Chat projection hashes verified',report.composerCompatibility.installedBytesVerified&&report.composerCompatibility.storageMigration===false)
     report.providersUi=await inspectProviderCards(installed)
     check('installed provider modules expose twelve cold cards',report.providersUi.cards.length===12&&Object.values(report.providersUi.components).every(Boolean)&&report.providersUi.cards.every(row=>!row.hasKnownCount))
@@ -174,9 +187,9 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     const lspRow=composition?.rows?.find(row=>row.entryId==='onec-lsp-actions')
     report.lspCompatibility.activation=lspRow?{entryId:lspRow.entryId,enabled:lspRow.enabled,fiberState:lspRow.fiberState}:null
     check('native scoped LSP fiber is enabled and active',lspRow?.enabled===true&&lspRow?.fiberState===2)
-    report.lspCompatibility.hashes=verifyOnecLspCompatibility(await readFile(join(installed,'dsh-lsp-actions/package.json')),await readFile(join(installed,'dsh-lsp-actions/lib/index.js')))
+    report.lspCompatibility.hashes=verifyOnecLspCompatibility(await readFile(join(installed,'dsh-lsp-actions/package.json')),await readFile(join(installed,'dsh-lsp-actions/lib/index.js')),{hostVersion})
     report.lspCompatibility.serverExecution='NOT_RUN'
-    check('installed LSP compatibility metadata and unchanged entry are pinned',report.lspCompatibility.hashes.hostVersion==='0.2.1-rc.5')
+    check('installed LSP compatibility metadata and unchanged entry are pinned',report.lspCompatibility.hashes.hostVersion===hostVersion)
     const rulepack=join(installed,'airules-dsh-rulepack'),manifest=JSON.parse(await readFile(join(rulepack,'manifest.json'),'utf8'))
     check('release declares canonical packaged skill inventory',manifest.counts.skills===manifest.inventories.skills.length&&manifest.counts.skills>=52)
     for(const row of agents){
@@ -187,7 +200,7 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
         if(!available)continue
         const bytes=await readFile(join(rulepack,'skills',name,'SKILL.md'));check(`${name} packaged canonical digest`,manifest.files[`skills/${name}/SKILL.md`]?.sha256===sha(bytes))
         check(`${name} inventory remains lazy`,!textValues(snapshot).some(text=>text.includes(bytes.toString('utf8').trim())))
-        const value=await row.agent.ctx.tools.execute({name:'skill',arguments:{name},agent:row.agent,callId:`release-skill-${randomUUID()}`,signal:signal()})
+        const value=await executeProbeTool(row.agent.ctx,{name:'skill',arguments:{name},agent:row.agent,callId:`release-skill-${randomUUID()}`,signal:signal()})
         const heading=bytes.toString('utf8').split(/\r?\n/u).find(line=>line.startsWith('# '))
         check(`${name} loads through installed native skill tool`,value.isError===false&&!!heading&&textValues(value.value??value.content).some(text=>text.includes(heading)))
       }
@@ -248,9 +261,10 @@ export async function runReleaseProbe({candidateRoot,uiArtifactRoot,policyArtifa
     report.status='PASS';await writeFile(join(smoke,'specialized-release-summary.json'),JSON.stringify(report,null,2)+'\n')
     return{status:report.status,checks:report.checks.length,reportPath:join(smoke,'specialized-release-summary.json')}
   }catch(error){
+    if(process.env.AIRULES_PROBE_DEBUG==='1')console.error(error.stack)
     report.status='FAIL';report.error=/^[A-Z0-9_ :.-]+$/u.test(error.code??'')?error.code:'RELEASE_PROBE_ASSERTION_FAILED'
     await writeFile(join(smoke,'specialized-release-summary.json'),JSON.stringify(report,null,2)+'\n').catch(()=>{})
-    await writeFile(join(smoke,'specialized-release-error.private.log'),String(error.stack??error),{mode:0o600}).catch(()=>{})
+    await writeFile(join(smoke,'specialized-release-error.private.log'),[error.stack,error.cause?.stack,error.cause?.cause?.stack].filter(Boolean).join('\nCAUSE:\n'),{mode:0o600}).catch(()=>{})
     throw Object.assign(new Error('SPECIALIZED_RELEASE_PROBE_FAILED'),{reportPath:join(smoke,'specialized-release-summary.json')})
   }finally{
     clearTimeout(deadline);if(privatePreviewPath)await rm(privatePreviewPath,{force:true});if(stopPath)await rm(stopPath,{force:true})

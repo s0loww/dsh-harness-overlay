@@ -1,0 +1,18 @@
+{
+  "@deepseek-ai/dsh-storage-domain": {
+    "version": "0.2.2-rc.1",
+    "digest": "890700953c397fec40bf93eb2c28091aafd2ce23c033d2aed96033cfd36fe6db"
+  },
+  "@deepseek-ai/schemastery": {
+    "version": "3.19.0",
+    "digest": "ed09b4f41b03e1c69c2535d5dc66bf4784db38f666f308ea1ec8dfc113244fa0"
+  },
+  "@deepseek-ai/cosmokit": {
+    "version": "1.9.0",
+    "digest": "e2d114e294d1eda1fe81c29b5771805b898633125392b6fdfcbfa131cfc61b96"
+  },
+  "zod": {
+    "version": "4.4.3",
+    "digest": "44dfd6d773d255f4c2f200f5eac920072852fc938d75c7e28885107fdf9eeaf7"
+  }
+}

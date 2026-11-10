@@ -1,15 +1,18 @@
 # DSH official Desktop overlay — release report
 
 Date: 2026-11-10
-Target: DeepSeek Harness Desktop `0.2.1-rc.5`
+Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current installed release: [UI23 / policy43 — local Cognee memory](memory-workspace-release.md).
-671 source tests, isolated native memory acceptance, candidate cycle, visible
-startup and installed Desktop memory UI/connection pass. Receipt integrity and
-51 after-states verified, drift 0. Canonical airules g89ba49d contains 55 rules,
-13 roles and 53 skills. Memoria remains primary; no real memory migration,
-new paid model call or real deployment. Official host update and context
-continuity have separate assessment/design documents.
+Current installed release: [DSH 0.2.2 / UI5 / policy50 — continuity and local memory](host022-continuity-release.md).
+Official signed NSIS completed, Windows registration and uninstaller verified.
+774 source tests passed before install; finalizer regression 14/14 and the
+four live model routes passed (62 requests). Native mounted continuity,
+Cognee connection, visible installed UI and 55 owned after-states pass.
+Canonical airules d563128: 55 rules, 13 roles, 53 skills. User conversations,
+MCP configuration and appearance preserved; only conflicting legacy RU
+autoload disabled with a backup. No real 1C deployment.
+
+Previous memory release: [UI23 / policy43](memory-workspace-release.md).
 
 Previous release: [UI22 / policy41 — specialized components](specialized-components-release.md).
 628 source tests, 73 native checks, actual browser/Ctrl+R, candidate cycle and

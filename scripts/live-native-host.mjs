@@ -3,15 +3,15 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { loadSubscriptionPlugin } from './probe-live-model-orchestration.mjs'
+import {resolveNativeHostOptions,installAcceptanceModelSelection,assertAcceptancePreStep} from './native-host-options.mjs'
 import { assertCandidatePath, preflightCandidate } from './smoke-official-candidate.mjs'
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const NATIVE = join(REPO, 'var/asar-extract-rc5/dsh/node_modules/@deepseek-ai')
-const native = name => import(pathToFileURL(join(NATIVE, name, 'lib/index.js')))
 
 /** Isolated native host. Booting never submits a model prompt. No auth file is copied. */
 export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, credentialsPath,
   provider, model, effort, guard, mcpConfig, onEvent = () => {}, maxRequests = 24,
+  nativeModules,releaseLockPath,
   policyArtifactRoot=join(REPO,'dist/airules-official-policy-0.12.0-dev39'),uiArtifactRoot=join(REPO,'dist/airules-ui-overlay-0.1.0-dev16') }) {
   if (![candidateRoot, runRoot, authStorePath, credentialsPath].every(isAbsolute) || typeof guard !== 'function') throw new Error('EXPLICIT_LIVE_HOST_BOUNDARIES_REQUIRED')
   candidateRoot = assertCandidatePath(candidateRoot)
@@ -20,13 +20,14 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
   if (!Number.isInteger(maxRequests) || maxRequests < 1 || maxRequests > 24) throw new Error('BOUNDED_REQUEST_BUDGET_REQUIRED')
   if (resolve(process.env.DSH_HOME ?? '') !== resolve(join(candidateRoot, 'home')) ||
     resolve(process.env.DSH_AGENTS_HOME ?? '') !== resolve(join(candidateRoot, 'home-agents'))) throw new Error('SET_ISOLATED_HOME_BEFORE_NATIVE_IMPORTS')
-  await preflightCandidate({ candidateRoot,
-    uiArtifactRoot, policyArtifactRoot })
+  const runtime=await resolveNativeHostOptions({nativeModules,releaseLockPath})
+  const NATIVE=join(runtime.nativeModules,'@deepseek-ai'),native=name=>import(pathToFileURL(join(NATIVE,name,'lib/index.js')))
+  await preflightCandidate({ candidateRoot,uiArtifactRoot,policyArtifactRoot,releaseLockPath:runtime.releaseLockPath })
   await mkdir(runRoot, { recursive: true })
   const patch = join(runRoot, 'live-host.patch.yml')
   const disabled = ['airules-subscriptions', 'airules-telegram', 'airules-mobile', 'airules-mcp-manager',
     'airules-acp', 'airules-acp-adapter', 'airules-additional-providers', 'session-title-llm',
-    'session-telemetry-otel', 'desktop-product-telemetry', 'llm-pi-ai', 'llm-deepseek', 'llm-deepseek-account', 'llm-retry']
+    'session-telemetry-otel', 'desktop-product-telemetry', 'product-analytics', 'llm-pi-ai', 'llm-deepseek', 'llm-deepseek-account', 'llm-retry']
   await writeFile(patch, disabled.map(id => `- id: ${id}\n  disabled: true\n`).join('') +
     `- id: credentials\n  config:\n    path: ${JSON.stringify(credentialsPath)}\n    watch: false\n` +
     `- id: sandbox-policy\n  config:\n    mode: workspace-write\n    workspaceRoot: ${JSON.stringify(runRoot)}\n` +
@@ -49,6 +50,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
       const policy = ctx.sandboxPolicy.resolve({ session: child.session })
       if (policy.mode !== 'workspace-write' || resolve(policy.workspaceRoot) !== resolve(runRoot)) throw new Error('NATIVE_CHILD_POLICY_DRIFT')
       onEvent('agent/created', { agentId: child.id, options: child.options, policy, parentSession: child.session.header.parentSession })
+      if(runtime.hostVersion==='0.2.2-rc.1')child.ctx.on('agent/pre-step',async(payload,next)=>{if(payload.agent===child)assertAcceptancePreStep(payload,{provider,model,reasoningEffort:effort});return next()},{prepend:true})
       child.ctx.on('agent/request', async (payload, next) => {
         // Scope routing also admits descendant events to ancestor listeners.
         // agentEvents injects the exact subject in addition to turn/step/signal.
@@ -70,7 +72,7 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
     ctx.on('agent/error', ({ agent: subject }) => onEvent('agent/error', { agentId: subject.id }), { global: true })
     const mount = async (plugin, config) => { const h = ctx.plugin(plugin, config); handles.push(h); await h.await(); return h }
     await mount(await native('dsh-llm-deepseek-account'), {})
-    const subscription = await loadSubscriptionPlugin(join(runRoot, 'host-runtime'),undefined,policyArtifactRoot)
+    const subscription = await loadSubscriptionPlugin(join(runRoot, 'host-runtime'),runtime.nativeModules,policyArtifactRoot)
     await mount({ name: 'acceptance-explicit-subscriptions', inject: ['llm'], apply(scope) {
       return subscription.apply(scope, { providers: ['codex'], pool: { enabled: false },
         rateLimit: { wait: false, maxWaitMs: 1 } }, { authStorePath })
@@ -84,12 +86,12 @@ export async function bootNativeHost({ candidateRoot, runRoot, authStorePath, cr
       meta: { cwd: runRoot, agentPreset: '1c-airules' }, agentOptions: route,
       setup: async (scope, created) => {
         setSandboxMode(created.session, 'workspace-write')
-        installModelSelection(scope, { current: route, assembled: undefined })
+        installAcceptanceModelSelection({scope,agent:created,route,hostVersion:runtime.hostVersion,installModelSelection})
         await ctx.agentPresets.select(created, '1c-airules')
       } })
     agent = handle.agent ?? ctx.agents.get(handle.id)
     if (!agent || !agent.ctx.tools.get('airules_delegate', agent)) throw new Error('NATIVE_DELEGATION_REQUIRED')
-    return { ctx, agent, runtimeProof, get requests() { return requests },
+    return { ctx, agent, runtimeProof, ...runtime, get requests() { return requests },
       async run(prompt) {
         if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 16000) throw new Error('BOUNDED_PROMPT_REQUIRED')
         agent.followup(createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'user' } }))

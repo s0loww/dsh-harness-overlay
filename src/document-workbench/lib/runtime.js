@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { fileURLToPath } from 'node:url'
 import { access, lstat } from 'node:fs/promises'
 import { dirname, join, extname } from 'node:path'
@@ -14,7 +15,7 @@ export async function runtimeFor(ctx, execution) {
   if (!tool) throw new Error('DSH_BUNDLED_RUNTIME_REQUIRED')
   let runtime
   if (execution.token) {
-    const result = await ctx.tools.execute({ name: 'load_workspace_dependencies', agent: execution.agent, arguments: {}, parent: execution.token, callId: `${execution.callId}:office-runtime`, rootCallId: execution.rootCallId ?? execution.callId, signal: execution.signal })
+    const result = await executeNativeTool(ctx,{ name: 'load_workspace_dependencies', agent: execution.agent, arguments: {}, parent: execution.token, callId: `${execution.callId}:office-runtime`, rootCallId: execution.rootCallId ?? execution.callId, signal: execution.signal })
     if (result.isError) throw new Error('DSH_BUNDLED_RUNTIME_REQUIRED')
     runtime = result.value
   } else {

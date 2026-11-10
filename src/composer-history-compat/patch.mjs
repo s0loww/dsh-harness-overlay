@@ -9,19 +9,24 @@ export const COMPOSER_CLIENT_SHA256='84cc4d9d4208e042505317661ed2d233754ad4a1180
 export const COMPOSER_STAGED_MANIFEST_SHA256='101a16962d82751cd00bde3120f7e5b29b6123a5c1c222b42975cfe985f5fd4c'
 export const COMPOSER_STAGED_CLIENT_SHA256='37eee21340f8dd7143b6bf03c46a6d60c4235aeea88a884a0d61b3e841afe385'
 export const COMPOSER_HISTORICAL_CLIENT_SHA256='7f1475561f299df0141580f45a371942dfc1670ba1f54515ac58fe1b015ead5d'
+export const COMPOSER_022_STAGED_MANIFEST_SHA256='ee5f8f8396f19ec197981ce7386233c7cf21d49d012f39670a035794b168faac'
+const hosts={'0.2.1-rc.5':COMPOSER_STAGED_MANIFEST_SHA256,'0.2.2-rc.1':COMPOSER_022_STAGED_MANIFEST_SHA256}
+function hostHash(version){if(!Object.hasOwn(hosts,version))throw new Error('COMPOSER_COMPAT_HOST_MISMATCH');return hosts[version]}
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex')
-const evidence=(clientSha=COMPOSER_STAGED_CLIENT_SHA256)=>({hostVersion:COMPOSER_HOST_VERSION,sourceManifestSha256:COMPOSER_MANIFEST_SHA256,stagedManifestSha256:COMPOSER_STAGED_MANIFEST_SHA256,sourceEntrySha256:COMPOSER_HOST_SHA256,sourceClientSha256:COMPOSER_CLIENT_SHA256,stagedClientSha256:clientSha,contract:'exact-rc5-retained-chat-projection-no-storage-migration'})
-export function verifyComposerHistoryCompatibility(manifestBytes,hostBytes,clientBytes,{allowHistorical=false}={}){
-  for(const[name,bytes,expected]of[['MANIFEST',manifestBytes,COMPOSER_STAGED_MANIFEST_SHA256],['ENTRY',hostBytes,COMPOSER_HOST_SHA256]])if(!(bytes instanceof Uint8Array)||sha(bytes)!==expected)throw new Error(`COMPOSER_COMPAT_STAGED_${name}_DRIFT`)
+const evidence=(clientSha=COMPOSER_STAGED_CLIENT_SHA256,hostVersion=COMPOSER_HOST_VERSION)=>({hostVersion,sourceManifestSha256:COMPOSER_MANIFEST_SHA256,stagedManifestSha256:hostHash(hostVersion),sourceEntrySha256:COMPOSER_HOST_SHA256,sourceClientSha256:COMPOSER_CLIENT_SHA256,stagedClientSha256:clientSha,contract:hostVersion===COMPOSER_HOST_VERSION?'exact-rc5-retained-chat-projection-no-storage-migration':'exact-rc022-retained-chat-projection-no-storage-migration'})
+export function verifyComposerHistoryCompatibility(manifestBytes,hostBytes,clientBytes,{allowHistorical=false,hostVersion=COMPOSER_HOST_VERSION}={}){
+  const manifestHash=hostHash(hostVersion)
+  for(const[name,bytes,expected]of[['MANIFEST',manifestBytes,manifestHash],['ENTRY',hostBytes,COMPOSER_HOST_SHA256]])if(!(bytes instanceof Uint8Array)||sha(bytes)!==expected)throw new Error(`COMPOSER_COMPAT_STAGED_${name}_DRIFT`)
   // Historical authenticity permits rollback of immutable UI20/21. It does not
   // certify their failed browser lifecycle or select them for a fresh build.
+  if(allowHistorical&&hostVersion!==COMPOSER_HOST_VERSION)throw new Error('COMPOSER_COMPAT_HISTORICAL_HOST_MISMATCH')
   if(typeof allowHistorical!=='boolean')throw new Error('COMPOSER_COMPAT_HISTORICAL_OPTION_INVALID')
   if(!(clientBytes instanceof Uint8Array)||![COMPOSER_STAGED_CLIENT_SHA256,...(allowHistorical?[COMPOSER_HISTORICAL_CLIENT_SHA256]:[])].includes(sha(clientBytes)))throw new Error('COMPOSER_COMPAT_STAGED_CLIENT_DRIFT')
-  return evidence(sha(clientBytes))
+  return evidence(sha(clientBytes),hostVersion)
 }
 /** Only the reviewed public package's already adapted client; no broad peer exemption. */
 export function patchComposerHistory(manifestBytes,hostBytes,clientBytes,{hostVersion=COMPOSER_HOST_VERSION}={}){
-  if(hostVersion!==COMPOSER_HOST_VERSION)throw new Error('COMPOSER_COMPAT_HOST_MISMATCH')
+  hostHash(hostVersion)
   for(const[name,bytes,expected]of[['MANIFEST',manifestBytes,COMPOSER_MANIFEST_SHA256],['ENTRY',hostBytes,COMPOSER_HOST_SHA256],['CLIENT',clientBytes,COMPOSER_CLIENT_SHA256]])if(!(bytes instanceof Uint8Array)||sha(bytes)!==expected)throw new Error(`COMPOSER_COMPAT_${name}_DRIFT`)
   const pkg=JSON.parse(Buffer.from(manifestBytes).toString('utf8'))
   if(pkg.name!=='dsh-composer-history'||pkg.version!==COMPOSER_PACKAGE_VERSION||Object.hasOwn(pkg.engines??{},'dsh'))throw new Error('COMPOSER_COMPAT_IDENTITY_MISMATCH')
@@ -47,7 +52,7 @@ export function patchComposerHistory(manifestBytes,hostBytes,clientBytes,{hostVe
   once('parts.push(...extract(binding.session.getSnapshot().nodes, options.maxHistory));','parts.push(...extract(historyNodes(id), options.maxHistory));')
   const outputManifest=Buffer.from(JSON.stringify(pkg,null,2)+'\n'),outputClient=Buffer.from(client)
   if(sha(outputClient)!==COMPOSER_STAGED_CLIENT_SHA256)throw new Error('COMPOSER_COMPAT_CURRENT_OUTPUT_DRIFT')
-  return{manifestBytes:outputManifest,clientBytes:outputClient,adaptation:verifyComposerHistoryCompatibility(outputManifest,hostBytes,outputClient)}
+  return{manifestBytes:outputManifest,clientBytes:outputClient,adaptation:verifyComposerHistoryCompatibility(outputManifest,hostBytes,outputClient,{hostVersion})}
 }
 /** Builder-owned copy only; immutable source/artifacts are never patched in place. */
 export async function adaptComposerHistoryPackage(directory,options){

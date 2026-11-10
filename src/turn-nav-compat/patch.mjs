@@ -3,8 +3,10 @@ import {readFile,writeFile} from 'node:fs/promises'
 import {join} from 'node:path'
 export const TURN_NAV_CLIENT_SHA256='6c3c61df2d6bbeecdb5f78244351224683e21677f90b6680e0b64e89e71dd1eb'
 export const TURN_NAV_STAGED_CLIENT_SHA256='9dd9bb662611c2d4562130e1acd728abd2b3d675f2cf89a3bfe256b1682f1b93'
+function checkHost(hostVersion){if(!['0.2.1-rc.5','0.2.2-rc.1'].includes(hostVersion))throw new Error('TURN_NAV_COMPAT_HOST_MISMATCH')}
 const sha=value=>createHash('sha256').update(value).digest('hex')
-export function patchTurnNavigatorClient(source){
+export function patchTurnNavigatorClient(source,{hostVersion='0.2.1-rc.5'}={}){
+ checkHost(hostVersion)
  if(sha(source)!==TURN_NAV_CLIENT_SHA256)throw new Error('TURN_NAV_COMPAT_SOURCE_DRIFT')
  const eol=source.includes('\r\n')?'\r\n':'\n';let text=source.replaceAll('\r\n','\n')
  const start=text.indexOf('\t\tfunction SettingsNavModeRow({ t }) {'),end=text.indexOf('\n\t\t//#endregion\n\t\t//#region src/client/locales.ts',start)
@@ -31,8 +33,9 @@ export function patchTurnNavigatorClient(source){
  if(sha(output)!==TURN_NAV_STAGED_CLIENT_SHA256)throw new Error('TURN_NAV_COMPAT_OUTPUT_DRIFT')
  return output
 }
-export async function adaptTurnNavigatorPackage(directory){
- const path=join(directory,'lib/client.js'),source=await readFile(path,'utf8'),output=patchTurnNavigatorClient(source)
+export async function adaptTurnNavigatorPackage(directory,{hostVersion='0.2.1-rc.5'}={}){
+ checkHost(hostVersion)
+ const path=join(directory,'lib/client.js'),source=await readFile(path,'utf8'),output=patchTurnNavigatorClient(source,{hostVersion})
  await writeFile(path,output)
- return{hostVersion:'0.2.1-rc.5',sourceClientSha256:TURN_NAV_CLIENT_SHA256,stagedClientSha256:sha(output),contract:'native-html-selector-and-text-icons-no-legacy-primitives'}
+ return{hostVersion,sourceClientSha256:TURN_NAV_CLIENT_SHA256,stagedClientSha256:sha(output),contract:'native-html-selector-and-text-icons-no-legacy-primitives'}
 }

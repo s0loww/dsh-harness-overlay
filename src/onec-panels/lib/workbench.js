@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { randomUUID, createHash } from 'node:crypto'
 import { readFile, mkdir, writeFile, rename, lstat } from 'node:fs/promises'
 import { dirname, isAbsolute, resolve } from 'node:path'
@@ -64,7 +65,7 @@ export function createWorkbench(ctx,{configPath}) {
       const jobId=ctx.jobs.start({kind:'airules-mcp',label:args.tool,owner:exec.agent.id,outputLimitBytes:65536,
         toolCall:{name:exec.name,callId:exec.callId},run:handle=>{
           jobTimer=setTimeout(()=>controller.abort(new Error('BACKGROUND_TIMEOUT')),config.timeoutMs);jobTimer.unref?.()
-          const done=Promise.resolve().then(()=>ctx.tools.execute({name:args.tool,arguments:args.arguments,agent:exec.agent,callId:`airules-background-${randomUUID()}`,rootCallId:exec.rootCallId??exec.callId,parent:exec.token,signal:controller.signal})).then(result=>{
+          const done=Promise.resolve().then(()=>executeNativeTool(ctx,{name:args.tool,arguments:args.arguments,agent:exec.agent,callId:`airules-background-${randomUUID()}`,rootCallId:exec.rootCallId??exec.callId,parent:exec.token,signal:controller.signal})).then(result=>{
             const serialized=JSON.stringify(result.value??null);const output=serialized.length>60000?serialized.slice(0,60000)+'\n[output truncated]':serialized
             handle.append(output);return {status:controller.signal.aborted?'killed':result.isError?'failed':'completed',detail:controller.signal.aborted?'Cancelled or timed out':result.isError?'MCP reported failure':'MCP completed',result:output}
           },()=>({status:controller.signal.aborted?'killed':'failed',detail:controller.signal.aborted?'Cancelled or timed out':'MCP failed'})).finally(()=>clearTimeout(jobTimer))

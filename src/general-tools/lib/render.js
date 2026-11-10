@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, lstat, realpath, mkdir, writeFile } from 'node:fs/promises'
 import { extname, isAbsolute, join, resolve } from 'node:path'
@@ -19,7 +20,7 @@ export async function bundledNode(ctx, exec, configured = '') {
   if (!exec?.agent?.session || typeof exec.callId !== 'string' || typeof exec.token !== 'symbol' ||
       !ctx.tools?.get('load_workspace_dependencies', exec.agent)) fail('BUNDLED_RUNTIME_REQUIRED')
   exec.signal?.throwIfAborted()
-  const result = await ctx.tools.execute({ name: 'load_workspace_dependencies', agent: exec.agent,
+  const result = await executeNativeTool(ctx,{ name: 'load_workspace_dependencies', agent: exec.agent,
     callId: `${exec.callId}:mermaid-runtime`, rootCallId: exec.rootCallId ?? exec.callId,
     parent: exec.token, arguments: {}, signal: exec.signal })
   exec.signal?.throwIfAborted()

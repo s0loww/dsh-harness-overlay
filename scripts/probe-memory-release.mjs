@@ -1,3 +1,4 @@
+import {executeProbeTool} from './probe-tool-call.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdir,readFile,writeFile } from 'node:fs/promises'
@@ -23,7 +24,7 @@ export async function memoryAcceptance({ctx,request,agents,check,report,installe
     if(expected){
       const bytes=await readFile(join(installed,'airules-dsh-rulepack/skills/memory-workspace/SKILL.md'),'utf8')
       check(`${row.preset} memory inventory lazy`,!values(snapshot).some(text=>text.includes(bytes.trim())))
-      const loaded=await row.agent.ctx.tools.execute({name:'skill',arguments:{name:'memory-workspace'},agent:row.agent,callId:`memory-skill-${randomUUID()}`,signal:new AbortController().signal})
+      const loaded=await executeProbeTool(row.agent.ctx,{name:'skill',arguments:{name:'memory-workspace'},agent:row.agent,callId:`memory-skill-${randomUUID()}`,signal:new AbortController().signal})
       const heading=bytes.split(/\r?\n/u).find(line=>line.startsWith('# '))
       check(`${row.preset} native lazy memory skill load`,loaded.isError===false&&values(loaded.value??loaded.content).some(text=>text.includes(heading)))
     }
@@ -45,7 +46,7 @@ export async function memoryAcceptance({ctx,request,agents,check,report,installe
   check('native full access can explicitly configure candidate memory',configured.ok&&configured.config.enabled===true)
   check('machine config rejects stale revision',(await request(api,{token:configuration.csrfToken,body:{action:'configure',config,expectedRevision:configuration.revision}})).status===409)
   setSandboxMode(onec.agent.session,'workspace-write')
-  const execute=arguments_=>onec.agent.ctx.tools.execute({name:'airules_memory',arguments:arguments_,agent:onec.agent,callId:`memory-${randomUUID()}`,signal:new AbortController().signal})
+  const execute=arguments_=>executeProbeTool(onec.agent.ctx,{name:'airules_memory',arguments:arguments_,agent:onec.agent,callId:`memory-${randomUUID()}`,signal:new AbortController().signal})
   const status=await execute({action:'status'})
   check('native memory status reaches local authenticated service',!status.isError&&values(status).some(text=>text.includes('18080')))
   const read=await request(api,{query:{action:'documents'}})
@@ -83,7 +84,7 @@ export async function memoryAcceptance({ctx,request,agents,check,report,installe
   check('native memory recall retrieves source fixture marker',!recall.isError&&JSON.stringify(recall).includes(marker))
   check('native memory graph uses current project dataset',!graph.isError&&graph.value?.dataset===datasetForRoot(onec.root)&&Array.isArray(graph.value.nodes)&&graph.value.nodes.length>0&&Array.isArray(graph.value.edges))
   const python=agents.find(row=>row.preset==='python-airules')
-  const foreign=await python.agent.ctx.tools.execute({name:'airules_memory',arguments:{action:'recall',query:marker,topK:5},agent:python.agent,callId:`memory-${randomUUID()}`,signal:new AbortController().signal})
+  const foreign=await executeProbeTool(python.agent.ctx,{name:'airules_memory',arguments:{action:'recall',query:marker,topK:5},agent:python.agent,callId:`memory-${randomUUID()}`,signal:new AbortController().signal})
   check('native python project recall excludes 1C fixture',!foreign.isError&&!JSON.stringify(foreign).includes(marker))
   setSandboxMode(onec.agent.session,'read-only')
   const readable=await execute({action:'recall',query:marker,topK:5})

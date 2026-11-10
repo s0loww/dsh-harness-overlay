@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "target": "official-desktop",
+  "product": "DeepSeek Harness",
+  "hostVersion": "0.2.2-rc.1",
+  "buildCommit": "c59d10aff167ad7eefead4b3a9082fb57c8fbfe8",
+  "platform": "win32-x64",
+  "profileLayout": ".dsh/profiles/desktop",
+  "files": {
+    "DeepSeek Harness.exe": {
+      "bytes": 246343656,
+      "sha256": "bad50d18a3cf42621ac03aeaf1dc527ee20384ca4c0b7eee64512954ddb9a76e"
+    },
+    "resources/app-update.yml": {
+      "bytes": 306,
+      "sha256": "96c202ea3c06458f37646aba93512ba634edd4ab110b24de0eb44f5582e95d85"
+    },
+    "resources/app.asar": {
+      "bytes": 213202918,
+      "sha256": "5fa8a6b21bceb8f3e99e30efa2270efd0cc773a11e42aa0488f804a64b34e637"
+    },
+    "resources/default_app.asar": {
+      "bytes": 110862,
+      "sha256": "0eb2491b0a9ac94790389d39c09dd5005c6c1f0665842943829bbd0193f6cc4f"
+    },
+    "version": {
+      "bytes": 6,
+      "sha256": "3e1e0322d949de3be7e5b9883a0c8014660aafa67e417a7d86b281e9733829a1"
+    }
+  }
+}

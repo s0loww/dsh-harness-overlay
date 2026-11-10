@@ -170,16 +170,16 @@ async function copyPackage(source, destination, pkg) {
   return files
 }
 
-async function adaptPackageLocalization(entry, target) {
-  if(entry.name==='dsh-turn-navigator')return {compatibility:await adaptTurnNavigatorPackage(target)}
-  if(entry.name==='dsh-composer-history')return {compatibility:await adaptComposerHistoryPackage(target)}
+async function adaptPackageLocalization(entry, target, hostVersion = '0.2.1-rc.5') {
+  if(entry.name==='dsh-turn-navigator')return {compatibility:await adaptTurnNavigatorPackage(target,{hostVersion})}
+  if(entry.name==='dsh-composer-history')return {compatibility:await adaptComposerHistoryPackage(target,{hostVersion})}
   if (entry.name === 'dsh-effort-slider') {
     const clientPath = join(target, 'lib/client.js')
-    const before = await readFile(clientPath, 'utf8'), after = patchEffortSliderClient(before)
+    const before = await readFile(clientPath, 'utf8'), after = patchEffortSliderClient(before,{hostVersion})
     await writeFile(clientPath, after, 'utf8')
     const packagePath = join(target, 'package.json')
-    await writeFile(packagePath, canonical(patchEffortSliderPackage(await readJson(packagePath))), 'utf8')
-    return { compatibility: { target: 'official-desktop-0.2.1-rc.5', sourcePath: 'lib/client.js', sourceSha256: hash(Buffer.from(before)), outputSha256: hash(Buffer.from(after)), contract: 'native-effort-menu-restored' } }
+    await writeFile(packagePath, canonical(patchEffortSliderPackage(await readJson(packagePath),{hostVersion})), 'utf8')
+    return { compatibility: { target: `official-desktop-${hostVersion}`, sourcePath: 'lib/client.js', sourceSha256: hash(Buffer.from(before)), outputSha256: hash(Buffer.from(after)), contract: 'native-effort-menu-restored' } }
   }
   if (entry.name !== 'dsh-sleep-send') return undefined
   const relativeClient = safeRelative(entry.expected?.cleanClient?.path ?? '')
@@ -286,9 +286,13 @@ export async function stageUiOverlay({
   inventoryPath = DEFAULT_INVENTORY,
   packageSetPath = DEFAULT_SET,
   upstreamPath = DEFAULT_UPSTREAM,
-  officialLockPath = DEFAULT_OFFICIAL_LOCK,
+  targetHostVersion = '0.2.1-rc.5',
+  nativeModules,
+  officialLockPath = targetHostVersion === '0.2.2-rc.1' ? join(REPO,'upstream/official-desktop/0.2.2-rc.1/release.lock.json') : DEFAULT_OFFICIAL_LOCK,
   repoRoot = REPO,
 }) {
+  if (!['0.2.1-rc.5','0.2.2-rc.1'].includes(targetHostVersion)) throw new UiStageError('UI_STAGE_HOST_UNSUPPORTED')
+  if (targetHostVersion === '0.2.2-rc.1' && !nativeModules) throw new UiStageError('UI_STAGE_NATIVE_MODULES_REQUIRED')
   if (!sourceBundle) throw new UiStageError('UI_STAGE_SOURCE_BUNDLE_REQUIRED')
   if (typeof artifactVersion !== 'string' || !/^[0-9A-Za-z](?:[0-9A-Za-z._-]*[0-9A-Za-z])?$/u.test(artifactVersion)) {
     throw new UiStageError('UI_STAGE_ARTIFACT_VERSION_REQUIRED')
@@ -305,7 +309,7 @@ export async function stageUiOverlay({
   ])
   validateUiInventory(inventory, upstream)
   if (packageSet.schemaVersion !== 1 || packageSet.artifact?.id !== ARTIFACT_ID || 'version' in packageSet.artifact) throw new UiStageError('UI_STAGE_PACKAGE_SET_INVALID')
-  if (officialLock.target !== 'official-desktop' || officialLock.hostVersion !== inventory.source.hostVersion) throw new UiStageError('UI_STAGE_OFFICIAL_LOCK_MISMATCH')
+  if (officialLock.target !== 'official-desktop' || officialLock.hostVersion !== targetHostVersion) throw new UiStageError('UI_STAGE_OFFICIAL_LOCK_MISMATCH')
   const sourceNodeModules = join(bundle, 'node_modules')
   await mkdir(dirname(destination), { recursive: true })
   const sourceStage = await mkdtemp(join(dirname(destination), '.ui-source-'))
@@ -313,6 +317,15 @@ export async function stageUiOverlay({
   try {
     const registrySources = await materializeRegistrySources(packageSet, sourceStage)
     const closure = await dependencyClosure(sourceNodeModules, packageSet, inventory, registrySources)
+    if(targetHostVersion==='0.2.2-rc.1'){
+      const locks=await readJson(join(REPO,'upstream/native-ui-runtime-0.2.2-rc.1.lock.json'))
+      for(const [name,lock]of Object.entries(locks)){
+        const entry=closure.get(name);if(!entry)throw new UiStageError('UI_NATIVE_RUNTIME_CLOSURE_MISSING',name)
+        const source=packagePath(resolve(nativeModules),name),pkg=await verifyPackage(source,{name})
+        if(pkg.version!==lock.version||(await directoryState(source)).digest!==lock.digest)throw new UiStageError('UI_NATIVE_RUNTIME_SOURCE_DRIFT',name)
+        closure.set(name,{...entry,source,pkg,provenance:{origin:'official-native-runtime',hostVersion:targetHostVersion,sourceDirectorySha256:lock.digest,package:name}})
+      }
+    }
     const componentById = new Map(inventory.components.map(row => [row.id, row]))
     const selectedIds = new Set([...packageSet.publicPackages, ...packageSet.localPackages].map(row => row.component))
     for (const component of inventory.components.filter(row => row.deployment.required)) selectedIds.add(component.id)
@@ -324,18 +337,18 @@ export async function stageUiOverlay({
       const target = packagePath(join(stage, 'payload/packages'), entry.name)
       await mkdir(target, { recursive: true })
       await copyPackage(entry.source, target, entry.pkg)
-      const localization = await adaptPackageLocalization(entry, target)
+      const localization = await adaptPackageLocalization(entry, target, targetHostVersion)
       const provenance = localization?.compatibility ? { ...entry.provenance, compatibility: localization.compatibility }
         : localization ? { ...entry.provenance, localization } : entry.provenance
       packageRecords.push({ name: entry.name, component: entry.component, source: target, pkg: entry.pkg, dependency: !entry.direct, provenance })
     }
     for (const row of packageSet.localPackages) {
-      const source = resolve(repoRoot, safeRelative(row.path))
+      const source = row.nativeCompatibility && nativeModules ? packagePath(resolve(nativeModules),row.name) : resolve(repoRoot, safeRelative(row.path))
       const pkg = await verifyPackage(source, { name: row.name })
       let nativeCompatibility
       if (row.nativeCompatibility) {
-        const locks = await readJson(join(REPO, 'upstream', 'native-ui-compat.lock.json'))
-        if (pkg.version !== '0.2.1-rc.5' || (await directoryState(source)).digest !== locks[row.name]) throw new UiStageError('UI_NATIVE_COMPAT_SOURCE_DRIFT', row.name)
+        const locks = await readJson(join(REPO, 'upstream', targetHostVersion === '0.2.2-rc.1' ? 'native-ui-compat-0.2.2-rc.1.lock.json' : 'native-ui-compat.lock.json'))
+        if (pkg.version !== targetHostVersion || (await directoryState(source)).digest !== locks[row.name]) throw new UiStageError('UI_NATIVE_COMPAT_SOURCE_DRIFT', row.name)
         if (!['@deepseek-ai/dsh-client-ui-settings-general', '@deepseek-ai/dsh-client-ui-settings-models', '@deepseek-ai/dsh-client-ui-settings-account'].includes(row.name)) throw new UiStageError('UI_NATIVE_COMPAT_UNKNOWN', row.name)
         nativeCompatibility = true
       }
@@ -345,11 +358,36 @@ export async function stageUiOverlay({
       if (nativeCompatibility) {
         const client = join(target, 'lib/client.js')
         const before = await readFile(client, 'utf8')
-        const after = row.name.endsWith('-general') ? patchSettingsShell(before)
-          : row.name.endsWith('-account') ? patchNativeAccountClient(before) : patchNativeModelsClient(before)
+        const after = row.name.endsWith('-general') ? patchSettingsShell(before,{hostVersion:targetHostVersion})
+          : row.name.endsWith('-account') ? patchNativeAccountClient(before,{hostVersion:targetHostVersion}) : patchNativeModelsClient(before,{hostVersion:targetHostVersion})
         await writeFile(client, after, 'utf8')
       }
-      packageRecords.push({ name: row.name, component: row.component, source: target, pkg, dependency: false, provenance: { origin: 'private-overlay', path: safeRelative(row.path) } })
+      if(targetHostVersion==='0.2.2-rc.1'&&row.name==='airules-dsh-russian-localization'){
+        const locale=await readJson(packagePath(resolve(nativeModules),'@deepseek-ai/dsh-client-locale')+'/package.json')
+        if(locale.name!=='@deepseek-ai/dsh-client-locale'||locale.version!==targetHostVersion)throw new UiStageError('UI_NATIVE_LOCALE_PEER_MISMATCH')
+        if(pkg.peerDependencies?.['@deepseek-ai/dsh-client-locale']!=='0.2.1-rc.5')throw new UiStageError('UI_RUSSIAN_SOURCE_PEER_DRIFT')
+        pkg.peerDependencies['@deepseek-ai/dsh-client-locale']=targetHostVersion
+        await writeFile(join(target,'package.json'),canonical(pkg))
+        const clientPath=join(target,'lib/client.js'),original=await readFile(clientPath,'utf8')
+        if(hash(Buffer.from(original))!=='28859bc619cb2cbf031ad3eeb374ee9c2767b35a754e9d8ec1fad93d046fb3b2')throw new UiStageError('UI_RUSSIAN_CLIENT_SOURCE_DRIFT')
+        const before='if (locales.some(row => String(row?.id).toLowerCase() === "ru")) throw new Error("AIRULES_LOCALE_PROVIDER_CONFLICT: ru");'
+        const add='disposers.push(locale.addLanguage(LANGUAGE));'
+        if(original.split(before).length!==2||original.split(add).length!==2)throw new UiStageError('UI_RUSSIAN_NATIVE_CATALOG_ANCHOR')
+        const nativeLiterals=new Set()
+        for(const row of await readdir(join(resolve(nativeModules),'@deepseek-ai'),{withFileTypes:true})){
+          if(!row.isDirectory())continue
+          let text;try{text=await readFile(join(resolve(nativeModules),'@deepseek-ai',row.name,'lib/client.js'),'utf8')}catch(error){if(error.code==='ENOENT')continue;throw error}
+          for(const match of text.matchAll(/"(?:\\.|[^"\\])*"/g)){try{const value=JSON.parse(match[0]);if(value.length<=150)nativeLiterals.add(value)}catch{}}
+        }
+        const payloadLine=original.split('\n').find(line=>line.includes('const payload = '))
+        const payload=JSON.parse(payloadLine.slice(payloadLine.indexOf('= ')+2).trim().replace(/;$/,''))
+        payload.namespaces=Object.fromEntries(Object.entries(payload.namespaces).filter(([namespace])=>!nativeLiterals.has(namespace)))
+        const portable=original.replace(payloadLine,'    const payload = '+JSON.stringify(payload)+';')
+        const patched=portable.replace(before,'const nativeRussian = locales.some(row => String(row?.id).toLowerCase() === "ru");').replace(add,'if (!nativeRussian) disposers.push(locale.addLanguage(LANGUAGE));')
+        await writeFile(clientPath,patched)
+
+      }
+      packageRecords.push({ name: row.name, component: row.component, source: target, pkg, dependency: false, provenance: nativeCompatibility && targetHostVersion === '0.2.2-rc.1' ? { origin:'official-native-compat', hostVersion:targetHostVersion, sourceDirectorySha256:(await directoryState(source)).digest, path:`@official-sdk/${row.name}` } : { origin: 'private-overlay', path: safeRelative(row.path) } })
     }
     const fragmentPath = join(stage, 'cordis.ui.fragment.yml')
     await writeFile(fragmentPath, mountFragment(packageSet), { encoding: 'utf8', flag: 'wx' })
@@ -433,7 +471,7 @@ export async function stageUiOverlay({
 
 function parseArgs(argv) {
   const result = {}
-  const allowed = new Set(['source-bundle', 'output', 'artifact-version'])
+  const allowed = new Set(['source-bundle', 'output', 'artifact-version', 'target-host-version', 'native-modules'])
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index]
     const value = argv[index + 1]
@@ -447,7 +485,7 @@ function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
-  const manifest = await stageUiOverlay({ sourceBundle: args['source-bundle'], output: args.output, artifactVersion: args['artifact-version'] })
+  const manifest = await stageUiOverlay({ sourceBundle: args['source-bundle'], output: args.output, artifactVersion: args['artifact-version'], targetHostVersion:args['target-host-version'], nativeModules:args['native-modules'] })
   process.stdout.write(`Staged ${manifest.artifact.id} ${manifest.artifact.version}: ${Object.keys(manifest.files).length} files, ${manifest.operations.length} operations\n`)
 }
 

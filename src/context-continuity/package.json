@@ -1,0 +1,9 @@
+{
+  "name": "airules-dsh-context-continuity",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./agent": "./lib/agent.js", "./core": "./lib/core.js", "./package.json": "./package.json" },
+  "peerDependencies": { "@deepseek-ai/dsh-tools": "0.2.1-rc.5 || 0.2.2-rc.1", "@deepseek-ai/dsh-llm": "0.2.1-rc.5 || 0.2.2-rc.1", "@deepseek-ai/schemastery": "3.19.0", "@deepseek-ai/dsh-subprocess": "0.2.1-rc.5 || 0.2.2-rc.1" }
+}

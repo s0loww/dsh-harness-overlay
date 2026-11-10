@@ -116,7 +116,7 @@ export async function verifyUiArtifact(artifactRoot) {
     try{
       const base=join(root,'payload/packages/dsh-composer-history')
       const historical=['0.12.0-ui20','0.12.0-ui21'].includes(manifest.artifact.version)
-      const adaptation=verifyComposerHistoryCompatibility(...await Promise.all(['package.json','lib/index.js','lib/client.js'].map(path=>readFile(join(base,path)))),{allowHistorical:historical})
+      const adaptation=verifyComposerHistoryCompatibility(...await Promise.all(['package.json','lib/index.js','lib/client.js'].map(path=>readFile(join(base,path)))),{allowHistorical:historical,hostVersion:manifest.target?.hostVersions?.[0]??'0.2.1-rc.5'})
       if(canonical(composer)!==canonical(adaptation))throw new Error('mismatch')
     }catch{throw new OfficialUiInstallerError('UI_COMPOSER_COMPATIBILITY_MISMATCH')}
   }

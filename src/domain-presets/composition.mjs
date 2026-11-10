@@ -5,7 +5,7 @@ export const DOMAINS = Object.freeze({
   python: { id: 'python-airules', name: 'Python', description: 'Python: окружение, реализация, тестирование и проверка кода. Проектные инструкции и разрешения наследуются.', order: 3 },
   sysadmin: { id: 'sysadmin-airules', name: 'Системное администрирование', description: 'Диагностика и эксплуатация: доказательства, безопасное изменение, проверка и откат. Проектные ограничения имеют приоритет.', order: 4 },
 })
-export function createPresets({ python = true, sysadmin = true, platform = process.platform, workflows = false, sharedSkills = false, generalTools = false, documents = false, memory = false } = {}) {
+export function createPresets({ python = true, sysadmin = true, platform = process.platform, workflows = false, sharedSkills = false, generalTools = false, documents = false, memory = false, continuity = false } = {}) {
   if (typeof memory !== 'boolean') throw new Error('MEMORY_BOOLEAN_REQUIRED')
   if (typeof workflows !== 'boolean') throw new Error('WORKFLOWS_BOOLEAN_REQUIRED')
   if (typeof sharedSkills !== 'boolean') throw new Error('SHARED_SKILLS_BOOLEAN_REQUIRED')
@@ -21,6 +21,7 @@ export function createPresets({ python = true, sysadmin = true, platform = proce
     plugins.splice(plugins.findIndex(row => row.id === 'tool-skill') + 1, 0, { id: 'domain-policy', name: 'airules-dsh-domain-presets/policy', config: { domain, ...(sharedSkills ? { sharedSkills: true } : {}) } })
     if (workflows) plugins.splice(plugins.findIndex(row => row.id === 'domain-policy') + 1, 0, { id: 'airules-workflow-tools', name: 'airules-dsh-workflows/tools' })
     if (generalTools) plugins.push({ id: 'airules-general-tools', name: 'airules-dsh-general-tools/tools' })
+    if (continuity) plugins.push({id:'airules-continuity-agent',name:'airules-dsh-context-continuity/agent'})
     if (memory) plugins.push({ id: 'airules-memory-tools', name: 'airules-dsh-memory-workspace/tools' })
     if (documents) plugins.push({ id: 'airules-document-tools', name: 'airules-dsh-document-workbench/tools' })
     return { ...meta, plugins }

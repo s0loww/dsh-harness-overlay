@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { randomUUID } from 'node:crypto'
 import { normalizeTicket, readTicketLinks, ticketsMatch, resolveTicketSourceQuery, readTicketSourceConfig, ticketIdentityAmbiguous } from './openspec-tickets.js'
 
@@ -31,7 +32,7 @@ export async function listOpenSpecTickets(ctx, agent, input = {}) {
     const callId = 'openspec-tickets-' + randomUUID()
     let result
     uiReads.set(callId, { name, agent })
-    try { result = await ctx.tools.execute({ name, arguments: args, agent, callId, signal: AbortSignal.timeout(25_000) }) }
+    try { result = await executeNativeTool(ctx,{ name, arguments: args, agent, callId, signal: AbortSignal.timeout(25_000) }) }
     finally { uiReads.delete(callId) }
     if (result.isError) fail('OPENSPEC_TICKET_MCP_FAILED')
     const text = (result.content ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n')

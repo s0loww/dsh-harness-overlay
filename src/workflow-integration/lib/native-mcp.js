@@ -1,3 +1,4 @@
+import { executeNativeTool } from './native-tools.js'
 import { randomUUID, createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
@@ -66,7 +67,7 @@ export function createNativeMcpProvider({ ctx, execution, id, binding, core, onR
       effectiveSignal?.throwIfAborted()
       if (onRunStart) await onRunStart(context.runId)
       effectiveSignal?.throwIfAborted()
-      const result = await ctx.tools.execute({ name: config.tool, agent: execution.agent,
+      const result = await executeNativeTool(ctx,{ name: config.tool, agent: execution.agent,
         callId: `${execution.callId}:workflow:${context.stepId}`, rootCallId: execution.rootCallId ?? execution.callId,
         parent: execution.token, arguments: argumentsValue, signal: effectiveSignal })
       effectiveSignal?.throwIfAborted()

@@ -187,13 +187,14 @@ async function main() {
   for (let index = 0; index < args.length; index += 2) {
     const flag = args[index]
     const value = args[index + 1]
-    if (!['--source', '--candidate-root'].includes(flag) || !value || value.startsWith('--') || options[flag] !== undefined) {
+    if (!['--source', '--candidate-root', '--release-lock'].includes(flag) || !value || value.startsWith('--') || options[flag] !== undefined) {
       throw new CandidateError('USAGE', 'node scripts/create-official-candidate.mjs [--source <official install>] [--candidate-root <fresh path under repo/var/candidate>]')
     }
     options[flag] = value
   }
   const result = await createOfficialCandidate({
     sourceRoot: options['--source'],
+    releaseLockPath: options['--release-lock'],
     candidateRoot: resolveCliCandidateRoot(options['--candidate-root']),
   })
   process.stdout.write(`Candidate created, not launched: ${result.candidateRoot}\n`)

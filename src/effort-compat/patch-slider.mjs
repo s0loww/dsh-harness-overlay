@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto'
 
 export const SLIDER_CLIENT_SHA256 = 'f266014ab1ece98d9c13d68ad3787e2b3cb19bb23f99797d3419d5934d586474'
+function checkHost(version,mode){if(!['0.2.1-rc.5','0.2.2-rc.1'].includes(version))throw new Error('EFFORT_COMPAT_HOST_MISMATCH');if(version==='0.2.2-rc.1'&&mode!=='native-menu')throw new Error('EFFORT_COMPAT_MODE_HOST_UNVERIFIED')}
 function once(source, anchor, replacement, expected = 1) {
   if (source.split(anchor).length !== expected + 1) throw new Error('EFFORT_COMPAT_ANCHOR_MISMATCH')
   return source.split(anchor).join(replacement)
 }
 
-export function patchEffortSliderClient(source, { mode = 'native-menu' } = {}) {
+export function patchEffortSliderClient(source, { mode = 'native-menu', hostVersion = '0.2.1-rc.5' } = {}) {
+  checkHost(hostVersion,mode)
   if (createHash('sha256').update(source).digest('hex') !== SLIDER_CLIENT_SHA256) throw new Error('EFFORT_COMPAT_HASH_MISMATCH')
   if (mode === 'native-menu') {
     source = once(source, 'if (typeof document !== "undefined" && document.querySelector(', 'if (false && typeof document !== "undefined" && document.querySelector(')
@@ -48,7 +50,8 @@ export function patchEffortSliderClient(source, { mode = 'native-menu' } = {}) {
   return once(source, 'exports.apply = apply;', 'exports.airulesEffortCompatibility = { useDirectory, EffortPanel, selectSharedEffort };\n\t\texports.apply = apply;')
 }
 
-export function patchEffortSliderPackage(pkg, { mode = 'native-menu' } = {}) {
+export function patchEffortSliderPackage(pkg, { mode = 'native-menu', hostVersion = '0.2.1-rc.5' } = {}) {
+  checkHost(hostVersion,mode)
   if (pkg?.name !== 'dsh-effort-slider' || pkg.version !== '1.1.0') throw new Error('EFFORT_COMPAT_PACKAGE_MISMATCH')
   if (mode === 'native-menu') return pkg
   if (mode !== 'shared-directory') throw new Error('EFFORT_COMPAT_MODE_UNSUPPORTED')

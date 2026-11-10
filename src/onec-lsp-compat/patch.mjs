@@ -8,26 +8,31 @@ export const ONEC_LSP_MANIFEST_SHA256 = '1dae01aea122a306e75e66b6da59ca575f63910
 export const ONEC_LSP_ENTRY_SHA256 = 'fe97ed31ea6e0e7c409330cd811e0f81413a2b8b310d8e23646a0fed781377bf'
 export const ONEC_LSP_STAGED_MANIFEST_SHA256 = 'c11a7e46d5866d462e02fcefcaf100574dba6818b93c8e32dcd994855d325ab9'
 export const ONEC_LSP_TOOL_NAMES = Object.freeze(['lsp_diagnostics', 'lsp_completion', 'lsp_format', 'lsp_code_action', 'lsp_symbols', 'lsp_signature', 'lsp_inlay_hints', 'lsp_rename'])
+export const ONEC_LSP_022_STAGED_MANIFEST_SHA256 = '743f051aa83885735117a0e51a384c4e59de3fcf4bf12c2b289b58fce36ba10f'
+const hosts = {'0.2.1-rc.5': ONEC_LSP_STAGED_MANIFEST_SHA256, '0.2.2-rc.1': ONEC_LSP_022_STAGED_MANIFEST_SHA256}
+function hostHash(version) { if (!Object.hasOwn(hosts, version)) throw new Error('ONEC_LSP_COMPAT_HOST_MISMATCH'); return hosts[version] }
+const contract = version => version === ONEC_LSP_HOST_VERSION ? 'exact-rc5-native-agent-lsp-admission-no-server-proof' : 'exact-rc022-native-agent-lsp-admission-no-server-proof'
 const sha = bytes => createHash('sha256').update(bytes).digest('hex')
 
 /** Exact managed compatibility declaration; never grants profile exemptions. */
 export function patchOnecLspManifest(manifestBytes, entryBytes, { hostVersion = ONEC_LSP_HOST_VERSION } = {}) {
-  if (hostVersion !== ONEC_LSP_HOST_VERSION) throw new Error('ONEC_LSP_COMPAT_HOST_MISMATCH')
+  const manifestHash = hostHash(hostVersion)
   if (!(manifestBytes instanceof Uint8Array) || sha(manifestBytes) !== ONEC_LSP_MANIFEST_SHA256) throw new Error('ONEC_LSP_COMPAT_MANIFEST_DRIFT')
   if (!(entryBytes instanceof Uint8Array) || sha(entryBytes) !== ONEC_LSP_ENTRY_SHA256) throw new Error('ONEC_LSP_COMPAT_ENTRY_DRIFT')
   const pkg = JSON.parse(Buffer.from(manifestBytes).toString('utf8'))
   if (pkg.name !== 'dsh-lsp-actions' || pkg.version !== ONEC_LSP_PACKAGE_VERSION || Object.hasOwn(pkg.engines ?? {}, 'dsh')) throw new Error('ONEC_LSP_COMPAT_IDENTITY_MISMATCH')
   pkg.engines = { ...pkg.engines, dsh: hostVersion }
   const output = Buffer.from(JSON.stringify(pkg, null, 2) + '\n')
-  if (sha(output) !== ONEC_LSP_STAGED_MANIFEST_SHA256) throw new Error('ONEC_LSP_COMPAT_OUTPUT_DRIFT')
+  if (sha(output) !== manifestHash) throw new Error('ONEC_LSP_COMPAT_OUTPUT_DRIFT')
   return { manifestBytes: output, adaptation: { sourceManifestSha256: ONEC_LSP_MANIFEST_SHA256, stagedManifestSha256: sha(output), sourceEntrySha256: ONEC_LSP_ENTRY_SHA256,
-    hostVersion, contract: 'exact-rc5-native-agent-lsp-admission-no-server-proof' } }
+    hostVersion, contract: contract(hostVersion) } }
 }
 
-export function verifyOnecLspCompatibility(manifestBytes, entryBytes) {
-  if (sha(manifestBytes) !== ONEC_LSP_STAGED_MANIFEST_SHA256 || sha(entryBytes) !== ONEC_LSP_ENTRY_SHA256) throw new Error('ONEC_LSP_COMPAT_STAGED_DRIFT')
-  return { sourceManifestSha256: ONEC_LSP_MANIFEST_SHA256, stagedManifestSha256: ONEC_LSP_STAGED_MANIFEST_SHA256, sourceEntrySha256: ONEC_LSP_ENTRY_SHA256,
-    hostVersion: ONEC_LSP_HOST_VERSION, contract: 'exact-rc5-native-agent-lsp-admission-no-server-proof' }
+export function verifyOnecLspCompatibility(manifestBytes, entryBytes, { hostVersion = ONEC_LSP_HOST_VERSION } = {}) {
+  const manifestHash = hostHash(hostVersion)
+  if (sha(manifestBytes) !== manifestHash || sha(entryBytes) !== ONEC_LSP_ENTRY_SHA256) throw new Error('ONEC_LSP_COMPAT_STAGED_DRIFT')
+  return { sourceManifestSha256: ONEC_LSP_MANIFEST_SHA256, stagedManifestSha256: manifestHash, sourceEntrySha256: ONEC_LSP_ENTRY_SHA256,
+    hostVersion, contract: contract(hostVersion) }
 }
 
 /** Called only for the builder's owned package copy before artifact sealing. */

@@ -18,8 +18,9 @@ export function parseArgs(args){
  return{action,options}
 }
 export function runtimeEnvironment(bundleRoot,manifest,home,extra={}){
- return{...process.env,...extra,PATH:[dirname(safeRelative(bundleRoot,manifest.paths.node)),dirname(safeRelative(bundleRoot,manifest.paths.python)),join(bundleRoot,'runtime/git/cmd'),join(bundleRoot,'runtime/git/mingw64/bin'),process.env.PATH??''].join(';'),DSH_HOME:home}
+ return{...process.env,...extra,PATH:[dirname(safeRelative(bundleRoot,manifest.paths.node)),dirname(safeRelative(bundleRoot,manifest.paths.python)),join(bundleRoot,'runtime/git/cmd'),join(bundleRoot,'runtime/git/mingw64/bin'),...(manifest.components?.linter?.enabled?[dirname(safeRelative(bundleRoot,manifest.paths.bslCommand))]:[]),extra.PATH??process.env.PATH??''].join(';'),DSH_HOME:home}
 }
+async function environmentFor(bundleRoot,manifest,home){const extra=manifest.components?.linter?.enabled?await(await import('./linter/config.mjs')).getLinterEnvironment({bundleRoot,manifest,dshHome:home,env:process.env}):{};return runtimeEnvironment(bundleRoot,manifest,home,extra)}
 // Start-Process joins an ArgumentList array without preserving argument bounds.
 // Build the single Windows command line explicitly for MSI paths with spaces.
 export function windowsArgumentLine(args){return args.map(value=>'"'+String(value).replace(/(\\*)"/gu,'$1$1\\"').replace(/(\\+)$/u,'$1$1')+'"').join(' ')}
@@ -41,8 +42,10 @@ export async function main(args=process.argv.slice(2)){
  // target writes, and apply rechecks it. Avoid a third full initial pass.
  console.log('DSH Airules: '+action)
  const bundle=await readDeploymentBundle(bundleRoot,{verifyFiles:false})
+ // Administrative commands must remain usable when the cached Java/JAR needs
+ // repair. Resolve and validate the linter only when launching a child DSH.
  const env=runtimeEnvironment(bundleRoot,bundle.manifest,dshHome);process.env.PATH=env.PATH
- const native=createOfficialDeploymentAdapters(),components=createComponentAdapters({cogneePort:options['cognee-port']?Number(options['cognee-port']):undefined,offline:options.offline===true}),adapters={...native,...components}
+ const native=createOfficialDeploymentAdapters(),components=createComponentAdapters({cogneePort:options['cognee-port']?Number(options['cognee-port']):undefined,offline:options.offline===true,skipLegacyLinter:!!isolated}),adapters={...native,...components}
  if(isolated&&options['stock-source'])adapters.installOfficial=async ctx=>{await guard(ctx.installRoot);await cp(resolve(options['stock-source']),ctx.installRoot,{recursive:true,force:false,errorOnExist:true});return{status:'isolated-stock-copy'}}
  const service=createDeploymentService({bundleRoot,stateRoot,installRoot,dshHome,adapters,onProgress:({phase})=>console.log('  '+phase)})
  if(action==='status')return service.status()
@@ -50,7 +53,7 @@ export async function main(args=process.argv.slice(2)){
  if(action==='launch'){
   const installed=await service.status();if(!installed.installed)fail('DEPLOY_CURRENT_REQUIRED')
   const liveBundle=installed.current.engineRoot?resolve(installed.current.engineRoot,'../..'):bundleRoot
-  const child=spawn(join(installRoot,'DeepSeek Harness.exe'),isolated?['--user-data-dir='+join(isolated,'electron-user-data')]:[],{env:runtimeEnvironment(liveBundle,bundle.manifest,dshHome),stdio:'ignore',detached:true,windowsHide:false});await new Promise((res,rej)=>{child.once('spawn',res);child.once('error',rej)});child.unref();return{status:'launched'}
+  const child=spawn(join(installRoot,'DeepSeek Harness.exe'),isolated?['--user-data-dir='+join(isolated,'electron-user-data')]:[],{env:await environmentFor(liveBundle,bundle.manifest,dshHome),stdio:'ignore',detached:true,windowsHide:false});await new Promise((res,rej)=>{child.once('spawn',res);child.once('error',rej)});child.unref();return{status:'launched'}
  }
  if(['rollback','uninstall-overlay'].includes(action))return action==='rollback'?service.rollback():service.uninstallOverlay()
  const mode=action==='plan'?'install':action,plan=await service.plan({mode});console.log(JSON.stringify(plan,null,2));if(action==='plan'||options['check-only'])return plan

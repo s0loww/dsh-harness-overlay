@@ -53,7 +53,8 @@ export function createOfficialDeploymentAdapters({platform=process.platform,exec
    await applyOfficialUi({candidateRoot,artifactRoot:roots.uiArtifactRoot,releaseLockPath:roots.releaseLockPath});await applyOfficialPolicy({candidateRoot,artifactRoot:roots.policyArtifactRoot,releaseLockPath:roots.releaseLockPath})
    ctx.signal?.throwIfAborted();await runCandidateLayerCycle(common)
    if(ctx.configureCandidateExtras)await ctx.configureCandidateExtras({...ctx,purpose:'candidate',candidateRoot,dshHome:join(candidateRoot,'home'),profileRoot:join(candidateRoot,'home/profiles/desktop')})
-   await launchCandidateSmoke({...common,visible:true,timeoutMs:12000});await preflightCandidate(common)
+   const environment=ctx.manifest.components?.linter?.enabled?await(await load(ctx.engineRoot,'src/deployment-bundle/linter/config.mjs')).getLinterEnvironment({bundleRoot:ctx.bundleRoot,manifest:ctx.manifest,dshHome:join(candidateRoot,'home'),env:process.env}):{}
+   await launchCandidateSmoke({...common,visible:true,timeoutMs:12000,environment});await preflightCandidate(common)
    return candidateRoot
   },
   async applyOverlay(ctx){const{applyLivePromotion}=await load(ctx.engineRoot,'installer/official-live/apply.mjs'),{LIVE_ACKNOWLEDGEMENT}=await load(ctx.engineRoot,'installer/official-live/common.mjs');return applyLivePromotion({installRoot:ctx.installRoot,profileRoot:ctx.profileRoot,backupRoot:ctx.backupRoot,candidateRoot:ctx.candidateRoot,...artifactRoots(ctx),previousReceiptPath:ctx.previousReceiptPath,allowOwnedFragmentMigration:Boolean(ctx.previousReceiptPath),acknowledgement:LIVE_ACKNOWLEDGEMENT})},

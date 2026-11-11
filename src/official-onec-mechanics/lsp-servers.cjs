@@ -30,8 +30,8 @@ function explicitArgs(value = process.env.ONEC_BSL_LS_ARGS) {
 /**
  * BSL server table for dsh-lsp-actions. Missing server means a clean degraded
  * mode: the preset still loads, but no LSP process or tool is advertised by
- * this package. The 130 MiB Java/JAR runtime from the vendor bundle is not
- * redistributed; users may point to an installed server explicitly.
+ * this package. The deployment bundle supplies an isolated Java/JAR runtime;
+ * explicit project or user commands retain priority.
  */
 function lspActionsServers(config = {}) {
   if (String(process.env.ONEC_LSP_TOOLS || '').trim().toLowerCase() === 'off') return {}
@@ -42,6 +42,7 @@ function lspActionsServers(config = {}) {
     bsl: {
       command,
       args,
+      ...(!config.command && process.env.ONEC_BSL_LS_BUNDLED === '1' ? { env: { JAVA_TOOL_OPTIONS: '', _JAVA_OPTIONS: '', JDK_JAVA_OPTIONS: '' } } : {}),
       extensionToLanguage: { '.bsl': 'bsl', '.os': 'bsl' },
       fileGlobs: ['**/*.bsl', '**/*.os'],
       formattingOptions: { tabSize: 4, insertSpaces: false },

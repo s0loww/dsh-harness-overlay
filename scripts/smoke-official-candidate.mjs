@@ -250,7 +250,7 @@ async function logNames(directory) {
   catch (error) { if (error.code === 'ENOENT') return new Set(); throw error }
 }
 
-export async function launchCandidateSmoke({ visible = false, timeoutMs = 20_000, ...options } = {}) {
+export async function launchCandidateSmoke({ visible = false, timeoutMs = 20_000, environment = {}, ...options } = {}) {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 5_000 || timeoutMs > 60_000) throw new CandidateSmokeError('SMOKE_TIMEOUT_INVALID')
   const preflight = await preflightCandidate(options)
   const smokeRoot = join(preflight.root, 'smoke')
@@ -264,7 +264,7 @@ export async function launchCandidateSmoke({ visible = false, timeoutMs = 20_000
   const stdout = openSync(stdoutPath, 'a'), stderr = openSync(stderrPath, 'a')
   const startedAt = new Date().toISOString()
   const args = [`--user-data-dir=${preflight.userDataRoot}`, '--enable-logging=file', `--log-file=${electronLog}`]
-  const child = spawn(preflight.executable, args, { cwd: preflight.installRoot, env: { ...process.env, DSH_HOME: preflight.homeRoot, DSH_TELEMETRY: 'off' }, windowsHide: !visible, stdio: ['ignore', stdout, stderr] })
+  const child = spawn(preflight.executable, args, { cwd: preflight.installRoot, env: { ...process.env, ...environment, DSH_HOME: preflight.homeRoot, DSH_TELEMETRY: 'off' }, windowsHide: !visible, stdio: ['ignore', stdout, stderr] })
   const started = await Promise.race([new Promise((resolvePromise, reject) => { child.once('spawn', () => resolvePromise(true)); child.once('error', reject) }), wait(5_000).then(() => false)])
   if (!started) throw new CandidateSmokeError('CANDIDATE_START_TIMEOUT')
   const metadata = { schemaVersion: 1, status: 'running', pid: child.pid, visible, startedAt, executable: relative(preflight.root, preflight.executable).replaceAll('\\', '/'), args }

@@ -18,15 +18,17 @@ function verifyCogneeReceipt(ctx,component,receipt){
  return paths
 }
 
-export function createComponentAdapters({cognee=createCogneeAdapter(),cogneePort,offline=false}={}){
+export function createComponentAdapters({cognee=createCogneeAdapter(),cogneePort,offline=false,skipLegacyLinter=false}={}){
  // Both adapters attach a receipt once recipient mutation can have started.
  // Preflight refusals are known no-ops; late errors retain their recovery pointer.
  const recipientComponent=async task=>{try{return await task()}catch(error){if(error.receiptPath)error.componentReceipt={receiptPath:error.receiptPath};else error.notAttempted=true;throw error}}
  const extras=ctx=>recipientComponent(()=>configureExtras({assetsRoot:safeRelative(ctx.bundleRoot,ctx.manifest.components.extras.assets),profileRoot:ctx.profileRoot,dshHome:ctx.dshHome,backupRoot:join(ctx.stateRoot,'components','extras',ctx.deploymentId,ctx.purpose??'live')}))
  return{
   configureExtras:extras,
-  configureCandidateExtras:extras,
+  async configureCandidateExtras(ctx){const result=await extras(ctx);if(ctx.manifest.components?.linter?.enabled){const{configureLinter}=await import('./linter/config.mjs');await configureLinter({...ctx,purpose:'candidate',skipLegacy:true})}return result},
   rollbackExtras:ctx=>rollbackExtras({receiptPath:ctx.componentReceipt.receiptPath}),
+  configureLinter:ctx=>recipientComponent(async()=>{const{configureLinter}=await import('./linter/config.mjs');return configureLinter({...ctx,skipLegacy:skipLegacyLinter})}),
+  async rollbackLinter(ctx){const{rollbackLinter}=await import('./linter/config.mjs');return rollbackLinter(ctx)},
   configureMcp:ctx=>recipientComponent(async()=>{const c=ctx.manifest.components.mcp,options={dshHome:ctx.dshHome,catalogPath:safeRelative(ctx.bundleRoot,c.catalog),credentialsPath:safeRelative(ctx.bundleRoot,c.credentials),backupRoot:join(ctx.stateRoot,'components','mcp',ctx.deploymentId)};const plan=await planMcpConfiguration(options);return applyMcpConfiguration({...options,expectedPlanDigest:plan.planDigest})}),
   rollbackMcp:ctx=>ctx.componentReceipt.receiptPath?rollbackMcpConfiguration({receiptPath:ctx.componentReceipt.receiptPath}):{status:'unchanged'},
   async configureCognee(ctx){

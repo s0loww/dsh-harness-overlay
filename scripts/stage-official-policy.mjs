@@ -8,7 +8,7 @@ import { stageDocumentClosure } from './stage-document-closure.mjs'
 import { stageNativeFsCompat, COMPAT_PACKAGE } from './stage-native-fs-compat.mjs'
 import { stageProviderExtensionsDependencies } from './stage-provider-extensions.mjs'
 import {stageGitMaintenanceRuntime} from './stage-git-maintenance-runtime.mjs'
-import { adaptOnecLspPackage } from '../src/onec-lsp-compat/patch.mjs'
+import { adaptOnecLspPackage, adaptBundledBslEditor } from '../src/onec-lsp-compat/patch.mjs'
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const DEFAULT_LOCK = join(REPO, 'upstream', 'official-desktop', 'release.lock.json')
@@ -566,6 +566,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
     await cp(join(sourceNodeModules, '@deepseek-ai', 'cosmokit'), join(lspModules, '@deepseek-ai', 'cosmokit'), { recursive: true, force: false, errorOnExist: true })
     await cp(join(sourceNodeModules, '@standard-schema', 'spec'), join(lspModules, '@standard-schema', 'spec'), { recursive: true, force: false, errorOnExist: true })
     const editorAdaptation = await adaptBslEditor(join(stage, 'payload', 'packages', 'dsh-bsl-editor'))
+    editorAdaptation.bundledRuntime = await adaptBundledBslEditor(join(stage, 'payload', 'packages', 'dsh-bsl-editor'))
     const lspActionsAdaptation = await adaptOnecLspPackage(join(stage,'payload','packages','dsh-lsp-actions'),{hostVersion:lock.hostVersion})
     let fragment = await readFile(join(PRESET, 'cordis.patch.yml'), 'utf8')
     if(lock.hostVersion==='0.2.2-rc.1'){

@@ -3,11 +3,15 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current release: [Project-owned settings and shared native project context](project-bindings-release.md).
-UI `0.16.0-host022-ui1`, policy `0.16.0-dev4`, canonical airules `82c10a4` / 0.16.0.
-984 source tests passed (one packaging network failure passed on the complete 5-test retry),
-one obsolete pre-upgrade test skipped; native mounted candidate acceptance passed 195 checks.
-Candidate rollback/reapply and visible startup passed. No paid model request or real deployment.
+Current release: [Live2D companions and Captain Diesel speech](companions-release.md).
+UI `0.16.0-host022-pets1`, policy `0.16.0-pets2`; canonical airules remains `82c10a4` / 0.16.0.
+1009 source tests passed, one obsolete pre-upgrade test skipped; native installed-byte
+acceptance passed 239 checks. Candidate rollback/reapply, visible startup, actual
+Miara/Hiyori WebGL rendering and per-character speech editing passed. Installed
+integrity: 60 owned after-states, zero drift. No paid inference or real deployment.
+
+Previous release: [Project-owned settings and shared native project context](project-bindings-release.md),
+UI `0.16.0-host022-ui1` / policy `0.16.0-dev4`.
 
 Previous release: [Persistent memory policy and remaining candidates](memory-policy-release.md),
 UI `0.15.0-host022-ui1` / policy `0.15.0-dev6`, canonical `72ed6f6` / 0.15.0.

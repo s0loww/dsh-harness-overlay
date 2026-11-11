@@ -3,7 +3,15 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current release: [Memory approval ordering and BL rule update](memory-approval-fix-release.md).
+Current release: [Configurable memory confirmations](memory-approval-settings-release.md).
+UI `0.17.0-host022-ui1`, policy `0.17.2-approval1`.
+Global/project confirmation preferences support required, disabled and inheritance;
+deletion is excluded. Memory suite 163/163 PASS, native acceptance 280 checks PASS.
+Installed integrity 61 after-states with zero drift; actual Desktop selectors verified.
+Existing preferences preserved. General-suite Windows process-query intermittency
+and focused passing rechecks are recorded in the release report.
+
+Previous release: [Memory approval ordering and BL rule update](memory-approval-fix-release.md).
 UI `0.17.0-host022-ui1`, policy `0.17.1-memory1`; canonical airules remains `82c10a4` / 0.16.0.
 1086 source tests PASS, one obsolete test skipped; native acceptance 274 checks PASS.
 Memory approval policy is preserved. One proven unsent receipt recovered with backup;

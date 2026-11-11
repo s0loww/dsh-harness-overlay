@@ -49,3 +49,17 @@ errors. All five cases affected across these runs subsequently passed together
 in a focused run (5/5). No failure was in a changed memory test; the live installer
 still uses the unchanged fail-closed process guard. Test evidence is retained in
 ignored var/git-maintenance logs; no production process check was bypassed.
+
+## Installed acceptance
+
+Promoted policy 0.17.2-approval1 with receipt
+`var/live-promotion-backups/release-20261111-approval0172/receipt.json`.
+60 packages, 61 owned after-states, zero drift. The installed memory client,
+policy/workspace, tools and processing modules match tested source bytes.
+Six fingerprints covering saved memory preferences and BL MCP/Codex settings
+were unchanged. No memory preference was disabled automatically.
+
+The real Desktop restarted and its Memory page visibly displayed both selectors:
+recipient default required, project inherit, separate Save buttons and the deletion
+exception. No live preference was saved, note uploaded, processing job triggered,
+model API called or real deployment run during this UI acceptance.

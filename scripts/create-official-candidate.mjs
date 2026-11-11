@@ -3,11 +3,12 @@ import { createReadStream } from 'node:fs'
 import { cp, lstat, mkdir, open, readdir, readFile, rename, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { homedir } from 'node:os'
 import { DEFAULT_RELEASE_LOCK, verifyOfficialDesktop } from '../src/targets/official-desktop/target.mjs'
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 export const CANDIDATE_PARENT = join(REPO_ROOT, 'var', 'candidate')
-export const DEFAULT_SOURCE_ROOT = 'C:\\Users\\S0lo\\AppData\\Local\\Programs\\DeepSeek Harness'
+export const DEFAULT_SOURCE_ROOT = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'Programs', 'DeepSeek Harness')
 export const DEFAULT_CANDIDATE_ROOT = join(CANDIDATE_PARENT, 'official-desktop-rc5-01')
 
 const PROFILE_PACKAGE = Object.freeze({

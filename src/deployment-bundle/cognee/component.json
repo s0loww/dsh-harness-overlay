@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "componentId": "cognee",
+  "version": "1.6.7",
+  "required": true,
+  "entryPoint": "adapter.mjs",
+  "factory": "createCogneeAdapter",
+  "assetManifest": "assets.json",
+  "assetFiles": ["cognee-image.tar", "cognee-models.tar"],
+  "defaultPort": 18080,
+  "defaultProvider": "local",
+  "profileFiles": ["config.json", "auth.json", "processing-binding.json", "processing.json"],
+  "prerequisites": ["node", "docker-linux-engine", "docker-compose-v2"],
+  "importsExistingUserData": false,
+  "embedsCredentials": false
+}

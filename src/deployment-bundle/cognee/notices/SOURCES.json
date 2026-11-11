@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "checked": "2026-11-11",
+  "runtime": {
+    "name": "Cognee",
+    "license": "Apache-2.0",
+    "revision": "8853378eae5366addb064e758e560a456146ae1a",
+    "source": "https://github.com/topoteretes/cognee/tree/8853378eae5366addb064e758e560a456146ae1a"
+  },
+  "models": [
+    {
+      "name": "fastino/gliner2.5-base-v1",
+      "folder": "huggingface/hub/models--fastino--gliner2.5-base-v1",
+      "revision": "07d99c0ba5d15cb3b24e0a236fa99bdd4ef87a5c",
+      "license": "Apache-2.0",
+      "modelCard": "https://huggingface.co/fastino/gliner2.5-base-v1/raw/07d99c0ba5d15cb3b24e0a236fa99bdd4ef87a5c/README.md"
+    },
+    {
+      "name": "BAAI/bge-small-en-v1.5",
+      "folder": "huggingface/hub/models--BAAI--bge-small-en-v1.5",
+      "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+      "license": "MIT",
+      "modelCard": "https://huggingface.co/BAAI/bge-small-en-v1.5/raw/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a/README.md"
+    },
+    {
+      "name": "Qdrant/bge-small-en-v1.5-onnx-Q",
+      "folder": "fastembed/models--Qdrant--bge-small-en-v1.5-onnx-Q",
+      "revision": "aa8f8b060edb00e03bfdd08813a2949946c8ba55",
+      "license": "MIT",
+      "modelCard": "https://huggingface.co/Qdrant/bge-small-en-v1.5-onnx-Q/raw/aa8f8b060edb00e03bfdd08813a2949946c8ba55/README.md"
+    }
+  ],
+  "mitAttribution": {
+    "source": "https://github.com/FlagOpen/FlagEmbedding/blob/master/LICENSE",
+    "copyright": "Copyright (c) 2022 staoxiao"
+  }
+}

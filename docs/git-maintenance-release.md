@@ -42,3 +42,8 @@ It is not the managed DSH rollout schema. Current rollout refuses this manifest
 (`ROLLOUT_MANIFEST_INVALID`) rather than assuming ownership or overwriting it.
 Legacy manifest migration and a clearer UI diagnostic remain follow-up work;
 no BL rule files or MCP settings were changed.
+
+Follow-up: [BL legacy manifest migration](legacy-manifest-migration.md) now
+normalizes the accounting format with a verified backup. The installed DSH panel
+reads it without error. A distribution upgrade and instruction adoption remain
+separate reviewed actions.

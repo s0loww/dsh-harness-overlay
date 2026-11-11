@@ -27,3 +27,18 @@ GitHub sources are public. Git source availability does not mean a binary releas
 The trusted installer engine and its artifact/backup store are machine settings. They are not downloaded from an incoming Git checkout. Personal paths are configured locally and absent from the portable payload.
 Maintenance mutations require an active registered project executor with native full access. GUI actions use native authenticated admission, CSRF and an explicit reviewed action; non-UI execution uses native approval. Cancelling an existing pending operation reduces activity and does not require renewed execution authority.
 Project rollout was verified only on fixtures; existing working projects were not changed by this release.
+
+## Live installation
+
+Installed with receipt `var/live-promotion-backups/release-20261111-git017/receipt.json`.
+60 packages, 61 owned after-states, zero drift. Candidate rollback/reapply and
+visible startup passed. Installed Desktop restarted and both maintenance pages
+were visibly opened. The real GitHub check fetched the public harness branch and
+correctly reported that no installable GitHub release had been published.
+
+The existing BL project has a legacy `.airules-manifest.json` with
+`version/installed_at/files/placeholders` and 468 entries, including Claude paths.
+It is not the managed DSH rollout schema. Current rollout refuses this manifest
+(`ROLLOUT_MANIFEST_INVALID`) rather than assuming ownership or overwriting it.
+Legacy manifest migration and a clearer UI diagnostic remain follow-up work;
+no BL rule files or MCP settings were changed.

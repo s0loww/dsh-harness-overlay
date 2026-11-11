@@ -14,8 +14,9 @@ const legacyProfile=allowed=>({allowed,embeddings:{provider:'fastembed',model:'B
 export function createMemoryWorkspace(ctx,options={}){
   const {configPath,createUserMessage,processingManager,keyStore}=options,home=dirname(configPath)
   const token=randomBytes(32).toString('base64url'),permits=new Map()
+  const mutationPermits=new WeakMap()
   let busy=false
-  const cognee=createCogneeController(ctx,{...options,serviceFactory:options.serviceFactory??(config=>createMemoryService({...config,allowProcessing:true}))})
+  const cognee=createCogneeController(ctx,{...options,serviceFactory:options.serviceFactory??(config=>createMemoryService({...config,allowProcessing:true})),authorizeMutation:consumeCogneePermit})
   const globalStore=options.globalStore??createGlobalPolicyStore(join(home,'policy.json'))
   function scopeFor(sessionId,parameters={}){const scope=activeScope(ctx,sessionId,parameters);scope.stamp=scopeStamp(scope);return scope}
   function verify(scope,signal){signal?.throwIfAborted();const fresh=scopeFor(scope.agent.session.id);if(fresh.agent!==scope.agent||fresh.stamp!==scope.stamp)fail('MEMORY_SCOPE_CHANGED')}
@@ -74,12 +75,28 @@ export function createMemoryWorkspace(ctx,options={}){
     return digest([policy.memoria.namespace,input.action==='remember'?policy.memoria.remember:policy.memoria.search])
   }
   async function approve(input,execution,scope,targets){
-    if(!targets.includes('memoria'))return // Existing Cognee adapter owns its native approval.
+    if(!execution?.agent||typeof execution.token!=='symbol'||typeof execution.callId!=='string'||!execution.callId)fail('MEMORY_NATIVE_EXECUTION_REQUIRED')
+    const ready=targets.includes('cognee')?await cognee.readiness():null
+    verify(scope,execution.signal)
+    const policy=await policyFor(scope,execution.signal)
     const decision=await ctx.approval.request({agent:scope.agent,callId:execution.callId,toolName:'airules_memory',reason:`Project memory ${input.action}: ${targets.join(', ')}; explicit project namespaces. Unknown writes will not be retried.`,signal:execution.signal})
     verify(scope,execution.signal);if(decision!=='allowed-once')fail('MEMORY_APPROVAL_REQUIRED')
+    if((await policyFor(scope,execution.signal)).revision!==policy.revision)fail('MEMORY_POLICY_STALE')
+    if(ready){const fresh=await cognee.readiness();if(fresh.revision!==ready.revision||fresh.authRevision!==ready.authRevision)fail('MEMORY_CONFIG_STALE')}
+    verify(scope,execution.signal)
+    mutationPermits.set(execution,{agent:scope.agent,token:execution.token,callId:execution.callId,action:input.action,stamp:scope.stamp,targets:new Set(targets),ready})
   }
-  const router=createMemoryRouter({policyFor,verify,preflight,approve,journal,
-    cognee:async(input,execution,scope)=>{
+  function consumePermit(execution,backend,input,scope){
+    const permit=mutationPermits.get(execution)
+    if(!permit||permit.agent!==scope.agent||permit.token!==execution.token||permit.callId!==execution.callId||permit.action!==input.action||permit.stamp!==scopeStamp(scope)||!permit.targets.delete(backend))fail('MEMORY_APPROVAL_REQUIRED')
+    return permit
+  }
+  function consumeCogneePermit({input,execution,scope,revision,authRevision}){
+    const permit=consumePermit(execution,'cognee',input,scope)
+    if(permit.ready?.revision!==revision||permit.ready?.authRevision!==authRevision)fail('MEMORY_CONFIG_STALE')
+  }
+  const router=createMemoryRouter({policyFor,verify,preflight,approve,journal,dispatchAware:true,
+    cognee:async(input,execution,scope,_policy,beforeDispatch)=>{
       if(['process','recall'].includes(input.action))await preflight('cognee',input,execution,scope)
       const args=Object.fromEntries(Object.entries(input).filter(([key])=>['action','sessionId','query','topK','text','title','taskId','confirm','expectedRevision'].includes(key)))
       if(input.action==='remember'){
@@ -87,18 +104,19 @@ export function createMemoryWorkspace(ctx,options={}){
         if(input.destinationIdentity!==digest([ready.config.endpoint,ready.authRevision]))fail('MEMORY_DESTINATION_CHANGED')
         args.expectedRevision=input.expectedRevision??ready.revision;args.expectedAuthRevision=ready.authRevision
       }
-      const result=await cognee.act(args,execution)
+      const result=await cognee.act(args,execution,beforeDispatch)
       if(input.action==='status'){const selected=await processing();result.processingEnabled=!!selected.profile.allowed&&!!selected.applied?.matchesDesired;if(result.capabilities){result.capabilities.process=result.processingEnabled;result.capabilities.recall=result.capabilities.recall&&result.processingEnabled}}
       return result
     },
-    memoria:async(input,execution,scope,policy)=>{
+    memoria:async(input,execution,scope,policy,beforeDispatch)=>{
       const adapter=memoria(scope,execution,policy)
       if(input.action==='status'){const result=adapter.status();if(result.availability==='unavailable')fail('MEMORY_MEMORIA_UNAVAILABLE');return result}
       if(!['recall','remember'].includes(input.action))fail('MEMORY_MEMORIA_ACTION_UNSUPPORTED')
       if(typeof execution?.token!=='symbol')fail('MEMORY_NATIVE_EXECUTION_REQUIRED')
+      if(input.action==='remember')consumePermit(execution,'memoria',input,scope)
       const snapshot=await policyFor(scope,execution.signal)
       permits.set(execution.token,{agent:scope.agent,scope,revision:snapshot.revision,names:new Set(Object.values(policy.memoria).filter(row=>row&&typeof row==='object').map(row=>row.tool))})
-      try{return await adapter[input.action](input)}finally{permits.delete(execution.token)}
+      try{if(input.action==='remember')beforeDispatch?.();return await adapter[input.action](input)}finally{permits.delete(execution.token)}
     }})
   async function configuration(input={},lease){
     let scope=null,projectError
@@ -123,7 +141,7 @@ export function createMemoryWorkspace(ctx,options={}){
         return await processingManager.apply({expectedRevision:input.expectedProcessingRevision,confirm:true,execution})
       }
       return await router.act(input,execution,scope)
-    }finally{busy=false}
+    }finally{if(execution)mutationPermits.delete(execution);busy=false}
   }
   async function nativeRead(input){
     const scope=scopeFor(input.sessionId)

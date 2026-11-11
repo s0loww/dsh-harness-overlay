@@ -11,6 +11,7 @@ import { createModelKeyStore } from '../src/memory-workspace/lib/model-key.js'
 import { createProjectContext, selectionStore } from '../src/project-context/lib/core.js'
 import { Context } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js'
 import { SandboxedFileSystem } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/dsh-fs-sandbox/lib/index.js'
+import { ApprovalService } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/dsh-user-approval/lib/index.js'
 const binding={namespace:'fixture-project',search:{tool:'mcp__memory_fixture__search',scopeArgument:'project',queryArgument:'query'},remember:{tool:'mcp__memory_fixture__save',scopeArgument:'project',textArgument:'text'}}
 async function fixture(t){
   const base=await mkdtemp(join(tmpdir(),'memory-workspace-v2-')),root=join(base,'project'),home=join(base,'home');await mkdir(root);await mkdir(home)
@@ -146,4 +147,52 @@ test('cold project memory policy refuses junction and hardlink aliases without a
   await rm(join(f.root,'.dsh'));await mkdir(join(f.root,'.dsh'));await link(file,join(f.root,'.dsh/memory.json'))
   const linked=await f.view();assert.equal(linked.value.projectError,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(linked.value.scope,null)
   assert.equal((await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},'missing')).value.error,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(await readFile(file,'utf8'),bytes)
+})
+
+// Execute the actual pinned SDK request/decide policy methods, with only the
+// session projection/audit sink and interactive answerer supplied as fixtures.
+function nativeApproval(f,{policy='ask',answer='allowed-once',beforeAnswer}={}){
+  const audit=[];let answerers=0,requests=0
+  const native={config:{policy},approvalStateOf:()=>({policy:null,turnOpen:true}),
+    effectivePolicy:ApprovalService.prototype.effectivePolicy,overrideOf:ApprovalService.prototype.overrideOf,
+    decide:ApprovalService.prototype.decide,ctx:{async waterfall(){answerers++;await beforeAnswer?.();return answer}}}
+  for(const agent of f.agents.values())agent.session.append=(type,data)=>audit.push({type,data})
+  f.ctx.approval.request=async req=>{requests++;return ApprovalService.prototype.request.call(native,req)}
+  return{audit,get answerers(){return answerers},get requests(){return requests}}
+}
+for(const backend of ['cognee','memoria','both'])for(const [policy,answer]of [['never','allowed-once'],['ask','rejected'],['ask','cancelled'],['ask','unavailable']]){
+  test(`actual SDK022 ${policy}/${answer} refuses ${backend} before every routing claim even in full access`,async t=>{
+    const f=await fixture(t);await global(f,backend,backend==='both'?'both':'auto');await project(f)
+    f.policies.get('a').mode='danger-full-access'
+    const approval=nativeApproval(f,{policy,answer})
+    await assert.rejects(f.controller.act({action:'remember',sessionId:'a',text:'Approved facts fixture',confirm:true},f.exec('a')),/MEMORY_APPROVAL_REQUIRED/)
+    assert.equal(approval.requests,1);assert.equal(approval.answerers,policy==='never'?0:1)
+    assert.deepEqual(approval.audit.map(row=>row.type),['approval/asked','approval/decided'])
+    assert.equal(f.calls.length,0)
+    assert.equal(existsSync(join(f.home,'routing-receipts.json')),false)
+    assert.equal(existsSync(join(f.home,'receipts.json')),false)
+  })
+}
+test('one native allowed-once grant covers exact selected destinations once, then persists separate receipts',async t=>{
+  const f=await fixture(t);await global(f,'both','both');await project(f)
+  const approval=nativeApproval(f)
+  const result=await f.controller.act({action:'remember',sessionId:'a',text:'Exact scoped synthetic fact',confirm:true},f.exec('a'))
+  assert.equal(result.status,'complete');assert.equal(approval.requests,1)
+  assert.deepEqual(f.calls.filter(row=>row.action==='remember').map(row=>row.backend),['memoria','cognee'])
+  const receipts=JSON.parse(await readFile(join(f.home,'routing-receipts.json'),'utf8'))
+  assert.equal(Object.keys(receipts.entries).length,2);assert.ok(Object.values(receipts.entries).every(row=>row.state==='stored'))
+  // A previous grant cannot authorize a later turn, even with the same note.
+  nativeApproval(f,{policy:'never'})
+  await assert.rejects(f.controller.act({action:'remember',sessionId:'a',text:'Exact scoped synthetic fact',confirm:true},f.exec('a')),/MEMORY_APPROVAL_REQUIRED/)
+  assert.equal(f.calls.filter(row=>row.action==='remember').length,2)
+})
+for(const mutation of ['scope','configuration','authentication'])test(`changing ${mutation} during native approval leaves no sends or journal claim`,async t=>{
+  const f=await fixture(t)
+  nativeApproval(f,{beforeAnswer:async()=>{
+    if(mutation==='scope')f.policies.get('a').mode='read-only'
+    if(mutation==='configuration')await writeFile(join(f.home,'config.json'),JSON.stringify({enabled:true,endpoint:'http://127.0.0.1:18081',localProcessing:true}))
+    if(mutation==='authentication')await writeFile(join(f.home,'auth.json'),JSON.stringify({apiKey:'rotated-fixture-key'}))
+  }})
+  await assert.rejects(f.controller.act({action:'remember',sessionId:'a',text:'Synthetic guarded fact',confirm:true},f.exec('a')),/MEMORY_(?:SCOPE_CHANGED|CONFIG_STALE)/)
+  assert.equal(f.calls.length,0);assert.equal(existsSync(join(f.home,'routing-receipts.json')),false)
 })

@@ -33,17 +33,18 @@ export function createRoutingJournal(path){
       await writeFile(temp,JSON.stringify(state)+'\n',{flag:'wx',mode:0o600});await rename(temp,path);return structuredClone(result)
     }finally{busy=false;await rm(temp,{force:true});if(locked)await rm(lock,{force:true})}
   }
-  return{async claim(id){if(!/^[a-f0-9]{64}$/u.test(id))fail('MEMORY_ROUTING_ID_INVALID');return mutate(state=>{if(state.entries[id])return{claimed:false,...state.entries[id]};state.entries[id]={state:'outcome-unknown'};return{claimed:true,state:'outcome-unknown'}})},async settle(id,result){if(!written(result))fail('MEMORY_ROUTING_RECEIPT_INVALID');return mutate(state=>{if(!state.entries[id])fail('MEMORY_ROUTING_RECEIPT_REQUIRED');state.entries[id]={state:'stored',result:safeReceipt(result)};return state.entries[id]})}}
+  return{async claim(id){if(!/^[a-f0-9]{64}$/u.test(id))fail('MEMORY_ROUTING_ID_INVALID');return mutate(state=>{if(state.entries[id])return{claimed:false,...state.entries[id]};state.entries[id]={state:'outcome-unknown'};return{claimed:true,state:'outcome-unknown'}})},async releaseUnsent(id){return mutate(state=>{if(!/^[a-f0-9]{64}$/u.test(id)||state.entries[id]?.state!=='outcome-unknown')fail('MEMORY_ROUTING_RECEIPT_REQUIRED');delete state.entries[id];return true})},async settle(id,result){if(!written(result))fail('MEMORY_ROUTING_RECEIPT_INVALID');return mutate(state=>{if(!state.entries[id])fail('MEMORY_ROUTING_RECEIPT_REQUIRED');state.entries[id]={state:'stored',result:safeReceipt(result)};return state.entries[id]})}}
 }
-export function createMemoryRouter({policyFor,verify,preflight,cognee,memoria,approve,journal}){
+export function createMemoryRouter({policyFor,verify,preflight,cognee,memoria,approve,journal,dispatchAware=false}){
   return{async act(input,execution,scope){
     const snapshot=await policyFor(scope,execution?.signal),policy=snapshot.effective
     if(input.expectedPolicyRevision!==undefined&&input.expectedPolicyRevision!==snapshot.revision)fail('MEMORY_POLICY_STALE')
     const selected=selectBackends(policy,input)
     const current=async()=>{await verify(scope,execution?.signal);if((await policyFor(scope,execution?.signal)).revision!==snapshot.revision)fail('MEMORY_POLICY_STALE');await verify(scope,execution?.signal)}
-    const invoke=async (backend,operationId,destinationIdentity)=>{
+    const invoke=async (backend,operationId,destinationIdentity,beforeDispatch)=>{
       await current()
-      const result=await(backend==='cognee'?cognee:memoria)({...input,...(operationId?{operationId,destinationIdentity}:{})},execution,scope,policy)
+      if(!dispatchAware)beforeDispatch?.()
+      const result=await(backend==='cognee'?cognee:memoria)({...input,...(operationId?{operationId,destinationIdentity}:{})},execution,scope,policy,beforeDispatch)
       await current();return result
     }
     if(input.action==='remember'){
@@ -68,12 +69,17 @@ export function createMemoryRouter({policyFor,verify,preflight,cognee,memoria,ap
           if(claimed.state!=='stored')stopped=true
           continue
         }
+        let dispatched=false
         try{
-          const result=await invoke(backend,operationId,identities[backend])
+          const result=await invoke(backend,operationId,identities[backend],()=>{dispatched=true})
           if(!written(result)){backends[backend]={status:'failed',result:{backend,state:'outcome-unknown',operationId,indexed:false}};stopped=true;continue}
           await journal.settle(operationId,{...result,backend,operationId})
           backends[backend]={status:'ok',result:{...result,backend,operationId}}
-        }catch(error){backends[backend]={status:'failed',error:code(error),result:{backend,state:'outcome-unknown',operationId,indexed:false}};stopped=true}
+        }catch(error){
+          let unsent=false
+          if(dispatchAware&&!dispatched&&journal.releaseUnsent)try{unsent=await journal.releaseUnsent(operationId)===true}catch{}
+          backends[backend]={status:unsent?'not-attempted':'failed',error:code(error),result:{backend,state:unsent?'not-attempted':'outcome-unknown',operationId,indexed:false,...(unsent?{retrySafe:true}:{})}};stopped=true
+        }
       }
       if(selected.length===1)return{...(backends[selected[0]].result??{}),backend:selected[0],...(backends[selected[0]].error?{error:backends[selected[0]].error}:{}),policyRevision:snapshot.revision}
       return{mode:policy.mode,status:Object.values(backends).every(row=>row.status==='ok')?'complete':'partial',backends,policyRevision:snapshot.revision}

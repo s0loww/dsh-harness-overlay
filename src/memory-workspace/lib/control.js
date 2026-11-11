@@ -28,7 +28,7 @@ async function bodyOf(request) {
   for await (const chunk of request) { const data = Buffer.from(chunk); bytes += data.length; if (bytes > 96 * 1024) throw new Error('MEMORY_BODY_LIMIT'); chunks.push(data) }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
-export function createController(ctx, { configPath, credentialPath = join(dirname(configPath), 'auth.json'), journalPath = join(dirname(configPath), 'receipts.json'), serviceFactory = createMemoryService, createUserMessage } = {}) {
+export function createController(ctx, { configPath, credentialPath = join(dirname(configPath), 'auth.json'), journalPath = join(dirname(configPath), 'receipts.json'), serviceFactory = createMemoryService, createUserMessage, authorizeMutation } = {}) {
   let saving = false, operationBusy = false
   const csrfToken = randomBytes(32).toString('base64url')
   async function configuration() {
@@ -72,7 +72,7 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     if (!services.has(key)) { services.clear(); services.set(key, serviceFactory({ endpoint: config.endpoint, allowProcessing: config.localProcessing, apiKey: auth.apiKey, journalPath })) }
     return services.get(key)
   }
-  async function perform(input, execution) {
+  async function perform(input, execution, beforeDispatch) {
     if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['action', 'sessionId', 'query', 'topK', 'text', 'title', 'taskId', 'confirm', 'expectedRevision','expectedAuthRevision'].includes(key))) throw new Error('MEMORY_INPUT_INVALID')
     const action = input.action ?? 'status'
     if (!['status', 'documents', 'recall', 'graph', 'remember', 'process', 'task'].includes(action)) throw new Error('MEMORY_ACTION_INVALID')
@@ -87,7 +87,8 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     if (writing) {
       if (input.confirm !== true) throw new Error('MEMORY_CONFIRM_REQUIRED')
       if (!execution) throw new Error('MEMORY_NATIVE_EXECUTION_REQUIRED')
-      {
+      if (authorizeMutation) await authorizeMutation({ input, execution, scope: current, revision: snapshot.revision, authRevision: auth.revision })
+      else {
         const decision = await ctx.approval.request({ agent: current.agent, toolName: 'airules_memory', callId: execution.callId,
           reason: `Cognee ${action}: project dataset ${current.dataset}; local memory write/processing.`, signal: execution.signal })
         if (decision !== 'allowed-once') throw new Error('MEMORY_APPROVAL_REQUIRED')
@@ -101,6 +102,9 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     // Bind the native scope immediately before the external request, never accept root/dataset from a caller.
     const fresh = activeScope(ctx, input.sessionId, { writing, execution })
     if (fresh.root !== current.root || fresh.agent !== current.agent || fresh.mode !== current.mode) throw new Error('MEMORY_SCOPE_CHANGED')
+    // An internal transport marker, never accepted from model/HTTP arguments.
+    // Every native authorization/configuration/scope guard above precedes it.
+    if (writing) beforeDispatch?.()
     let result
     if (action === 'status') result = await client.status(current.root)
     if (action === 'documents') result = await client.listDocuments(current.root)
@@ -118,11 +122,11 @@ export function createController(ctx, { configPath, credentialPath = join(dirnam
     if (final.agent !== current.agent || final.root !== current.root || final.mode !== current.mode) throw new Error('MEMORY_SCOPE_CHANGED')
     return { ...result, projectRoot: current.root, dataset: current.dataset, writable: current.writable }
   }
-  async function act(input, execution) {
+  async function act(input, execution, beforeDispatch) {
     if (operationBusy) throw new Error('MEMORY_OPERATION_BUSY')
     if (saving) throw new Error('MEMORY_CONFIG_BUSY')
     operationBusy = true
-    try { return await perform(input, execution) }
+    try { return await perform(input, execution, beforeDispatch) }
     finally { operationBusy = false }
   }
   async function submit(input) {

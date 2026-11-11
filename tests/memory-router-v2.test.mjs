@@ -107,3 +107,16 @@ test('journal rejects invalid identifiers and corrupted stored success evidence'
   await writeFile(path,JSON.stringify({schemaVersion:1,entries:{[id]:{state:'stored'}}}))
   await assert.rejects(createRoutingJournal(path).claim(id),/MEMORY_ROUTING_/)
 })
+test('trusted pre-dispatch guards release only this newly claimed unsent operation; timeout after dispatch stays unknown',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'airules-routing-dispatch-'));t.after(()=>rm(root,{recursive:true,force:true}))
+  for(const dispatched of [false,true]){
+    const f=fixture({mode:'cognee',writeTarget:'auto'}),path=join(root,`${dispatched}.json`)
+    f.options.journal=createRoutingJournal(path);f.options.dispatchAware=true
+    f.options.cognee=async(_input,_execution,_scope,_policy,mark)=>{if(dispatched)mark();throw Error(dispatched?'BACKEND_TIMEOUT':'MEMORY_SCOPE_CHANGED')}
+    const result=await createMemoryRouter(f.options).act(remember,f.execution,f.scope)
+    assert.equal(result.state,dispatched?'outcome-unknown':'not-attempted')
+    assert.equal(result.retrySafe,dispatched?undefined:true)
+    const state=JSON.parse(await readFile(path,'utf8'))
+    assert.equal(Object.keys(state.entries).length,dispatched?1:0)
+  }
+})

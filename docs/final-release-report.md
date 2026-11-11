@@ -3,7 +3,13 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current release: [Git sources, project rollout and harness update](git-maintenance-release.md).
+Current release: [Memory approval ordering and BL rule update](memory-approval-fix-release.md).
+UI `0.17.0-host022-ui1`, policy `0.17.1-memory1`; canonical airules remains `82c10a4` / 0.16.0.
+1086 source tests PASS, one obsolete test skipped; native acceptance 274 checks PASS.
+Memory approval policy is preserved. One proven unsent receipt recovered with backup;
+no actual note was retried. BL has all 55 rules at 0.16.0; its contract/settings/MCP preserved.
+
+Previous release: [Git sources, project rollout and harness update](git-maintenance-release.md).
 UI `0.17.0-host022-ui1`, policy `0.17.0-git2`; canonical airules stays 0.16.0 / `82c10a4`.
 1066 source tests passed, one obsolete test skipped. Native installed-package acceptance passed 274 checks, including actual isolated rule apply and rollback.
 Live installation: 60 packages, 61 verified after-states, zero drift; Desktop and maintenance pages opened. Legacy BL manifest migration remains separate.

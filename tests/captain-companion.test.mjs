@@ -37,3 +37,22 @@ test('client uses read-only companion subscription, no duplicate avatar, chat se
   const oversized=structuredClone(config),key=themes.find(key=>oversized.phrases[key].some(line=>line.length<240)),index=oversized.phrases[key].findIndex(line=>line.length<240);oversized.phrases[key][index]+='x'
   assert.equal(Buffer.byteLength(JSON.stringify(oversized,null,2)+'\n'),32769);assert.ok(Buffer.byteLength(JSON.stringify(oversized))<32768);await assert.rejects(store.save(oversized,saved.revision),/CAPTAIN_CONFIG_INVALID/);assert.deepEqual(await readFile(path),before)
  })
+
+ test('speech control hugs the head without a reserved empty bubble gap and clamps edge placement',()=>{
+  const rect={left:0,top:500,bottom:724,width:224,height:224},viewport={width:1282,height:822},button=client.speechPosition(rect,viewport,false),bubble=client.speechPosition(rect,viewport,true)
+  assert.equal(button.width,86);assert.equal(button.bottom,328);assert.equal(bubble.bottom,button.bottom);assert.equal(bubble.width,260);assert.equal(button.top,'auto');assert.ok(button.left>=12);assert.ok(bubble.left>=12)
+  const lowHead=client.speechPosition({...rect,top:16,bottom:240},viewport,true);assert.equal(lowHead.top,246);assert.equal(lowHead.bottom,'auto');assert.ok(lowHead.left+lowHead.width<=viewport.width-12)
+ })
+ test('speech popover uses the browser top layer and can be raised again over a newly opened settings modal',()=>{
+  let open=false;const calls=[],node={matches:()=>open,showPopover(){open=true;calls.push('show')},hidePopover(){open=false;calls.push('hide')}}
+  assert.equal(client.raisePopover(node),true);assert.equal(client.raisePopover(node),true);assert.deepEqual(calls,['show','hide','show']);assert.equal(client.raisePopover({}),false);assert.equal(client.raisePopover({showPopover(){throw Error('disconnected')}}),false)
+  assert.match(source,/popover:'manual'/u);assert.match(source,/useLayoutEffect/u);assert.match(source,/dialog\[open\]/u)
+ })
+ test('settings preview publishes the same selected text to the live bubble without saving, sending a chat, or requesting a model',()=>{
+  const events=[],states=[],slots=new Map();let exported
+  const React={createElement:(type,props,...children)=>({type,props:props??{},children:children.flat(Infinity)}),useState:initial=>[typeof initial==='function'?initial():initial,value=>states.push(value)],useRef:initial=>({current:initial}),useEffect(){},useSyncExternalStore:(_subscribe,get)=>get()}
+  vm.runInNewContext(source,{window:{dshPet:{version:1,getSnapshot:()=>captain()},dispatchEvent:event=>events.push(event),__ModuleLoader__:{load(spec){exported=spec.factory(()=>React)}}},CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail}},Math,Date,Map,Set,Error,JSON,Object,Number,String,Infinity,fetch(){throw Error('NO_NETWORK')}})
+  const ctx={effect(){},slots:{inject(_name,fn){fn()},register(spec,render){slots.set(spec.name+'/'+spec.id,render)}}};exported.apply(ctx);const panel=slots.get('settings.section/airules-captain-companion')(),tree=panel.type(panel.props)
+  const nodes=node=>typeof node!=='object'||node===null?[]:[node,...node.children.flatMap(nodes)],preview=nodes(tree).find(node=>node.type==='button'&&node.children.includes('Проверить реплику'));assert.ok(preview);preview.props.onClick()
+  assert.equal(events.length,1);assert.equal(events[0].type,'airules-captain-preview');assert.ok(exported.CATALOG.idle.includes(events[0].detail.text));assert.ok(states.includes(events[0].detail.text));assert.ok(states.includes('Реплика показана рядом с Капитаном.'))
+ })

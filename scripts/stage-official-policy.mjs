@@ -7,6 +7,7 @@ import { stageSharedSkills, SHARED_SKILLS } from './stage-shared-skills.mjs'
 import { stageDocumentClosure } from './stage-document-closure.mjs'
 import { stageNativeFsCompat, COMPAT_PACKAGE } from './stage-native-fs-compat.mjs'
 import { stageProviderExtensionsDependencies } from './stage-provider-extensions.mjs'
+import {stageGitMaintenanceRuntime} from './stage-git-maintenance-runtime.mjs'
 import { adaptOnecLspPackage } from '../src/onec-lsp-compat/patch.mjs'
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -291,11 +292,12 @@ function args(argv) {
   return out
 }
 
-export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false, includeContextContinuity = false, continuityRulesRoot, includeHistoryRecall = false, includeSkillEvaluation = false, includeReviewedKnowledge = false, includeEvidenceLinks = false, includeRuntimeUtilities = false, includeProjectContext = false, includeLive2dCompanion = false, includeCaptainCompanion = false }) {
+export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false, includeContextContinuity = false, continuityRulesRoot, includeHistoryRecall = false, includeSkillEvaluation = false, includeReviewedKnowledge = false, includeEvidenceLinks = false, includeRuntimeUtilities = false, includeProjectContext = false, includeLive2dCompanion = false, includeCaptainCompanion = false, includeGitMaintenance = false }) {
   const portableMemoryOptions = { includeHistoryRecall, includeSkillEvaluation, includeReviewedKnowledge, includeEvidenceLinks, includeRuntimeUtilities }
   if (Object.values(portableMemoryOptions).some(value => typeof value !== "boolean")) throw new Error("BOOLEAN_OPTION_REQUIRED")
   if (includeReviewedKnowledge && !includeMemoryWorkspace) throw new Error('REVIEWED_KNOWLEDGE_REQUIRES_MEMORY_WORKSPACE')
-  if ([includeLive2dCompanion, includeCaptainCompanion, includeProjectContext, includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace,includeContextContinuity].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+  if ([includeGitMaintenance, includeLive2dCompanion, includeCaptainCompanion, includeProjectContext, includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace,includeContextContinuity].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+  if(includeGitMaintenance&&(!includeProjectContext||!workflowRulesRoot))throw new Error('GIT_MAINTENANCE_PROJECT_CONTEXT_AND_CANONICAL_REQUIRED')
   if(includeProviderExtensions&&(!includeAcp||!includeAdditionalProviders))throw new Error('PROVIDER_EXTENSIONS_REQUIRE_ACP_AND_ADDITIONAL_PROVIDERS')
   if(includeProviderExtensions&&(typeof nativeModules!=='string'||!isAbsolute(nativeModules)))throw new Error('PROVIDER_EXTENSIONS_EXPLICIT_NATIVE_MODULES_REQUIRED')
   if(includeOnecSpecialized&&(!includeWorkflows||!includeOnecPanels))throw new Error('ONEC_SPECIALIZED_REQUIRE_WORKFLOWS_AND_ONEC_PANELS')
@@ -360,6 +362,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       ...(includeProjectContext ? [['airules-dsh-project-context', join(REPO,'src/project-context')]] : []),
       ...(includeLive2dCompanion ? [['airules-dsh-live2d-companion', join(REPO,'src/live2d-companion')]] : []),
       ...(includeCaptainCompanion ? [['airules-dsh-captain-companion', join(REPO,'src/captain-companion')]] : []),
+      ...(includeGitMaintenance ? [['airules-dsh-git-maintenance', join(REPO,'src/git-maintenance')]] : []),
       ...(includeProjectSettings ? [['airules-dsh-project-settings', PROJECT_SETTINGS]] : []),
       ...(includeModelOrchestration ? [['airules-dsh-model-orchestration', MODEL_ORCHESTRATION]] : []),
       ...(includeDomainPresets ? [['airules-dsh-domain-presets', DOMAIN_PRESETS]] : []),
@@ -413,6 +416,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         }
         continuityIntegration={package:name,policyOwner:'project_rules',mode:'minimal',memoryWrites:false,canonical:{files,digest:digestData(files)}}
       }
+      if(name==='airules-dsh-git-maintenance')await stageGitMaintenanceRuntime({packageRoot:target,canonicalRoot:workflowRulesRoot,rulepackManifest,artifactVersion})
       if(includeProjectContext && ['airules-dsh-memory-workspace','airules-dsh-document-workbench','airules-dsh-project-settings','airules-dsh-agent-import','airules-dsh-skills','airules-dsh-general-tools','airules-dsh-workflows','airules-dsh-onec-specialized','dsh-openspec-workflow'].includes(name)){
         const path=join(target,'package.json'),pkg=await readJson(path);if(!pkg.dsh?.client)throw new Error('PROJECT_CLIENT_REQUIRED');pkg.dsh.client.inject=[...new Set([...(pkg.dsh.client.inject??[]),'airules-dsh-project-context'])];await writeFile(path,JSON.stringify(pkg,null,2)+'\n')
       }
@@ -589,6 +593,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       [includeLive2dCompanion,'airules-live2d-companion','airules-dsh-live2d-companion'],
       [includeCaptainCompanion,'airules-captain-companion','airules-dsh-captain-companion'],
       [includeProjectContext,'airules-project-context','airules-dsh-project-context'],
+      [includeGitMaintenance,'airules-git-maintenance','airules-dsh-git-maintenance'],
       [includeRuntimeUtilities,'airules-runtime-utilities-host','airules-dsh-runtime-utilities'],
       [includeReviewedKnowledge,'airules-reviewed-knowledge-host','airules-reviewed-knowledge/host'],
       [includeContextContinuity,'airules-continuity','airules-dsh-context-continuity'],
@@ -668,7 +673,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         base: { id: 'standard', hostVersion: lock.hostVersion, sourceSha256: standardSha256 },
       },
       rulepack: { version: rulepackManifest.package.version, sourceDirty: rulepackManifest.source?.dirty === true, counts: rulepackManifest.counts },
-      ...((includeLive2dCompanion || includeCaptainCompanion || includeProjectContext || openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace || includeContextContinuity || Object.values(portableMemoryOptions).some(Boolean)) ? { integrations: {
+      ...((includeGitMaintenance || includeLive2dCompanion || includeCaptainCompanion || includeProjectContext || openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace || includeContextContinuity || Object.values(portableMemoryOptions).some(Boolean)) ? { integrations: {
         ...(continuityIntegration ? {contextContinuity:continuityIntegration} : {}),
         ...(nativeFsIntegration ? {nativeFsCompat: nativeFsIntegration} : {}),
         ...(openSpecIntegration ? { openspec: openSpecIntegration } : {}),
@@ -678,6 +683,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         ...Object.fromEntries(PORTABLE_MEMORY.filter(([option]) => portableMemoryOptions[option]).map(([option,name]) => [option.slice(7,8).toLowerCase()+option.slice(8),{package:name,scope:"custom-presets-only",automaticWrites:false}])),
         ...(includeMcpManager ? { mcpManager: { package: 'airules-dsh-mcp-manager', bindings: 'machine-or-project-external', defaultServers: 0, authority: 'native-loopback-csrf' } } : {}),
         ...(includeAdditionalProviders ? { additionalProviders: { package: 'airules-dsh-additional-providers', authentication: 'explicit-user-action', bootstrap: false } } : {}),
+        ...(includeGitMaintenance ? {gitMaintenance:{package:'airules-dsh-git-maintenance',sources:'github-or-local-or-embedded',projectScope:'registered-project',updates:'certified-release-on-exit',mcp:false}} : {}),
         ...(includeLive2dCompanion ? { live2dCompanion:{package:'airules-dsh-live2d-companion',defaultEnabled:false,assets:'local-only',modelCalls:false} } : {}),
         ...(includeCaptainCompanion ? { captainCompanion:{package:'airules-dsh-captain-companion',speech:'local-curated',modelCalls:false,avatar:'existing-native-pet'} } : {}),
         ...(includeProjectContext ? { projectContext:{package:'airules-dsh-project-context',scope:'registered-project',execution:'native-pinned',automaticResume:false} } : {}),
@@ -720,7 +726,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const options = args(process.argv)
     const manifest = await stageOfficialPolicy({ rulepack: options.rulepack, output: options.output, sourceBundle: options['source-bundle'], artifactVersion: options['artifact-version'], targetLock: options['target-lock'] ?? DEFAULT_LOCK,
-      includeLive2dCompanion: options['include-live2d-companion'] === 'true', includeCaptainCompanion: options['include-captain-companion'] === 'true', includeProjectContext: options['include-project-context'] === 'true', includeEvidenceLinks: options['include-evidence-links'] === 'true', includeRuntimeUtilities: options['include-runtime-utilities'] === 'true', includeHistoryRecall: options['include-history-recall'] === 'true', includeSkillEvaluation: options['include-skill-evaluation'] === 'true', includeReviewedKnowledge: options['include-reviewed-knowledge'] === 'true',
+      includeGitMaintenance: options['include-git-maintenance'] === 'true', includeLive2dCompanion: options['include-live2d-companion'] === 'true', includeCaptainCompanion: options['include-captain-companion'] === 'true', includeProjectContext: options['include-project-context'] === 'true', includeEvidenceLinks: options['include-evidence-links'] === 'true', includeRuntimeUtilities: options['include-runtime-utilities'] === 'true', includeHistoryRecall: options['include-history-recall'] === 'true', includeSkillEvaluation: options['include-skill-evaluation'] === 'true', includeReviewedKnowledge: options['include-reviewed-knowledge'] === 'true',
       includeTelegram: options['include-telegram'] === 'true', includeAcp: options['include-acp'] === 'true', includeNativeFsCompat: options['include-native-fs-compat'] === 'true', nativeModules: options['native-modules'],
       includeSubscriptions: options['include-subscriptions'] === 'true', includeMobile: options['include-mobile'] === 'true',
       includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',includeMemoryWorkspace:options['include-memory-workspace']==='true',includeContextContinuity:options['include-context-continuity']==='true',continuityRulesRoot:options['continuity-rules-root'],

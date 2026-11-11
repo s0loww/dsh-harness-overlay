@@ -119,7 +119,7 @@ export function policyPackageNames(manifest) {
   if (manifest.integrations === undefined) return [...PACKAGES]
   const integrations = manifest.integrations
   if (!integrations || typeof integrations !== 'object' || Array.isArray(integrations)
-    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion'].includes(key))
+    || Object.keys(integrations).some(key => !['openspec', 'telegram', 'acp', 'subscriptions', 'mobile', 'mcpManager', 'additionalProviders', 'onecPanels', 'projectSettings', 'modelOrchestration', 'domainPresets', 'workflows', 'agentImport', 'skillsManager', 'generalTools', 'documentWorkbench', 'onecCapabilities', 'nativeFsCompat','providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion','gitMaintenance'].includes(key))
     || Object.keys(integrations).length === 0) throw new OfficialUiInstallerError('POLICY_INTEGRATION_INVALID')
   const packages = [...PACKAGES]
   const feature = integrations.openspec
@@ -176,6 +176,7 @@ export function policyPackageNames(manifest) {
     ['projectContext','airules-dsh-project-context',{scope:'registered-project',execution:'native-pinned',automaticResume:false}],
     ['live2dCompanion','airules-dsh-live2d-companion',{defaultEnabled:false,assets:'local-only',modelCalls:false}],
     ['captainCompanion','airules-dsh-captain-companion',{speech:'local-curated',modelCalls:false,avatar:'existing-native-pet'}],
+    ['gitMaintenance','airules-dsh-git-maintenance',{sources:'github-or-local-or-embedded',projectScope:'registered-project',updates:'certified-release-on-exit',mcp:false}],
     ['projectSettings', 'airules-dsh-project-settings', { bindings: 'project-local', deploy: false, mcp: false }],
     ['modelOrchestration', 'airules-dsh-model-orchestration', { enabledByUser: true, bindings: 'role-and-pool', globalInterception: false }],
     ['domainPresets', 'airules-dsh-domain-presets', { presets: ['python-airules', 'sysadmin-airules'], mcp: false, policyOwner: 'project_rules' }],
@@ -234,7 +235,7 @@ export function policyPackageNames(manifest) {
 }
 
 export function verifyNewFeatureMounts(fragment,integrations){
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion','gitMaintenance'].some(key=>integrations?.[key])&&integrations?.onecPanels?.metadataReadOnly!==true)return
   let rows
   try {
     validatePolicyFragment(fragment)
@@ -250,6 +251,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
     ['projectContext','airules-project-context','airules-dsh-project-context'],
     ['live2dCompanion','airules-live2d-companion','airules-dsh-live2d-companion'],
     ['captainCompanion','airules-captain-companion','airules-dsh-captain-companion'],
+    ['gitMaintenance','airules-git-maintenance','airules-dsh-git-maintenance'],
     ['runtimeUtilities','airules-runtime-utilities-host','airules-dsh-runtime-utilities'],
     ['reviewedKnowledge','airules-reviewed-knowledge-host','airules-reviewed-knowledge/host'],
     ['memoryWorkspace','airules-memory','airules-dsh-memory-workspace'],
@@ -280,7 +282,7 @@ export function verifyNewFeatureMounts(fragment,integrations){
 
 async function verifyNewFeaturePayload(root,manifest){
   const integrations=manifest.integrations??{}
-  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
+  if(!['providerExtensions','cursorProvider','onecSpecialized','memoryWorkspace','contextContinuity','historyRecall','skillEvaluation','reviewedKnowledge','evidenceLinks','runtimeUtilities','projectContext','live2dCompanion','captainCompanion','gitMaintenance'].some(key=>integrations[key])&&integrations.onecPanels?.metadataReadOnly!==true)return
   const fragment=await readFile(join(root,'cordis.policy.fragment.yml'),'utf8')
   verifyNewFeatureMounts(fragment,integrations)
   if(integrations.contextContinuity){

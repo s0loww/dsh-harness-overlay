@@ -3,7 +3,11 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current release: [Live2D companions and Captain Diesel speech](companions-release.md).
+Current release: [Git sources, project rollout and harness update](git-maintenance-release.md).
+UI `0.17.0-host022-ui1`, policy `0.17.0-git2`; canonical airules stays 0.16.0 / `82c10a4`.
+1066 source tests passed, one obsolete test skipped. Native installed-package acceptance passed 274 checks, including actual isolated rule apply and rollback.
+
+Previous release: [Live2D companions and Captain Diesel speech](companions-release.md).
 UI `0.16.0-host022-pets1`, policy `0.16.0-pets2`; canonical airules remains `82c10a4` / 0.16.0.
 1009 source tests passed, one obsolete pre-upgrade test skipped; native installed-byte
 acceptance passed 239 checks. Candidate rollback/reapply, visible startup, actual

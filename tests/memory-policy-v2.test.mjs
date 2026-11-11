@@ -8,10 +8,31 @@ import { validatePolicy, effectivePolicy, selectBackends, createGlobalPolicyStor
 
 test('project policy inherits recipient defaults while a project override is shared by every conversation',()=>{
   const global={schemaVersion:1,mode:'both',writeTarget:'auto'},project={schemaVersion:1,mode:'inherit',writeTarget:'inherit'}
-  assert.deepEqual(effectivePolicy(global,project),{mode:'both',writeTarget:'auto',source:'global'})
-  assert.deepEqual(effectivePolicy(global,{...project,mode:'memoria'}),{mode:'memoria',writeTarget:'auto',source:'project'})
+  assert.deepEqual(effectivePolicy(global,project),{mode:'both',writeTarget:'auto',approval:'required',source:'global'})
+  assert.deepEqual(effectivePolicy(global,{...project,mode:'memoria'}),{mode:'memoria',writeTarget:'auto',approval:'required',source:'project'})
   for(const session of ['one','two']){assert.equal(effectivePolicy(global,project).mode,'both');assert.equal(Object.hasOwn(effectivePolicy(global,project),session),false)}
   assert.throws(()=>validatePolicy({...global,sessionId:'one'}),/MEMORY_POLICY_INVALID/)
+})
+test('legacy policies require approval; global/project approval inherit independently from backend mode',()=>{
+  const oldGlobal={schemaVersion:1,mode:'cognee',writeTarget:'auto'},oldProject={schemaVersion:1,mode:'inherit',writeTarget:'inherit'}
+  assert.equal(validatePolicy(oldGlobal).approval,'required')
+  assert.equal(validatePolicy(oldProject,{project:true}).approval,'inherit')
+  assert.equal(effectivePolicy(oldGlobal,oldProject).approval,'required')
+  assert.equal(effectivePolicy({...oldGlobal,approval:'disabled'},oldProject).approval,'disabled')
+  assert.equal(effectivePolicy({...oldGlobal,approval:'disabled'},{...oldProject,approval:'required'}).approval,'required')
+  assert.equal(effectivePolicy(oldGlobal,{...oldProject,approval:'disabled'}).approval,'disabled')
+  for(const approval of [null,true,'never','ask','inherit'])assert.throws(()=>validatePolicy({...oldGlobal,approval}),/MEMORY_POLICY_INVALID/)
+  for(const action of ['delete','remove','deleteDataset','forget','purge'])assert.throws(()=>selectBackends({mode:'cognee',writeTarget:'auto',approval:'disabled'},{action}),/MEMORY_ACTION_INVALID/)
+})
+test('approval policy saves use existing CAS and do not rewrite legacy files during read',async t=>{
+  const root=await temporary(t,'airules-memory-approval-policy-'),file=join(root,'policy.json'),old='{"schemaVersion":1,"mode":"both","writeTarget":"auto"}'
+  await writeFile(file,old)
+  const store=createGlobalPolicyStore(file),before=await store.read()
+  assert.equal(before.value.approval,'required');assert.equal(await readFile(file,'utf8'),old)
+  const saved=await store.save({...before.value,approval:'disabled'},before.revision)
+  assert.equal(saved.value.approval,'disabled')
+  await assert.rejects(store.save({...saved.value,approval:'required'},before.revision),/MEMORY_POLICY_STALE/)
+  assert.equal((await store.read()).value.approval,'disabled')
 })
 
 test('both selects independent read sources and explicit auto/write targets without overriding disabled memory',()=>{

@@ -43,7 +43,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
     const chunks = (result.results ?? []).flatMap(row => Array.isArray(row?.search_result) ? row.search_result : Array.isArray(row?.searchResult) ? row.searchResult : [row])
     const stateLabels = { DATASET_PROCESSING_COMPLETED: 'Обработка завершена', DATASET_PROCESSING_STARTED: 'Идёт обработка', DATASET_PROCESSING_NOT_STARTED: 'Обработка не запускалась', uploaded: 'Текст загружен', stored: 'Запись сохранена', 'outcome-unknown': 'Исход операции неизвестен', 'processing-requested': 'Обработка запрошена' }
     let content
-    if (result.submitted) content = h('p', { role: 'status' }, action === 'processingApply' ? 'Запрос применения профиля передан в чат. Выбранные модели ещё не считаются активными; дождитесь результата и штатного подтверждения DSH.' : action === 'process' ? 'Запрос обработки передан в чат. Обработка ещё не считается запущенной или завершённой; проверьте результат и подтверждение DSH.' : 'Запрос передан в выбранный чат. Проверьте ход выполнения и подтверждение DSH; запись ещё не считается выполненной. Текст заметки сохранён в форме.')
+    if (result.submitted) content = h('p', { role: 'status' }, action === 'processingApply' ? 'Запрос применения профиля передан в чат. Выбранные модели ещё не считаются активными; дождитесь результата операции DSH.' : action === 'process' ? 'Запрос обработки передан в чат. Обработка ещё не считается запущенной или завершённой; проверьте результат операции DSH.' : 'Запрос передан в выбранный чат. Проверьте результат выполнения DSH; запись ещё не считается выполненной. Текст заметки сохранён в форме.')
     else if (action === 'graph') content = h(Graph, { graph: result.graph ?? result })
     else if (action === 'documents') content = result.documents?.length ? h('ul', null, result.documents.map(doc => h('li', { key: doc.id }, h('strong', null, doc.name || 'Документ'), doc.type && ` · ${doc.type}`, h('p', { className: 'am-muted' }, `Источник: ${doc.id}`)))) : h('p', null, 'В памяти этого проекта пока нет документов.')
     else if (action === 'recall') content = chunks.length ? h('div', null, chunks.map((chunk, i) => h('article', { key: i, className: 'am-chunk' }, h('p', { style: { whiteSpace: 'pre-wrap' } }, textOf(chunk) || 'Сервер вернул запись без текстового фрагмента.'), h('p', { className: 'am-muted' }, `Источник: ${chunk?.document_id ?? chunk?.documentId ?? chunk?.source?.recordId ?? chunk?.id ?? 'не указан'}${chunk?.source?.tool ? ` · инструмент: ${chunk.source.tool}` : ''}`), chunk?.source?.scopeEvidence && h('p', { className: 'am-muted' }, `Область: ${typeof chunk.source.scopeEvidence === 'string' ? chunk.source.scopeEvidence : JSON.stringify(chunk.source.scopeEvidence)}`)))) : h('p', null, result.missingDataset ? 'У проекта ещё нет набора памяти. Добавьте подтверждённую заметку.' : 'Совпадений не найдено.')
@@ -55,6 +55,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
     return h('section', { 'aria-live': 'polite' }, h('h3', null, 'Результат'), content, result.truncated && action !== 'graph' && h('p', null, 'Показана ограниченная часть результата.'), h('details', null, h('summary', null, 'Технические сведения'), h('pre', null, JSON.stringify(result, null, 2))))
   }
   const MODES = { cognee: 'Cognee', memoria: 'Memoria', both: 'Обе' }
+  const APPROVALS = { required: 'Запрашивать', disabled: 'Не запрашивать' }
   const WRITES = { auto: 'Автоматически по типу записи', cognee: 'Cognee', memoria: 'Memoria', both: 'Обе — две отдельные записи' }
   const MODEL_STATES = { installed: 'установлена', loaded: 'загружена', cached: 'установлена в кэше', available: 'доступна через API', unavailable: 'недоступна', unknown: 'наличие не проверено' }
   const field = (label, control) => h('label', null, label, control)
@@ -66,8 +67,8 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
     if (current && !options.some(([id]) => id === current)) options.push([current, `${WRITES[current] ?? current} — недоступно в режиме ${MODES[mode] ?? mode}`])
     return options
   }
-  const defaultProject = () => ({ schemaVersion: 1, mode: 'inherit', writeTarget: 'inherit' })
-  const defaultGlobal = () => ({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto' })
+  const defaultProject = () => ({ schemaVersion: 1, mode: 'inherit', writeTarget: 'inherit', approval: 'inherit' })
+  const defaultGlobal = () => ({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto', approval: 'required' })
   const defaultProcessing = () => ({ allowed: false, embeddings: { provider: 'fastembed', model: 'BAAI/bge-small-en-v1.5' }, extraction: { provider: 'gliner', model: 'fastino/gliner2.5-base-v1' } })
   const safeButton = (label, onClick, disabled = false, pending = false) => h('button', { type: 'button', disabled, 'aria-disabled': pending || disabled, onClick: () => { if (!pending && !disabled) void onClick() } }, label)
   function PolicyPanel({ policy, sessionId, scope, token, busy, onSave, projectContext }) {
@@ -108,6 +109,8 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       h('h3', null, 'Память по умолчанию'),
       h('p', { className: 'am-muted' }, 'Общая настройка применяется ко всем проектам без собственного переопределения. Для её выбора открытый чат не требуется.'),
       field('Режим памяти для новых и наследующих проектов', select(globalDraft.mode, Object.entries(MODES), changeGlobalMode)),
+      field('Подтверждения операций памяти', select(globalDraft.approval ?? 'required', Object.entries(APPROVALS), approval => updateGlobal({ approval }))),
+      h('p', { className: 'am-muted' }, '«Не запрашивать» отключает дополнительные подтверждения операций памяти. Удаление всегда требует подтверждения. Штатные права DSH, песочница и ограничения MCP сохраняются.'),
       h('details', null, h('summary', null, 'Назначение записей по умолчанию'),
         field('Куда сохранять проверенные записи', select(globalDraft.writeTarget, writeOptions(globalDraft.mode, globalDraft.writeTarget), writeTarget => updateGlobal({ writeTarget }))),
         h('p', { className: 'am-muted' }, 'В режиме «Обе» автоматический выбор направляет факты и handoff в Memoria, документы — в Cognee. Двойная запись создаёт два результата; частичный успех не считается полным. Существующая память автоматически не копируется.')),
@@ -115,6 +118,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       h('section', { className: 'am-card' }, h('h3', null, 'Настройка этого проекта'),
         h('p', { className: 'am-muted' }, scope?.projectRoot ?? 'Выберите проект для его настройки. Общие предпочтения доступны отдельно.'),
         field('Режим памяти проекта', select(projectDraft.mode, [['inherit', 'Наследовать общую настройку'], ...Object.entries(MODES)], changeProjectMode, !scope?.writable)),
+        field('Подтверждения операций памяти проекта', select(projectDraft.approval ?? 'inherit', [['inherit', 'Наследовать общую настройку'], ...Object.entries(APPROVALS)], approval => updateProject({ approval }), !scope?.writable)),
         field('Назначение записей проекта', select(projectDraft.writeTarget, writeOptions(projectMode, projectDraft.writeTarget, true), writeTarget => updateProject({ writeTarget }), !scope?.writable)),
         inheritedConflict && h('p', { role: 'status', className: 'am-error' }, 'Наследуемое назначение записи несовместимо с режимом проекта. Выберите автоматическое назначение или разрешённое хранилище; записи автоматически перенаправляться не будут.'),
         safeButton('Сохранить настройку проекта', saveProject, !scope?.writable || !token, busy),
@@ -199,7 +203,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       h('div', { className: 'am-toolbar' }, safeButton('Сохранить выбор моделей', () => onSave('processingSave', { profile: draft, expectedRevision: processing?.revision }), !token || !draft.embeddings.model || !draft.extraction.model, busy),
         safeButton('Применить профиль к серверу', () => onSave('processingApply', { sessionId, expectedRevision: processing?.revision, confirm: true }), !scope?.globalWritable || !token || !processing?.bindingAvailable || dirty, busy)),
       dirty && h('p', { role: 'status', className: 'am-muted' }, 'Сначала сохраните выбранные модели. Применение использует точную сохранённую ревизию профиля.'),
-      h('p', { className: 'am-muted' }, 'Сохранение фиксирует желаемый профиль. Применение — отдельная операция через чат с native approval; она может перезапустить Cognee. До подтверждения применения выбранные модели не считаются активными.'),
+      h('p', { className: 'am-muted' }, 'Сохранение фиксирует желаемый профиль. Применение — отдельная операция через чат с выбранной политикой подтверждений и штатными правами; она может перезапустить Cognee. До подтверждения применения выбранные модели не считаются активными.'),
       h('p', { role: 'status', className: 'am-muted' }, !processing?.bindingAvailable ? 'Привязка локального управления Cognee не настроена. Выбор можно сохранить; применение сейчас недоступно.' : applied ? `Профиль сервера: ${typeof applied === 'string' ? stateLabel[applied] ?? applied : stateLabel[applied.state] ?? applied.status ?? 'сведения получены'}.${applied.matchesDesired === true ? ' Подтверждённый профиль совпадает с сохранённым.' : ' Совпадение с сохранённым профилем пока не подтверждено.'}` : 'Применение профиля ещё не подтверждено.'))
   }
   const rawRequest = request
@@ -225,7 +229,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
     React.useEffect(() => { epoch.current++; owner.current = sessionId; setData(null); setConfig(null); setResult(null); setError(''); setText(''); setTitle(''); setQuery(''); setTaskId(''); setAction(''); setAttempted(''); void load(); return () => { epoch.current++ } }, [load])
     async function run(nextAction, supplied = {}) {
       if (pending.current) return
-      if (['remember', 'process', 'processingApply'].includes(nextAction) && !window.confirm(nextAction === 'remember' ? 'Передать сохранение подтверждённой записи в чат? Назначение определяется политикой проекта; действуют штатные права и approval.' : nextAction === 'processingApply' ? 'Передать применение выбранных моделей в чат? Потребуются полные права и native approval. Возможен перезапуск Cognee; обработка выбранным API может быть платной.' : 'Передать обработку набора Cognee в чат? Будет использован подтверждённый профиль моделей, возможны внешние API и тарификация. Потребуется штатное подтверждение.')) return
+      if (['remember', 'process', 'processingApply'].includes(nextAction) && data?.policy?.effective?.approval !== 'disabled' && !window.confirm(nextAction === 'remember' ? 'Передать сохранение подтверждённой записи в чат? Назначение определяется политикой проекта; действуют штатные права и approval.' : nextAction === 'processingApply' ? 'Передать применение выбранных моделей в чат? Потребуются полные права и native approval. Возможен перезапуск Cognee; обработка выбранным API может быть платной.' : 'Передать обработку набора Cognee в чат? Будет использован подтверждённый профиль моделей, возможны внешние API и тарификация. Потребуется штатное подтверждение.')) return
       const generation = epoch.current, seq = ++sequence.current
       pending.current = true; setBusy(true); setError(''); setAttempted(nextAction); setResult(null); setNotice({ status: 'Проверка источников памяти…', documents: 'Загрузка документов Cognee…', graph: 'Загрузка графа Cognee…', recall: 'Поиск по политике проекта…', configure: 'Сохранение подключения…', task: 'Проверка обработки…', policyGlobal: 'Сохранение общей политики…', projectPolicy: 'Сохранение политики проекта…', processingSave: 'Сохранение выбора моделей…' }[nextAction] ?? 'Передача запроса в чат…')
       try {
@@ -251,7 +255,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
     return h('section', { className: 'airules-memory' }, h('h2', null, 'Память'),
       h('p', { className: 'am-muted' }, 'Политика памяти сохраняется для приложения и проекта. Все чаты проекта наследуют её; память не привязана к одному сеансу. Источники не копируются друг в друга автоматически.'),
       h('section', { className: 'am-card am-project' }, h('h3', null, 'Текущий проект'), h('p', null, scope?.projectRoot ?? project?.projectRoot ?? 'Проект не выбран'),
-        h('p', { className: 'am-muted' }, `Действует: ${MODES[mode] ?? mode} · ${source}.`),
+        h('p', { className: 'am-muted' }, `Действует: ${MODES[mode] ?? mode} · ${source}. Подтверждения: ${APPROVALS[policy?.effective?.approval ?? 'required'] ?? APPROVALS.required}.`),
         data?.projectError && h('p', { role: 'status', className: 'am-muted' }, typeof data.projectError === 'string' ? data.projectError : 'Для проектных операций выберите доступный чат нашего пресета.'),
         (projectApi ? h(projectApi.ProjectPicker, { project, disabled: busy }) : h('details', null, h('summary', null, 'Дополнительно: исполнитель проектных операций'),
           field('Открытый проектный сеанс', select(sessionId, [['', 'Без проектного исполнителя'], ...rows.map(row => [row.id, row.title ?? row.label ?? row.id])], value => setManual(value))),

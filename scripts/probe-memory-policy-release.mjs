@@ -45,6 +45,27 @@ export async function memoryPolicyAcceptance(input){
   const first=await invoke(primary,'airules_memory',args),again=await invoke(primary,'airules_memory',args)
   check('Memoria write returns durable stored receipt and no repeated dispatch',first.isError===false&&first.value.state==='stored'&&first.value.indexed===null&&again.isError===false&&seen.filter(x=>x.kind==='save').length===1)
  }finally{ctx.approval.request=approval}
+ // Exercise persisted preference through the actual admitted HTTP endpoint and
+ // native typed tool path. The only write target is the synthetic MCP fixture.
+ config=await request('/airules/memory',{query:{action:'configuration'}})
+ const previousProject=config.policy.project
+ check('memory approval preference defaults to required for legacy settings',config.policy.effective.approval==='required')
+ const disable=await request('/airules/memory',{token:config.csrfToken,body:{action:'projectPolicy',policy:{...previousProject,approval:'disabled'},expectedRevision:config.policy.projectRevision}})
+ check('project memory approval preference saves through native HTTP CAS',disable.ok&&(await ctx.airulesMemory.configuration({sessionId:primary.id})).policy.effective.approval==='disabled')
+ let unexpectedApproval=0;ctx.approval.request=async()=>{unexpectedApproval++;return'rejected'}
+ try{
+  const args={action:'remember',text:'Synthetic disabled-confirmation fixture only.',title:'Preference fixture',confirm:true},beforeSaves=seen.filter(row=>row.kind==='save').length
+  const first=await invoke(primary,'airules_memory',args),again=await invoke(primary,'airules_memory',args)
+  check('disabled saved preference writes once without an additional approval request',!first.isError&&first.value.state==='stored'&&!again.isError&&unexpectedApproval===0&&seen.filter(row=>row.kind==='save').length===beforeSaves+1)
+  const forged=await invoke(primary,'airules_memory',{...args,text:'Rejected caller approval field.',approval:'disabled'})
+  const deletion=await invoke(primary,'airules_memory',{action:'delete',confirm:true})
+  check('caller approval fields and deletion cannot bypass the native memory schema',forged.isError===true&&deletion.isError===true&&seen.filter(row=>row.kind==='save').length===beforeSaves+1)
+  config=await request('/airules/memory',{query:{action:'configuration'}})
+  const restored=await request('/airules/memory',{token:config.csrfToken,body:{action:'projectPolicy',policy:previousProject,expectedRevision:config.policy.projectRevision}})
+  check('project inheritance restores the required default independently of memory mode',restored.ok&&(await ctx.airulesMemory.configuration({sessionId:primary.id})).policy.effective.approval==='required')
+  const denied=await invoke(primary,'airules_memory',{...args,text:'Denied required-approval fixture only.'})
+  check('restored required preference still rejects before any backend send',denied.isError===true&&JSON.stringify(denied).includes('MEMORY_APPROVAL_REQUIRED')&&unexpectedApproval===1&&seen.filter(row=>row.kind==='save').length===beforeSaves+1)
+ }finally{ctx.approval.request=approval}
  const utilities=await request('/airules/runtime-utilities')
  check('runtime utilities start disabled without image request or inhibitor',utilities.ok&&utilities.config.keepAwake===false&&utilities.config.vision.enabled===false)
  report.memoryPolicy={typedMcpFixtureCalls:seen.length,realBackendWrites:0,paidRequests:0,realDeployments:0,globalAndProject:true}

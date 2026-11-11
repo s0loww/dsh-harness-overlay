@@ -8,7 +8,7 @@ const flatten=node=>!node||typeof node!=='object'?[]:[node,...(node.children??[]
 const text=node=>typeof node==='string'?node:!node||typeof node!=='object'?'':typeof node.type==='function'&&['Result','Graph'].includes(node.type.name)?text(node.type(node.props)):(node.children??[]).map(text).join(' ')
 const findButton=(tree,label)=>flatten(tree).find(row=>row.type==='button'&&text(row)===label)
 const findField=(tree,label)=>flatten(tree).find(row=>row.type==='label'&&row.children[0]===label)?.children.find(row=>row&&typeof row==='object')
-function harness(component,initialProps={},fetchImpl=async()=>({ok:true})) {
+function harness(component,initialProps={},fetchImpl=async()=>({ok:true}),confirmImpl=()=>true) {
   let cursor=0,props=initialProps,client,css
   const state=[],refs=[],memo=[],effects=[],calls=[]
   const same=(a,b)=>a&&b&&a.length===b.length&&a.every((x,i)=>x===b[i])
@@ -18,8 +18,8 @@ function harness(component,initialProps={},fetchImpl=async()=>({ok:true})) {
     useCallback(fn,deps){const i=cursor++;if(!same(memo[i]?.deps,deps))memo[i]={deps,fn};return memo[i].fn},
     useEffect(fn,deps){const i=cursor++;if(!same(memo[i]?.deps,deps)){memo[i]?.cleanup?.();memo[i]={deps};effects.push(()=>{memo[i].cleanup=fn()})}},
     useSyncExternalStore(){cursor++;return{byId:{standard:{id:'standard',title:'Native standard',retainedBy:{mainView:1}}}}}}
-  runInNewContext(source,{window:{confirm:()=>true,__ModuleLoader__:{load(module){client=module.factory(()=>React)}}},fetch:async(url,options)=>{
-    const input=options?.body?JSON.parse(options.body):Object.fromEntries(new URL(url,'http://localhost').searchParams);calls.push({input,method:options?.method??'GET'});const value=await fetchImpl(input);return{ok:value.ok!==false,status:value.ok===false?400:200,json:async()=>value}},
+  runInNewContext(source,{window:{confirm:confirmImpl,__ModuleLoader__:{load(module){client=module.factory(()=>React)}}},fetch:async(url,options)=>{
+    const input=options?.body?JSON.parse(options.body):Object.fromEntries(new URL(url,'http://localhost').searchParams);calls.push({input,method:options?.method??'GET',headers:options?.headers});const value=await fetchImpl(input);return{ok:value.ok!==false,status:value.ok===false?400:200,json:async()=>value}},
     URLSearchParams,AbortController,setTimeout,clearTimeout,document:{createElement:()=>({remove(){}}),head:{appendChild(style){css=style.textContent}}}})
   client.apply({get:()=>({list:{}}),slots:{inject(){},register(){}},effect:fn=>fn()})
   return{client,calls,render(nextProps){if(nextProps)props=nextProps;cursor=0;return client[component](props)},flush(){effects.splice(0).forEach(fn=>fn())},settle:()=>new Promise(resolve=>setImmediate(resolve)),get css(){return css}}
@@ -182,4 +182,58 @@ test('credential response is ignored instead of entering technical Result or mod
   await flatten(tree).find(row=>row.type?.name==='ProcessingPanel').props.onSave('processingCredentialSave',{secret:key,expectedRevision:'credential-v2'});tree=failed.render()
   assert.ok(!text(tree).includes(key));assert.match(text(tree),/Сохранение ключа OpenRouter не подтверждено/)
   assert.ok(!source.includes('localStorage'));assert.ok(!source.includes('sessionStorage'))
+})
+
+
+test('approval selectors default conservatively and persist global/project choices through mode and Memoria binding edits',()=>{
+  const saved=[],props={policy,scope:{projectRoot:'D:/fixture',writable:true},sessionId:'lead',token:'csrf',busy:false,onSave:(action,input)=>saved.push({action,input})}
+  const ui=harness('PolicyPanel',props);let tree=ui.render();ui.flush();tree=ui.render()
+  assert.equal(findField(tree,'Подтверждения операций памяти').props.value,'required')
+  assert.equal(findField(tree,'Подтверждения операций памяти проекта').props.value,'inherit')
+  const globalOptions=flatten(findField(tree,'Подтверждения операций памяти')).filter(row=>row.type==='option').map(row=>row.props.value)
+  const projectOptions=flatten(findField(tree,'Подтверждения операций памяти проекта')).filter(row=>row.type==='option').map(row=>row.props.value)
+  assert.deepEqual(globalOptions,['required','disabled']);assert.deepEqual(projectOptions,['inherit','required','disabled'])
+  assert.match(text(tree),/Удаление всегда требует подтверждения/);assert.match(text(tree),/Штатные права DSH, песочница и ограничения MCP сохраняются/)
+  findField(tree,'Подтверждения операций памяти').props.onChange({target:{value:'disabled'}});tree=ui.render()
+  findField(tree,'Режим памяти для новых и наследующих проектов').props.onChange({target:{value:'memoria'}});tree=ui.render()
+  findButton(tree,'Сохранить общую настройку памяти').props.onClick()
+  assert.equal(saved[0].action,'policyGlobal');assert.equal(saved[0].input.expectedRevision,'global-v1');assert.equal(saved[0].input.policy.approval,'disabled');assert.equal(saved[0].input.policy.mode,'memoria')
+  findField(tree,'Подтверждения операций памяти проекта').props.onChange({target:{value:'disabled'}});tree=ui.render()
+  findField(tree,'Режим памяти проекта').props.onChange({target:{value:'memoria'}});tree=ui.render()
+  findField(tree,'Пространство проекта в Memoria').props.onChange({target:{value:'namespace-keep'}});tree=ui.render()
+  findField(tree,'Поле области в поиске').props.onChange({target:{value:'namespace'}});tree=ui.render()
+  findButton(tree,'Сохранить настройку проекта').props.onClick()
+  assert.equal(saved[1].input.policy.approval,'disabled');assert.equal(saved[1].input.policy.memoria.namespace,'namespace-keep');assert.equal(saved[1].input.policy.memoria.search.scopeArgument,'namespace');assert.equal(saved[1].input.expectedRevision,'project-v1')
+  findField(tree,'Подтверждения операций памяти проекта').props.onChange({target:{value:'inherit'}});tree=ui.render();findButton(tree,'Сохранить настройку проекта').props.onClick()
+  assert.equal(saved[2].input.policy.approval,'inherit');assert.equal(saved[2].input.policy.memoria.namespace,'namespace-keep')
+})
+
+test('effective disabled approval skips only memory write/process browser prompts and retains CSRF and policy revision',async()=>{
+  let prompts=0
+  const view={ok:true,config:{enabled:true,endpoint:'http://127.0.0.1:18080',localProcessing:true},revision:'connection-v1',csrfToken:'native-csrf',scope:{active:true,writable:true,globalWritable:true,projectRoot:'D:/fixture'},policy:{...policy,effective:{...policy.effective,approval:'disabled'},policyRevision:'policy-v1'},processing}
+  const ui=harness('Memory',{},async input=>input.action==='configuration'?view:{ok:true,submitted:true},()=>{prompts++;return false})
+  ui.render();ui.flush();await ui.settle();let tree=ui.render()
+  findField(tree,'Текст и источник').props.onChange({target:{value:'Verified fixture fact'}});tree=ui.render()
+  findButton(tree,'Сохранить запись через чат').props.onClick();await ui.settle();tree=ui.render()
+  findButton(tree,'Обработать набор Cognee через чат').props.onClick();await ui.settle();tree=ui.render()
+  await flatten(tree).find(row=>row.type?.name==='ProcessingPanel').props.onSave('processingApply',{sessionId:'standard',expectedRevision:'processing-v1',confirm:true})
+  assert.equal(prompts,0)
+  const writes=ui.calls.filter(row=>['remember','process','processingApply'].includes(row.input.action))
+  assert.deepEqual(writes.map(row=>row.input.action),['remember','process','processingApply'])
+  for(const row of writes){assert.equal(row.method,'POST');assert.equal(row.headers['x-airules-csrf'],'native-csrf');assert.equal(row.input.expectedPolicyRevision,'policy-v1');assert.equal(row.input.confirm,true);assert.equal(row.input.sessionId,'standard')}
+  assert.match(text(ui.render()),/Подтверждения: Не запрашивать/)
+})
+
+test('required and legacy missing approval still prompt; an unsaved/global choice does not bypass the effective project decision',async()=>{
+  for(const effectiveApproval of ['required',undefined]){
+    let prompts=0
+    const view={ok:true,config:{enabled:true,endpoint:'http://127.0.0.1:18080',localProcessing:true},revision:'connection-v1',csrfToken:'fixture',scope:{active:true,writable:true,globalWritable:true,projectRoot:'D:/fixture'},policy:{...policy,global:{...globalPolicy,approval:'disabled'},effective:{...policy.effective,...(effectiveApproval?{approval:effectiveApproval}:{})}},processing}
+    const ui=harness('Memory',{},async input=>input.action==='configuration'?view:{ok:true,submitted:true},()=>{prompts++;return false})
+    ui.render();ui.flush();await ui.settle();let tree=ui.render()
+    findField(tree,'Текст и источник').props.onChange({target:{value:'Verified fixture fact'}});tree=ui.render()
+    findButton(tree,'Сохранить запись через чат').props.onClick();await ui.settle();tree=ui.render()
+    findButton(tree,'Обработать набор Cognee через чат').props.onClick();await ui.settle();tree=ui.render()
+    await flatten(tree).find(row=>row.type?.name==='ProcessingPanel').props.onSave('processingApply',{expectedRevision:'processing-v1',confirm:true})
+    assert.equal(prompts,3);assert.equal(ui.calls.filter(row=>row.method==='POST').length,0)
+  }
 })

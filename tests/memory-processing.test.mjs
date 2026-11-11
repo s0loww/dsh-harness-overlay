@@ -59,7 +59,7 @@ async function fixture(t,{dataCount=0,activeRuns=0,platform='linux',key=true}={}
   const log=[],approvals=[],snapshot={version:'1.6.7',healthy:true,databaseVerified:true,keylessLocalDefaults:true,dataCount,activeRuns,remoteGliner:false,environment:{GRAPH_EXTRACTOR:'gliner_demo'}}
   let allowed=true,denied=false,failRecreate=false,failAcl=false,approvalHook,runnerHook
   const options={profilePath,bindingPath,statePath,backupRoot:join(home,'backups'),defaultProfile:{...structuredClone(DEFAULT_PROCESSING),allowed:true},platform,healthAttempts:1,pollDelayMs:0,
-    guard(){if(!allowed)throw Error('NATIVE_REVOKED')},authorize:async(exec,summary)=>{approvals.push(summary);await approvalHook?.();return denied?'denied':'allowed-once'},
+    guard(){if(!allowed)throw Error('NATIVE_REVOKED')},authorize:async(exec,summary,{memoryApproval}={})=>{await memoryApproval?.verify();if(memoryApproval?.required===false)return'allowed-once';approvals.push(summary);await approvalHook?.();return denied?'denied':'allowed-once'},
     runner:async spec=>{log.push(spec);await runnerHook?.(spec)
       if(spec.operation==='protect-private'){if(failAcl)throw Error('ACL_FAILED');return{code:0,stdout:''}}
       if(spec.operation==='inspect-server')return{code:0,stdout:JSON.stringify(snapshot)}
@@ -182,4 +182,38 @@ test('credential resolver exceptions are redacted and rotation during apply canc
   f.onCommand(async spec=>{if(spec.operation==='recreate')await manager.invalidateCredential()})
   const result=await manager.apply({expectedRevision:saved.revision,confirm:true,execution:f.execution})
   assert.equal(result.outcomeUnknown,true);assert.equal(isProcessingReady(result),false);assert.equal(f.log.filter(row=>row.operation==='recreate').length,1)
+})
+
+
+test('internal saved memory policy can suppress extra processing confirmation while all mutation and backup gates remain',async t=>{
+  const f=await fixture(t),first=await f.manager.configuration(),saved=await f.manager.save({profile:remoteProfile(),expectedRevision:first.revision});let checks=0
+  f.deny(true)
+  const result=await f.manager.apply({expectedRevision:saved.revision,confirm:true,execution:f.execution},{memoryApproval:{required:false,verify:async()=>{checks++}}})
+  assert.equal(result.restarted,true);assert.equal(result.applied.matchesDesired,true);assert.equal(f.approvals.length,0);assert.equal(f.log.filter(row=>row.operation==='recreate').length,1);assert.ok(checks>10)
+  const transactions=await readdir(join(f.home,'backups'));assert.equal(transactions.length,1);assert.equal(await readFile(join(f.home,'backups',transactions[0],'env.before'),'utf8'),f.initialEnv)
+  assert.ok((await readFile(f.envPath,'utf8')).includes('PRIVATE_PASSWORD=preserve-fixture-value'))
+})
+
+test('serialized policy flags cannot suppress default processing approval and malformed internal authority fails closed',async t=>{
+  const f=await fixture(t),first=await f.manager.configuration();f.deny(true)
+  await assert.rejects(f.manager.apply({expectedRevision:first.revision,confirm:true,execution:f.execution,memoryApproval:{required:false},approval:'disabled'}),/PROCESSING_APPROVAL_REQUIRED/)
+  assert.equal(f.approvals.length,1)
+  for(const memoryApproval of [{required:false},{required:false,verify:async()=>{},extra:true},{required:'disabled',verify:async()=>{}}])await assert.rejects(f.manager.apply({expectedRevision:first.revision,confirm:true,execution:f.execution},{memoryApproval}),/PROCESSING_MEMORY_APPROVAL_INVALID/)
+  assert.equal(await readFile(f.envPath,'utf8'),f.initialEnv);assert.equal(f.log.some(row=>row.operation==='recreate'),false)
+})
+
+test('saved policy revocation after internal authorization prevents processing file writes and recreation',async t=>{
+  const f=await fixture(t),first=await f.manager.configuration(),saved=await f.manager.save({profile:remoteProfile(),expectedRevision:first.revision});let active=true,stateBefore
+  const manager=createProcessingManager({...f.options,authorize:async()=>{stateBefore=await readFile(f.statePath);active=false;return'allowed-once'}})
+  await assert.rejects(manager.apply({expectedRevision:saved.revision,confirm:true,execution:f.execution},{memoryApproval:{required:false,verify:async()=>{if(!active)throw Error('MEMORY_POLICY_STALE')}}}),/MEMORY_POLICY_STALE/)
+  assert.equal(await readFile(f.envPath,'utf8'),f.initialEnv);assert.deepEqual(await readdir(f.composeDir),['.env','compose.yaml']);assert.equal(f.log.some(row=>row.operation==='recreate'),false)
+  assert.deepEqual(await readFile(f.statePath),stateBefore)
+})
+
+test('policy revocation at private ACL protection removes the empty secret file and leaves server configuration unchanged',async t=>{
+  const f=await fixture(t,{platform:'win32'}),first=await f.manager.configuration(),saved=await f.manager.save({profile:remoteProfile(),expectedRevision:first.revision});let active=true
+  f.onCommand(spec=>{if(spec.operation==='protect-private')active=false})
+  await assert.rejects(f.manager.apply({expectedRevision:saved.revision,confirm:true,execution:f.execution},{memoryApproval:{required:false,verify:async()=>{if(!active)throw Error('MEMORY_POLICY_STALE')}}}),/MEMORY_POLICY_STALE/)
+  assert.equal(await readFile(f.envPath,'utf8'),f.initialEnv);assert.equal(f.log.some(row=>row.operation==='recreate'),false)
+  const dirs=await readdir(join(f.home,'backups'));assert.equal(dirs.length,1);assert.deepEqual(await readdir(join(f.home,'backups',dirs[0])),[])
 })

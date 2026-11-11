@@ -169,3 +169,36 @@ test('aborted native lookup, replaced agent and changed binding cannot dispatch 
   await assert.rejects(changed.run(async execution=>{await changed.broker.authorize(execution,changed.summary);return changed.broker.runner(changed.command('recreate'),execution)}),/PROCESSING_COMMAND_INVALID/)
   assert.equal(changed.spawns.length,0)
 })
+
+
+test('SDK022 internal disabled memory approval skips only the extra prompt and preserves native full-access execution',async t=>{
+  const f=await fixture(t);f.decision('rejected');let checks=0
+  await f.run(async execution=>{assert.equal(await f.broker.authorize(execution,f.summary,{memoryApproval:{required:false,verify:async()=>{checks++}}}),'allowed-once');return f.broker.runner(f.command('recreate'),execution)})
+  assert.equal(f.approvals.length,0);assert.equal(f.spawns.length,1);assert.ok(checks>=4)
+  assert.deepEqual(f.spawns[0].argv.slice(1,3),['--host','npipe:////./pipe/docker_engine'])
+})
+
+test('SDK022 memory policy revocation after executable lookup blocks a previously prompt-free processing mutation',async t=>{
+  const f=await fixture(t);let active=true
+  f.onResolve(()=>{active=false})
+  await assert.rejects(f.run(async execution=>{await f.broker.authorize(execution,f.summary,{memoryApproval:{required:false,verify:async()=>{if(!active)throw Error('MEMORY_POLICY_STALE')}}});return f.broker.runner(f.command('recreate'),execution)}),/MEMORY_POLICY_STALE/)
+  assert.equal(f.approvals.length,0);assert.equal(f.spawns.length,0)
+})
+
+test('SDK022 input fields and incomplete internal policy cannot forge prompt-free processing; deletion remains outside fixed commands',async t=>{
+  const f=await fixture(t);f.decision('rejected')
+  await f.run(async execution=>{
+    assert.equal(await f.broker.authorize(execution,{...f.summary,memoryApproval:{required:false},approval:'disabled'}),'rejected')
+    await assert.rejects(f.broker.runner(f.command('recreate'),execution),/PROCESSING_NATIVE_APPROVAL_REQUIRED/)
+    await assert.rejects(f.broker.authorize(execution,f.summary,{memoryApproval:{required:false}}),/PROCESSING_MEMORY_APPROVAL_INVALID/)
+    await f.broker.authorize(execution,f.summary,{memoryApproval:{required:false,verify:async()=>{}}})
+    await assert.rejects(f.broker.runner({operation:'delete',file:'docker',args:['volume','rm','fixture'],cwd:f.binding.composeDir},execution),/PROCESSING_COMMAND_INVALID/)
+    return{ok:true}
+  })
+  assert.equal(f.approvals.length,1);assert.equal(f.spawns.length,0)
+  for(const mode of ['read-only','workspace-write']){
+    const restricted=await fixture(t);restricted.policy({mode})
+    await assert.rejects(restricted.run(execution=>restricted.broker.authorize(execution,restricted.summary,{memoryApproval:{required:false,verify:async()=>{}}})),/MEMORY_FULL_ACCESS_REQUIRED/)
+    assert.equal(restricted.approvals.length,0);assert.equal(restricted.spawns.length,0)
+  }
+})

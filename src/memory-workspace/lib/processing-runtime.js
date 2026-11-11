@@ -177,9 +177,9 @@ async function fileState(path, max = 256 * 1024) {
     const bytes = await readFile(path); return { revision: digest(bytes), bytes }
   } catch (error) { if (error.code === 'ENOENT') return { revision: 'missing', bytes: null }; throw error }
 }
-async function atomicPublic(path, value) {
-  await mkdir(dirname(path), { recursive: true }); const temp = `${path}.${randomUUID()}.tmp`
-  try { await writeFile(temp, json(value), { flag: 'wx', mode: 0o600 }); await rename(temp, path) } finally { await rm(temp, { force: true }) }
+async function atomicPublic(path, value, verify) {
+  await verify?.(); await mkdir(dirname(path), { recursive: true }); await verify?.(); const temp = `${path}.${randomUUID()}.tmp`
+  try { await verify?.(); await writeFile(temp, json(value), { flag: 'wx', mode: 0o600 }); await verify?.(); await rename(temp, path); await verify?.() } finally { await rm(temp, { force: true }) }
 }
 const safeRunnerResult = value => {
   if (!value || (value.code ?? value.exitCode ?? 0) !== 0 || typeof value.stdout !== 'string' || Buffer.byteLength(value.stdout) > 256 * 1024) fail('PROCESSING_NATIVE_COMMAND_FAILED')
@@ -199,8 +199,8 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
     return { ...selected, revision: row.revision }
   }
   async function readState() { const row = await fileState(statePath, 32768); return row.bytes ? JSON.parse(row.bytes.toString('utf8')) : { applied: { state: 'unverified', fingerprint: null }, models: [] } }
-  function updateState(update) {
-    const task=stateQueue.then(async()=>{const previous=await readState(),next=update(previous);await atomicPublic(statePath,next);return next})
+  function updateState(update,verify) {
+    const task=stateQueue.then(async()=>{await verify?.();const previous=await readState();await verify?.();const next=update(previous);await atomicPublic(statePath,next,verify);return next})
     stateQueue=task.catch(()=>{});return task
   }
   async function configuration() {
@@ -238,14 +238,15 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
     const models = value.models.filter(row => row && ['fastembed', 'gliner'].includes(row.provider) && ['embeddings', 'extraction'].includes(row.kind) && row.state === 'installed' && typeof row.id === 'string' && row.id.length < 241).map(({ id, provider, kind, state, dimensions }) => ({ id, provider, kind, state, ...(Number.isSafeInteger(dimensions) ? { dimensions } : {}) }))
     return models
   }
-  async function attest(selected, snapshot, stateName, profile, verifiedCredentialEpoch) {
+  async function attest(selected, snapshot, stateName, profile, verifiedCredentialEpoch, verify) {
+    await verify?.()
     let fingerprint = null
     try { fingerprint = processingFingerprint(serverProfile(snapshot, profile.allowed)) } catch {}
     const env = await fileState(join(selected.composeDir, selected.envFile)), override = await fileState(join(selected.composeDir, 'compose.override.yaml'))
     await updateState(previous=>{
       if(verifiedCredentialEpoch!==undefined&&(previous.credentialEpoch??'missing')!==verifiedCredentialEpoch)fail('PROCESSING_CREDENTIAL_CHANGED')
       return { ...previous, ...(verifiedCredentialEpoch===undefined?{}:{credentialChanged:false}), schemaVersion: 1, bindingRevision: selected.revision, envRevision: env.revision, overrideRevision: override.revision, applied: { state: stateName, fingerprint, observedAt: new Date().toISOString(), dataCount: snapshot.dataCount, activeRuns: snapshot.activeRuns } }
-    })
+    },verify)
     return configuration()
   }
   async function inspect(execution) {
@@ -253,11 +254,12 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
     const current = await configuration(), snapshot = await inspectRaw(selected, execution)
     return attest(selected, snapshot, 'observed', current.profile)
   }
-  async function catalog(input, execution) {
+  async function catalog(input, execution, verify) {
+    await verify?.()
     if (['fastembed', 'gliner'].includes(input.provider)) {
       const selected = await binding()
       if (!selected) return discoverProcessingModels({ ...input, builtinModels: [] })
-      try { const models = await cache(selected, execution); await updateState(state=>({ ...state, models, catalogObservedAt: new Date().toISOString() })); return await discoverProcessingModels({ ...input, builtinModels: models }) }
+      try { const models = await cache(selected, execution); await updateState(state=>({ ...state, models, catalogObservedAt: new Date().toISOString() }),verify); return await discoverProcessingModels({ ...input, builtinModels: models }) }
       catch { execution?.signal?.throwIfAborted(); return { available: false, models: [], note: 'Локальный кэш Cognee не удалось проверить. Проверьте Docker и привязку сервера.' } }
     }
     return discoverProcessingModels({ ...input, signal: execution?.signal, fetchImpl })
@@ -268,27 +270,33 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
     await updateState(state=>({...state,credentialChanged:true,credentialEpoch:randomUUID(),applied:{...(state.applied??{}),state:'unverified'}}))
     return configuration()
   }
-  async function privateWrite(path, bytes, selected, execution) {
-    guard(execution); execution?.signal?.throwIfAborted()
-    await mkdir(dirname(path), { recursive: true })
+  async function privateWrite(path, bytes, selected, execution, verify) {
+    await verify?.(); guard(execution); execution?.signal?.throwIfAborted()
+    await mkdir(dirname(path), { recursive: true }); await verify?.()
     const handle = await open(path, 'wx', 0o600)
     try {
       if (platform === 'win32') {
         if (!selected.ownerSid || typeof runner !== 'function') fail('PROCESSING_PRIVATE_ACL_REQUIRED')
-        safeRunnerResult(await runner({ operation: 'protect-private', file: 'icacls.exe', args: [path, '/inheritance:r', '/grant:r', `*${selected.ownerSid}:(F)`, '*S-1-5-18:(F)'], cwd: selected.composeDir }, execution))
+        await verify?.(); safeRunnerResult(await runner({ operation: 'protect-private', file: 'icacls.exe', args: [path, '/inheritance:r', '/grant:r', `*${selected.ownerSid}:(F)`, '*S-1-5-18:(F)'], cwd: selected.composeDir }, execution))
       }
-      guard(execution); execution?.signal?.throwIfAborted()
-      await handle.writeFile(bytes); await handle.sync()
+      await verify?.(); guard(execution); execution?.signal?.throwIfAborted()
+      await handle.writeFile(bytes); await verify?.(); await handle.sync()
     } catch (error) { await handle.close(); await rm(path, { force: true }); throw error }
     await handle.close()
   }
-  async function apply({ expectedRevision, confirm, execution }) {
+  async function apply({ expectedRevision, confirm, execution }, internal = {}) {
+    // Application-owned authority is passed only through this non-serializable
+    // internal seam. Tool arguments cannot suppress the additional confirmation.
+    if (!internal || typeof internal !== 'object' || Array.isArray(internal) || Object.keys(internal).some(key=>key!=='memoryApproval')) fail('PROCESSING_MEMORY_APPROVAL_INVALID')
+    const memoryApproval=internal.memoryApproval
+    if (memoryApproval!==undefined && (!memoryApproval || typeof memoryApproval!=='object' || Array.isArray(memoryApproval) || Object.keys(memoryApproval).sort().join(',')!=='required,verify' || typeof memoryApproval.required!=='boolean' || typeof memoryApproval.verify!=='function')) fail('PROCESSING_MEMORY_APPROVAL_INVALID')
+    const verifyMemoryApproval=async()=>{execution?.signal?.throwIfAborted();await memoryApproval?.verify();guard(execution);execution?.signal?.throwIfAborted()}
     if (applying || saving) fail('PROCESSING_BUSY')
     if (confirm !== true || typeof guard !== 'function' || typeof authorize !== 'function') fail('PROCESSING_NATIVE_APPROVAL_REQUIRED')
     applying = true; let lock, lockPath, selected, changed = false, envBefore, overrideBefore, credentialEpoch
-    const recheck = async () => { execution?.signal?.throwIfAborted(); guard(execution); if ((await configuration()).revision !== expectedRevision || (await binding())?.revision !== selected.revision) fail('PROCESSING_PROFILE_STALE');if(((await readState()).credentialEpoch??'missing')!==credentialEpoch)fail('PROCESSING_CREDENTIAL_CHANGED') }
+    const recheck = async () => { await verifyMemoryApproval(); if ((await configuration()).revision !== expectedRevision || (await binding())?.revision !== selected.revision) fail('PROCESSING_PROFILE_STALE');if(((await readState()).credentialEpoch??'missing')!==credentialEpoch)fail('PROCESSING_CREDENTIAL_CHANGED');await verifyMemoryApproval() }
     try {
-      guard(execution); selected = await binding(); if (!selected) fail('PROCESSING_BINDING_REQUIRED')
+      await verifyMemoryApproval(); selected = await binding(); if (!selected) fail('PROCESSING_BINDING_REQUIRED')
       const current = await configuration(); if (current.revision !== expectedRevision) fail('PROCESSING_PROFILE_STALE')
       const initialState=await readState();credentialEpoch=initialState.credentialEpoch??'missing'
       const profile = current.profile, snapshot = await inspectRaw(selected, execution, { verifyModels: false })
@@ -297,11 +305,11 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
       if ((!same || externalApi) && snapshot.activeRuns) fail('PROCESSING_SERVER_BUSY')
       if (JSON.stringify(actual.embeddings) !== JSON.stringify(profile.embeddings) && snapshot.dataCount > 0) fail('PROCESSING_REINDEX_REQUIRED')
       if (!same) for (const kind of ['embeddings', 'extraction']) {
-        const role = profile[kind], found = await catalog({ kind, ...role }, execution)
+        const role = profile[kind], found = await catalog({ kind, ...role }, execution,recheck)
         await recheck()
         if (!found.available || !found.models.some(row => row.id === role.model)) fail('PROCESSING_SELECTED_MODEL_UNAVAILABLE')
       }
-      if (await authorize(execution, { profile, restart: !same || externalApi, dataCount: snapshot.dataCount, externalApi }) !== 'allowed-once') fail('PROCESSING_APPROVAL_REQUIRED')
+      if (await authorize(execution, { profile, restart: !same || externalApi, dataCount: snapshot.dataCount, externalApi }, {memoryApproval}) !== 'allowed-once') fail('PROCESSING_APPROVAL_REQUIRED')
       await recheck()
       let nativeKey
       if(externalApi&&typeof getOpenRouterKey==='function'){
@@ -315,25 +323,25 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
       const credentialRefresh=externalApi&&(initialState.envRevision!==envBefore.revision||sourceValues.OPENROUTER_API_KEY!==selectedKey||(profile.embeddings.provider==='openrouter'&&sourceValues.EMBEDDING_API_KEY!==selectedKey)||(profile.extraction.provider==='openrouter'&&sourceValues.LLM_API_KEY!==selectedKey))
       if (same && !credentialRefresh) {
         if (snapshot.modelEndpointsReachable === false || snapshot.modelCredentialsConfigured === false) fail('PROCESSING_SERVER_NOT_VERIFIED')
-        const result = await attest(selected, snapshot, 'observed', profile,credentialEpoch); await recheck(); return { ...result, restarted: false }
+        const result = await attest(selected, snapshot, 'observed', profile,credentialEpoch,recheck); await recheck(); return { ...result, restarted: false }
       }
-      lockPath = profilePath + '.apply.lock'; lock = await open(lockPath, 'wx', 0o600)
+      await recheck(); lockPath = profilePath + '.apply.lock'; lock = await open(lockPath, 'wx', 0o600); await recheck()
       envBefore = await fileState(join(selected.composeDir, selected.envFile)); overrideBefore = await fileState(join(selected.composeDir, 'compose.override.yaml'))
       if (!envBefore.bytes) fail('PROCESSING_ENV_REQUIRED')
       if (overrideBefore.bytes && overrideBefore.bytes.toString('utf8') !== OVERRIDE) fail('PROCESSING_OVERRIDE_OWNED_BY_USER')
       const nextEnv = Buffer.from(envForProfile(profile, envBefore.bytes.toString('utf8'), nativeKey)), nextOverride = Buffer.from(OVERRIDE), transaction = join(backupRoot, randomUUID())
       const rel = relative(resolve(backupRoot), transaction); if (isAbsolute(rel) || rel.startsWith('..')) fail('PROCESSING_BACKUP_PATH_INVALID')
-      await mkdir(transaction, { recursive: true }); await privateWrite(join(transaction, 'env.before'), envBefore.bytes, selected, execution)
-      if (overrideBefore.bytes) await privateWrite(join(transaction, 'override.before'), overrideBefore.bytes, selected, execution)
-      await atomicPublic(join(transaction, 'receipt.json'), { schemaVersion: 1, state: 'prepared', previousEnvRevision: envBefore.revision, previousOverrideRevision: overrideBefore.revision, desiredFingerprint: processingFingerprint(profile) })
-      await updateState(prior=>{if((prior.credentialEpoch??'missing')!==credentialEpoch)fail('PROCESSING_CREDENTIAL_CHANGED');return{ ...prior, applied: { state: 'unknown', fingerprint: null }, pendingTransaction: transaction }})
+      await recheck(); await mkdir(transaction, { recursive: true }); await recheck(); await privateWrite(join(transaction, 'env.before'), envBefore.bytes, selected, execution,recheck)
+      if (overrideBefore.bytes) await privateWrite(join(transaction, 'override.before'), overrideBefore.bytes, selected, execution,recheck)
+      await atomicPublic(join(transaction, 'receipt.json'), { schemaVersion: 1, state: 'prepared', previousEnvRevision: envBefore.revision, previousOverrideRevision: overrideBefore.revision, desiredFingerprint: processingFingerprint(profile) },recheck)
+      await updateState(prior=>{if((prior.credentialEpoch??'missing')!==credentialEpoch)fail('PROCESSING_CREDENTIAL_CHANGED');return{ ...prior, applied: { state: 'unknown', fingerprint: null }, pendingTransaction: transaction }},recheck)
       const envTemp = join(selected.composeDir, `.env.airules-${randomUUID()}.tmp`), overrideTemp = join(selected.composeDir, `.compose.airules-${randomUUID()}.tmp`)
       try {
-        await privateWrite(envTemp, nextEnv, selected, execution); await privateWrite(overrideTemp, nextOverride, selected, execution)
+        await privateWrite(envTemp, nextEnv, selected, execution,recheck); await privateWrite(overrideTemp, nextOverride, selected, execution,recheck)
         await recheck()
         if ((await fileState(join(selected.composeDir, selected.envFile))).revision !== envBefore.revision || (await fileState(join(selected.composeDir, 'compose.override.yaml'))).revision !== overrideBefore.revision) fail('PROCESSING_SERVER_CONFIG_STALE')
-        await rename(envTemp, join(selected.composeDir, selected.envFile)); changed = true
-        guard(execution); execution?.signal?.throwIfAborted()
+        await recheck(); await rename(envTemp, join(selected.composeDir, selected.envFile)); changed = true
+        await recheck()
         await rename(overrideTemp, join(selected.composeDir, 'compose.override.yaml'))
       } finally { await rm(envTemp, { force: true }); await rm(overrideTemp, { force: true }) }
       await recheck(); await command('recreate', selected, execution)
@@ -341,7 +349,7 @@ export function createProcessingManager({ profilePath, bindingPath, statePath, b
         await recheck()
         try {
           const live = await inspectRaw(selected, execution)
-          if (processingFingerprint(serverProfile(live, profile.allowed)) === processingFingerprint(profile)) { await atomicPublic(join(transaction, 'receipt.json'), { schemaVersion: 1, state: 'applied', previousEnvRevision: envBefore.revision, previousOverrideRevision: overrideBefore.revision, desiredFingerprint: processingFingerprint(profile) }); const result = await attest(selected, live, 'applied', profile,credentialEpoch); await recheck(); return { ...result, restarted: true } }
+          if (processingFingerprint(serverProfile(live, profile.allowed)) === processingFingerprint(profile)) { await atomicPublic(join(transaction, 'receipt.json'), { schemaVersion: 1, state: 'applied', previousEnvRevision: envBefore.revision, previousOverrideRevision: overrideBefore.revision, desiredFingerprint: processingFingerprint(profile) },recheck); const result = await attest(selected, live, 'applied', profile,credentialEpoch,recheck); await recheck(); return { ...result, restarted: true } }
         } catch { execution?.signal?.throwIfAborted() }
         await new Promise(resolve => setTimeout(resolve, pollDelayMs))
       }

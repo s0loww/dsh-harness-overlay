@@ -12,6 +12,7 @@ import { createProjectContext, selectionStore } from '../src/project-context/lib
 import { Context } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js'
 import { SandboxedFileSystem } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/dsh-fs-sandbox/lib/index.js'
 import { ApprovalService } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/dsh-user-approval/lib/index.js'
+import { createRoutingJournal } from '../src/memory-workspace/lib/router.js'
 const binding={namespace:'fixture-project',search:{tool:'mcp__memory_fixture__search',scopeArgument:'project',queryArgument:'query'},remember:{tool:'mcp__memory_fixture__save',scopeArgument:'project',textArgument:'text'}}
 async function fixture(t){
   const base=await mkdtemp(join(tmpdir(),'memory-workspace-v2-')),root=join(base,'project'),home=join(base,'home');await mkdir(root);await mkdir(home)
@@ -23,16 +24,18 @@ async function fixture(t){
   const ctx={connection:{requestRejection:()=>undefined},agents:{get:id=>agents.get(id)},agentPresets:{composedPreset:ctx=>ctx.preset,serviceFor:(_agent,kind)=>kind==='fs'?fs:undefined},sandboxPolicy:{resolve:({session})=>policies.get(session.id)},approval:{request:async()=> 'allowed-once'},tools:{schemas:()=>[]},fs}
   const configPath=join(home,'config.json');await writeFile(configPath,JSON.stringify({enabled:true,endpoint:'http://127.0.0.1:18080',localProcessing:true}));await writeFile(join(home,'auth.json'),JSON.stringify({apiKey:'fixture-private-key'}))
   let profile={allowed:true,embeddings:{provider:'fastembed',model:'BAAI/bge-small-en-v1.5',dimensions:384},extraction:{provider:'gliner',model:'fastino/gliner2.5-base-v1'}},invalidations=0
-  const processingManager={configuration:async()=>({profile,revision:'processing-v1',bindingAvailable:true,applied:{state:'observed',matchesDesired:true}}),invalidateCredential:async()=>{invalidations++},apply:async input=>{calls.push({backend:'processing',input});return{applied:true}},save:async({profile:value})=>{profile=value},catalog:async()=>({models:[]})}
+  const processingManager={configuration:async()=>({profile,revision:'processing-v1',bindingAvailable:true,applied:{state:'observed',matchesDesired:true}}),invalidateCredential:async()=>{invalidations++},apply:async(input,options)=>{calls.push({backend:'processing',input,options});return{applied:true}},save:async({profile:value})=>{profile=value},catalog:async()=>({models:[]})}
   let record=null;const keyStore=createModelKeyStore({readRecord:async()=>record,modifyRecord:async(_key,fn)=>{record=fn(record)}},'fixture/key')
   let controller
   const memoriaFactory=(_ctx,{binding,execution,verifyScope})=>({status(){return{availability:'catalog-only',connected:null,operations:{search:{available:true},remember:{available:true}}}},async recall(input){verifyScope();const allowed=await controller.gate({name:binding.search.tool,parent:execution.token,agent:execution.agent,signal:execution.signal},async()=>({kind:'allow'}));assert.equal(allowed.kind,'allow');calls.push({backend:'memoria',action:'recall',namespace:binding.namespace,input});return{results:[{text:'Memoria fixture',source:{recordId:'m1'}}]}},async remember(input){verifyScope();calls.push({backend:'memoria',action:'remember',namespace:binding.namespace,input});return{state:'stored',recordId:'m1',indexed:null,namespace:binding.namespace}}})
   const serviceFactory=()=>Object.fromEntries(['status','listDocuments','recall','graph','remember','process','task'].map(action=>[action,async(root,input)=>{calls.push({backend:'cognee',action,root,input});if(action==='remember')return{state:'uploaded',indexed:false,dataset:datasetForRoot(root),contentHash:'a'.repeat(64)};if(action==='recall')return{results:[{text:'Cognee fixture',document_id:'c1'}]};return{documents:[],nodes:[],edges:[],capabilities:{recall:true,process:true}}}]))
-  controller=createMemoryWorkspace(ctx,{configPath,processingManager,keyStore,serviceFactory,memoriaFactory,createUserMessage:value=>value})
+  let beforeClaim;const persistentJournal=createRoutingJournal(join(home,'routing-receipts.json'))
+  const journal={...persistentJournal,claim:async id=>{await beforeClaim?.();return persistentJournal.claim(id)}}
+  controller=createMemoryWorkspace(ctx,{configPath,processingManager,keyStore,serviceFactory,memoriaFactory,journal,createUserMessage:value=>value})
   async function request(method,input,csrf){let status,value;const req=Readable.from(method==='POST'?[JSON.stringify(input)]:[]);Object.assign(req,{method,url:'/?'+new URLSearchParams(input),headers:{'content-type':'application/json',...(csrf?{'x-airules-csrf':csrf}:{})}});await controller.handler(req,{writeHead:code=>{status=code},end:text=>{value=JSON.parse(text)}});return{status,value}}
   const initial=await request('GET',{action:'configuration'})
   const exec=id=>({agent:agents.get(id),callId:'fixture-'+id,token:Symbol(id),signal:new AbortController().signal})
-  return{controller,ctx,agents,policies,root,home,calls,messages,keyStore,processingManager,request,exec,csrf:initial.value.csrfToken,initial:initial.value,get invalidations(){return invalidations}}
+  return{controller,ctx,agents,policies,root,home,calls,messages,keyStore,processingManager,request,exec,csrf:initial.value.csrfToken,initial:initial.value,get invalidations(){return invalidations},beforeClaim(fn){beforeClaim=fn}}
 }
 async function global(f,mode,writeTarget='auto'){const view=await f.controller.configuration();return f.request('POST',{action:'policyGlobal',policy:{schemaVersion:1,mode,writeTarget},expectedRevision:view.policy.globalRevision},f.csrf)}
 async function project(f,mode='inherit',writeTarget='inherit'){const view=await f.controller.configuration({sessionId:'a'});return f.request('POST',{action:'projectPolicy',sessionId:'a',policy:{schemaVersion:1,mode,writeTarget,memoria:binding},expectedRevision:view.policy.projectRevision},f.csrf)}
@@ -113,7 +116,7 @@ test('cold native project preferences load and save through a private lease with
   const second=await f.view('b');assert.equal(second.value.policy.effective.mode,'both');assert.equal(second.value.policy.policyRevision,changed.value.policy.policyRevision)
   const unrelated=await f.view('other','two');assert.equal(unrelated.value.policy.effective.mode,'cognee')
   assert.equal((await f.save({schemaVersion:1,mode:'memoria',writeTarget:'auto'},initial.value.policy.projectRevision)).status,409)
-  assert.deepEqual(JSON.parse(await readFile(join(f.root,'.dsh/memory.json'),'utf8')),{schemaVersion:1,mode:'both',writeTarget:'auto'})
+  assert.deepEqual(JSON.parse(await readFile(join(f.root,'.dsh/memory.json'),'utf8')),{schemaVersion:1,mode:'both',writeTarget:'auto',approval:'inherit'})
   assert.equal(f.creates,0);assert.equal(f.messages.length,0);assert.equal(f.calls.length,0)
 })
 test('cold native read-only authority can inspect but cannot save project memory preferences',async t=>{
@@ -195,4 +198,70 @@ for(const mutation of ['scope','configuration','authentication'])test(`changing 
   }})
   await assert.rejects(f.controller.act({action:'remember',sessionId:'a',text:'Synthetic guarded fact',confirm:true},f.exec('a')),/MEMORY_(?:SCOPE_CHANGED|CONFIG_STALE)/)
   assert.equal(f.calls.length,0);assert.equal(existsSync(join(f.home,'routing-receipts.json')),false)
+})
+async function approvalPolicy(f,{globalApproval='required',projectApproval='inherit',mode='cognee'}={}){
+  const view=await f.controller.configuration({sessionId:'a'})
+  assert.equal((await f.request('POST',{action:'policyGlobal',policy:{schemaVersion:1,mode,writeTarget:mode==='both'?'both':'auto',approval:globalApproval},expectedRevision:view.policy.globalRevision},f.csrf)).status,200)
+  const fresh=await f.controller.configuration({sessionId:'a'})
+  assert.equal((await f.request('POST',{action:'projectPolicy',sessionId:'a',policy:{schemaVersion:1,mode:'inherit',writeTarget:'inherit',approval:projectApproval,memoria:binding},expectedRevision:fresh.policy.projectRevision},f.csrf)).status,200)
+}
+for(const mode of ['cognee','memoria','both'])test(`saved disabled approval allows scoped ${mode} memory write without an additional prompt`,async t=>{
+  const f=await fixture(t);await approvalPolicy(f,{mode,globalApproval:'disabled'})
+  const approval=nativeApproval(f,{policy:'never'})
+  const result=await f.controller.act({action:'remember',sessionId:'a',text:`Synthetic confirmed ${mode} fact`,confirm:true},f.exec('a'))
+  assert.equal(approval.requests,0);assert.equal(approval.audit.length,0)
+  assert.equal(f.calls.filter(row=>row.action==='remember').length,mode==='both'?2:1)
+  assert.equal(mode==='both'?result.status:result.state,mode==='both'?'complete':mode==='cognee'?'uploaded':'stored')
+  const view=await f.controller.configuration({sessionId:'b'});assert.equal(view.policy.effective.approval,'disabled')
+  assert.ok(Object.values(JSON.parse(await readFile(join(f.home,'routing-receipts.json'),'utf8')).entries).every(row=>row.state==='stored'))
+})
+test('project required overrides global disabled and project disabled overrides global required for every project chat',async t=>{
+  const f=await fixture(t);await approvalPolicy(f,{globalApproval:'disabled',projectApproval:'required'})
+  const approval=nativeApproval(f,{policy:'never'})
+  await assert.rejects(f.controller.act({action:'remember',sessionId:'b',text:'guarded fixture',confirm:true},f.exec('b')),/MEMORY_APPROVAL_REQUIRED/)
+  assert.equal(approval.requests,1);assert.equal(f.calls.length,0)
+  await approvalPolicy(f,{globalApproval:'required',projectApproval:'disabled'})
+  assert.equal((await f.controller.configuration({sessionId:'b'})).policy.effective.approval,'disabled')
+  await f.controller.act({action:'remember',sessionId:'b',text:'explicitly configured fixture',confirm:true},f.exec('b'))
+  assert.equal(approval.requests,1);assert.equal(f.calls.length,1)
+})
+test('disabled memory prompt keeps native read-only/subagent/execution/confirm protections and rejects deletion',async t=>{
+  const f=await fixture(t);await approvalPolicy(f,{globalApproval:'disabled'});const approval=nativeApproval(f,{policy:'never'})
+  const input={action:'remember',sessionId:'a',text:'fixture',confirm:true}
+  f.policies.get('a').mode='read-only';await assert.rejects(f.controller.act(input,f.exec('a')),/MEMORY_WRITE_REQUIRED/)
+  f.policies.get('a').mode='workspace-write';f.agents.get('a').session.header.origin='subagent'
+  await assert.rejects(f.controller.act(input,f.exec('a')),/MEMORY_ORCHESTRATOR_WRITE_REQUIRED/)
+  delete f.agents.get('a').session.header.origin
+  await assert.rejects(f.controller.act({...input,confirm:false},f.exec('a')),/MEMORY_CONFIRM_REQUIRED/)
+  await assert.rejects(f.controller.act(input),/MEMORY_NATIVE_EXECUTION_REQUIRED/)
+  for(const action of ['delete','remove','deleteDataset','forget'])await assert.rejects(f.controller.act({...input,action},f.exec('a')),/MEMORY_ACTION_INVALID/)
+  await assert.rejects(f.controller.act({...input,approval:'disabled'},f.exec('a')),/MEMORY_INPUT_INVALID/)
+  assert.equal(approval.requests,0);assert.equal(f.calls.length,0);assert.equal(existsSync(join(f.home,'routing-receipts.json')),false)
+})
+test('disabled policy permits ordinary process but processingApply receives only an internal revision-bound option',async t=>{
+  const f=await fixture(t);await approvalPolicy(f,{globalApproval:'disabled'});const approval=nativeApproval(f,{policy:'never'})
+  await f.controller.act({action:'process',sessionId:'a',confirm:true},f.exec('a'))
+  assert.equal(approval.requests,0);assert.equal(f.calls[0].action,'process')
+  f.policies.get('a').mode='danger-full-access'
+  await f.controller.act({action:'processingApply',sessionId:'a',confirm:true,expectedProcessingRevision:'processing-v1'},f.exec('a'))
+  const received=f.calls.at(-1).options.memoryApproval
+  assert.equal(received.required,false);assert.equal(typeof received.verify,'function');await received.verify()
+  await approvalPolicy(f,{globalApproval:'required'})
+  await assert.rejects(received.verify(),/MEMORY_POLICY_STALE/)
+  await f.controller.act({action:'processingApply',sessionId:'a',confirm:true,expectedProcessingRevision:'processing-v1'},f.exec('a'))
+  assert.equal(f.calls.at(-1).options.memoryApproval.required,true)
+  await assert.rejects(f.controller.act({action:'processingApply',sessionId:'a',confirm:true,memoryApproval:{required:false}},f.exec('a')),/MEMORY_INPUT_INVALID/)
+})
+for(const approvalMode of ['disabled','required'])for(const revoked of ['policy','cancel'])test(`revoking ${revoked} after ${approvalMode}-policy authorization cannot dispatch or poison a new receipt`,async t=>{
+  const f=await fixture(t);await approvalPolicy(f,{globalApproval:approvalMode});const abort=new AbortController(),exec={...f.exec('a'),signal:abort.signal}
+  const approval=nativeApproval(f)
+  f.beforeClaim(async()=>{
+    if(revoked==='policy')await writeFile(join(f.home,'policy.json'),JSON.stringify({schemaVersion:1,mode:'cognee',writeTarget:'auto',approval:approvalMode==='disabled'?'required':'disabled'}))
+    else abort.abort()
+  })
+  const result=await f.controller.act({action:'remember',sessionId:'a',text:'Revocable synthetic intent',confirm:true},exec)
+  assert.equal(result.state,'not-attempted');assert.equal(result.retrySafe,true)
+  assert.equal(approval.requests,approvalMode==='required'?1:0)
+  assert.equal(f.calls.length,0)
+  assert.equal(Object.keys(JSON.parse(await readFile(join(f.home,'routing-receipts.json'),'utf8')).entries).length,0)
 })

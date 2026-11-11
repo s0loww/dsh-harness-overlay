@@ -3,25 +3,26 @@ import { writeFile, mkdir, rename, lstat, rm, open, realpath } from 'node:fs/pro
 import { dirname, join, resolve, isAbsolute, relative, sep } from 'node:path'
 import { validateMemoriaBinding } from './memoria.js'
 export const PROJECT_POLICY_PATH = '.dsh/memory.json'
-export const DEFAULT_GLOBAL_POLICY = Object.freeze({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto' })
-export const DEFAULT_PROJECT_POLICY = Object.freeze({ schemaVersion: 1, mode: 'inherit', writeTarget: 'inherit' })
+export const DEFAULT_GLOBAL_POLICY = Object.freeze({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto', approval: 'required' })
+export const DEFAULT_PROJECT_POLICY = Object.freeze({ schemaVersion: 1, mode: 'inherit', writeTarget: 'inherit', approval: 'inherit' })
 const modes=['cognee','memoria','both'], targets=['auto','cognee','memoria','both']
 const fail=code=>{throw new Error(code)}
 export const policyDigest=value=>createHash('sha256').update(value).digest('hex')
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value)
 const keys=(value,allowed)=>plain(value)&&Object.keys(value).every(key=>allowed.includes(key))
 export function validatePolicy(input,{project=false}={}) {
-  if(!keys(input,project?['schemaVersion','mode','writeTarget','memoria']:['schemaVersion','mode','writeTarget'])||input.schemaVersion!==1||![...modes,...(project?['inherit']:[])].includes(input.mode)||![...targets,...(project?['inherit']:[])].includes(input.writeTarget))fail('MEMORY_POLICY_INVALID')
-  const policy={schemaVersion:1,mode:input.mode,writeTarget:input.writeTarget}
+  if(!keys(input,project?['schemaVersion','mode','writeTarget','approval','memoria']:['schemaVersion','mode','writeTarget','approval'])||input.schemaVersion!==1||![...modes,...(project?['inherit']:[])].includes(input.mode)||![...targets,...(project?['inherit']:[])].includes(input.writeTarget)||input.approval!==undefined&&!['required','disabled',...(project?['inherit']:[])].includes(input.approval))fail('MEMORY_POLICY_INVALID')
+  const policy={schemaVersion:1,mode:input.mode,writeTarget:input.writeTarget,approval:input.approval??(project?'inherit':'required')}
   if(modes.slice(0,2).includes(policy.mode)&&['cognee','memoria','both'].includes(policy.writeTarget)&&policy.mode!==policy.writeTarget)fail('MEMORY_WRITE_TARGET_DISABLED')
   if(input.memoria!==undefined) policy.memoria=validateMemoriaBinding(input.memoria)
   return policy
 }
 export function effectivePolicy(global,project=DEFAULT_PROJECT_POLICY){
   global=validatePolicy(global);project=validatePolicy(project,{project:true})
-  return {mode:project.mode==='inherit'?global.mode:project.mode,writeTarget:project.writeTarget==='inherit'?global.writeTarget:project.writeTarget,source:project.mode==='inherit'?'global':'project',...(project.memoria?{memoria:project.memoria}:{})}
+  return {mode:project.mode==='inherit'?global.mode:project.mode,writeTarget:project.writeTarget==='inherit'?global.writeTarget:project.writeTarget,approval:project.approval==='inherit'?global.approval:project.approval,source:project.mode==='inherit'?'global':'project',...(project.memoria?{memoria:project.memoria}:{})}
 }
 export function selectBackends(policy,{action,backend,kind='fact'}={}){
+  if(!['status','recall','remember','documents','graph','process','task'].includes(action))fail('MEMORY_ACTION_INVALID')
   const allowed=policy.mode==='both'?['memoria','cognee']:[policy.mode]
   if(backend!==undefined){if(!modes.slice(0,2).includes(backend)||!allowed.includes(backend))fail('MEMORY_BACKEND_DISABLED');if(action==='remember'&&policy.writeTarget!=='auto'&&policy.writeTarget!==backend)fail('MEMORY_WRITE_TARGET_DISABLED');return[backend]}
   if(['documents','graph','process','task'].includes(action)){if(!allowed.includes('cognee'))fail('MEMORY_BACKEND_DISABLED');return['cognee']}

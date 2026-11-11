@@ -1,7 +1,7 @@
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 const execute=promisify(execFile)
-export const DESKTOP_PROCESS_COMMAND="$ErrorActionPreference='Stop'; ConvertTo-Json -InputObject @(Get-CimInstance Win32_Process -Filter \"Name='DeepSeek Harness.exe'\" | Select-Object ProcessId,ExecutablePath) -Compress"
+export const DESKTOP_PROCESS_COMMAND="$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); ConvertTo-Json -InputObject @(Get-CimInstance Win32_Process -Filter \"Name='DeepSeek Harness.exe'\" | Select-Object ProcessId,ExecutablePath) -Compress"
 // Resample a transient failed/incomplete native snapshot; never drop an unknown
 // row or infer that its process stopped. Only a wholly valid fresh snapshot may
 // authorize progress. Persistent incomplete inventory remains a closed refusal.

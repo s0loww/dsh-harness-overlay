@@ -3,6 +3,16 @@ import assert from 'node:assert/strict'
 import {queryNativeDesktopProcesses,DESKTOP_PROCESS_COMMAND} from '../installer/official-live/process-query.mjs'
 import {assertDesktopStopped} from '../installer/official-live/process-guard.mjs'
 import {createOfficialDeploymentAdapters} from '../src/deployment-bundle/lib/official-adapter.mjs'
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
+import {matchingProcesses} from '../installer/official-live/process-guard.mjs'
+test('actual Windows PowerShell OEM866 transport preserves a Cyrillic executable path and still detects a running target',{skip:process.platform!=='win32'},async()=>{
+ const executable='C:\\Капитан Дизель\\DeepSeek Harness.exe'
+ const script="[Console]::OutputEncoding=[Text.Encoding]::GetEncoding(866); function Get-CimInstance { [pscustomobject]@{ProcessId=42;ExecutablePath='"+executable+"'} }; "+DESKTOP_PROCESS_COMMAND
+ const result=await promisify(execFile)('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:15000})
+ const rows=JSON.parse(result.stdout);assert.equal(rows[0].ExecutablePath,executable);assert.deepEqual(matchingProcesses(rows,executable),[42])
+ await assert.rejects(assertDesktopStopped('C:/Капитан Дизель',{platform:'win32',query:async()=>rows}),{code:'LIVE_DSH_STILL_RUNNING'})
+})
 test('native process query retries execution/empty JSON failures and emits explicit array JSON',async()=>{
  let calls=0;const rows=await queryNativeDesktopProcesses({executeImpl:async()=>{calls++;if(calls===1)throw Error('CIM transient');return{stdout:calls===2?'':'[]'}}});assert.deepEqual(rows,[]);assert.equal(calls,3);assert.match(DESKTOP_PROCESS_COMMAND,/ErrorActionPreference='Stop'/);assert.match(DESKTOP_PROCESS_COMMAND,/ConvertTo-Json -InputObject @\(/)
 })

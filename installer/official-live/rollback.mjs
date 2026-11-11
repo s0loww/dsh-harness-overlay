@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { cp, mkdir, readFile, rename, rm } from 'node:fs/promises'
+import { cp, mkdir, readFile, rename, rm, writeFile, appendFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { verifyOfficialDesktop } from '../../src/targets/official-desktop/target.mjs'
-import { atomicWrite, canonical, pathKind, sameState, targetState } from '../fs-state.mjs'
+import { atomicWrite, canonical, pathKind, sameState, targetState, sha256 } from '../fs-state.mjs'
 import { sealReceipt, verifyReceiptIntegrity } from '../receipt.mjs'
 import { assertDesktopStopped } from './process-guard.mjs'
 import { verifyUiArtifact } from '../official-ui/common.mjs'
 import { verifyPolicyArtifact } from '../official-policy/common.mjs'
 import { assertPromotionPaths, DEFAULT_POLICY_ARTIFACT, DEFAULT_RELEASE_LOCK, DEFAULT_UI_ARTIFACT, liveProfileStageRoot, LIVE_ACKNOWLEDGEMENT, NESTED_ZOD, OfficialUiInstallerError, SHARED_SUBSET_DEPENDENCIES, STORAGE_DOMAIN } from './common.mjs'
+import {cordisPreservationPlan} from './cordis-ownership.mjs'
 
 async function readJson(path, code) {
   try { return JSON.parse(await readFile(path, 'utf8')) }
@@ -22,10 +23,14 @@ async function recover(swaps) {
   }
 }
 
-export async function rollbackLivePromotion({ installRoot, profileRoot, receiptPath, uiArtifactRoot = DEFAULT_UI_ARTIFACT, policyArtifactRoot = DEFAULT_POLICY_ARTIFACT, releaseLockPath = DEFAULT_RELEASE_LOCK, acknowledgement }) {
+export async function rollbackLivePromotion({ installRoot, profileRoot, receiptPath, uiArtifactRoot = DEFAULT_UI_ARTIFACT, policyArtifactRoot = DEFAULT_POLICY_ARTIFACT, releaseLockPath = DEFAULT_RELEASE_LOCK, acknowledgement, preserveUnmanagedCordis = false, signal }) {
+  if (typeof preserveUnmanagedCordis !== 'boolean') throw new OfficialUiInstallerError('LIVE_PRESERVATION_OPTION_INVALID')
+  signal?.throwIfAborted()
   if (acknowledgement !== LIVE_ACKNOWLEDGEMENT) throw new OfficialUiInstallerError('LIVE_ACKNOWLEDGEMENT_REQUIRED')
   const receiptFile = resolve(String(receiptPath ?? ''))
-  const receipt = await readJson(receiptFile, 'LIVE_RECEIPT_INVALID')
+  const receiptBytes = await readFile(receiptFile), receiptReadState = {type:'file',bytes:receiptBytes.length,sha256:sha256(receiptBytes)}
+  const receipt = JSON.parse(receiptBytes.toString('utf8'))
+  if(!sameState(await targetState(receiptFile),receiptReadState))throw new OfficialUiInstallerError('LIVE_RECEIPT_CHANGED')
   if (!verifyReceiptIntegrity(receipt) || receipt.status !== 'applied' || receipt.schemaVersion !== 1) throw new OfficialUiInstallerError('LIVE_RECEIPT_INVALID')
   const paths = assertPromotionPaths({ installRoot, profileRoot, backupRoot: receipt.backupRoot })
   await assertDesktopStopped(paths.install)
@@ -58,22 +63,32 @@ export async function rollbackLivePromotion({ installRoot, profileRoot, receiptP
     if (!contract || seen.has(row.target) || row.type !== contract.type || row.package !== contract.package) throw new OfficialUiInstallerError('LIVE_RECEIPT_OPERATION_INVALID')
     seen.add(row.target)
     const target = row.target === 'cordis.patch.yml' ? join(paths.profile, row.target) : join(paths.profile, ...row.target.split('/'))
-    if (!sameState(await targetState(target), row.after)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_OWNERSHIP_MISMATCH', row.target)
+    const effectiveAfter = await targetState(target)
+    let preservation = null
+    if (row.target === 'cordis.patch.yml' && preserveUnmanagedCordis) {
+      preservation = await cordisPreservationPlan({receipt,receiptPath:receiptFile,uiArtifactRoot,policyArtifactRoot,current:await readFile(target)})
+      if (!sameState(effectiveAfter,preservation.observedState)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_TARGET_RACE')
+    } else if (!sameState(effectiveAfter, row.after)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_OWNERSHIP_MISMATCH', row.target)
     const expectedBackup = row.before.type === 'missing' ? null : `before/${row.target}`
     if (row.backup !== expectedBackup) throw new OfficialUiInstallerError('LIVE_RECEIPT_BACKUP_PATH_INVALID', row.target)
     const backup = expectedBackup === null ? null : join(paths.backup, ...expectedBackup.split('/'))
     if (backup && !sameState(await targetState(backup), row.before)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_BACKUP_MISMATCH', row.target)
-    records.push({ row, target, backup })
+    const restoredState = preservation ? row.before.type === 'missing' && !preservation.text.length ? {type:'missing'} : preservation.restoredState : row.before
+    records.push({ row, target, backup, effectiveAfter, preservation, restoredState })
   }
   const stageRoot = liveProfileStageRoot(paths.profile, 'rollback', randomUUID())
   await assertDesktopStopped(paths.install)
   if (await pathKind(stageRoot) !== 'missing') throw new OfficialUiInstallerError('LIVE_ROLLBACK_STAGE_EXISTS')
   await mkdir(stageRoot)
   const swaps = []
+  let preservationProof = null, preservationJournal = null
   try {
     for (const record of records) {
       let stage = null
-      if (record.backup) {
+      if (record.preservation && record.restoredState.type === 'file') {
+        stage = join(stageRoot,record.row.target);await mkdir(dirname(stage),{recursive:true});await writeFile(stage,record.preservation.text)
+        if(!sameState(await targetState(stage),record.restoredState))throw new OfficialUiInstallerError('LIVE_ROLLBACK_STAGE_HASH_MISMATCH')
+      } else if (record.backup) {
         stage = join(stageRoot, record.row.target)
         await mkdir(dirname(stage), { recursive: true })
         if (record.row.before.type === 'directory') await cp(record.backup, stage, { recursive: true, force: false, errorOnExist: true })
@@ -82,21 +97,35 @@ export async function rollbackLivePromotion({ installRoot, profileRoot, receiptP
       }
       swaps.push({ ...record, stage, quarantine: join(dirname(record.target), `.${randomUUID()}.airules-live-rollback`), quarantined: false, restored: false })
     }
+    if (preserveUnmanagedCordis) {
+      const proofRoot=join(paths.backup,'rollback-preservation',randomUUID());await mkdir(proofRoot,{recursive:true})
+      const cordis=records.find(row=>row.preservation)
+      if(cordis){await cp(cordis.target,join(proofRoot,'observed.yml'));if(!sameState(await targetState(join(proofRoot,'observed.yml')),cordis.effectiveAfter))throw new OfficialUiInstallerError('LIVE_ROLLBACK_TARGET_RACE');await writeFile(join(proofRoot,'restored.yml'),cordis.preservation.text)}
+      const proof=sealReceipt({schemaVersion:1,kind:'live-cordis-preservation',receiptPath:receiptFile,observedState:cordis?.effectiveAfter,restoredState:cordis?.restoredState,installedState:cordis?.row.after,swaps:swaps.map(row=>({target:row.target,quarantine:row.quarantine,stage:row.stage,effectiveAfter:row.effectiveAfter,restoredState:row.restoredState}))})
+      const proofPath=join(proofRoot,'proof.json');await atomicWrite(proofPath,canonical(proof));preservationProof={path:relative(paths.backup,proofPath).replaceAll('\\','/'),state:await targetState(proofPath)};preservationJournal=join(proofRoot,'journal.jsonl')
+    }
     let committed = false
     try {
       for (const swap of swaps) {
-        if (!sameState(await targetState(swap.target), swap.row.after)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_TARGET_RACE', swap.row.target)
+        signal?.throwIfAborted()
+        if(!sameState(await targetState(receiptFile),receiptReadState))throw new OfficialUiInstallerError('LIVE_RECEIPT_CHANGED')
+        if (!sameState(await targetState(swap.target), swap.effectiveAfter)) throw new OfficialUiInstallerError('LIVE_ROLLBACK_TARGET_RACE', swap.row.target)
+        if(preservationJournal)await appendFile(preservationJournal,canonical(sealReceipt({phase:'quarantine-intent',target:swap.row.target})).replace(/\n\s*/gu,'')+'\n')
         await rename(swap.target, swap.quarantine); swap.quarantined = true
+        if(preservationJournal)await appendFile(preservationJournal,canonical(sealReceipt({phase:'quarantined',target:swap.row.target})).replace(/\n\s*/gu,'')+'\n')
       }
-      for (const swap of swaps) if (swap.stage) { await mkdir(dirname(swap.target), { recursive: true }); await rename(swap.stage, swap.target); swap.restored = true }
+      for (const swap of swaps) if (swap.stage) { signal?.throwIfAborted();if(!sameState(await targetState(receiptFile),receiptReadState))throw new OfficialUiInstallerError('LIVE_RECEIPT_CHANGED');await mkdir(dirname(swap.target), { recursive: true });await rename(swap.stage, swap.target);swap.restored = true;if(preservationJournal)await appendFile(preservationJournal,canonical(sealReceipt({phase:'restored',target:swap.row.target})).replace(/\n\s*/gu,'')+'\n') }
+      for(const swap of swaps)if(!sameState(await targetState(swap.target),swap.restoredState))throw new OfficialUiInstallerError('LIVE_ROLLBACK_VERIFY_FAILED')
       const rollbackStage = { strategy: 'profile-same-volume', directory: relative(paths.profile, stageRoot).replaceAll('\\', '/') }
-      let completed = sealReceipt({ ...receipt, status: 'rolled-back', rollbackStage, cleanupPending: swaps.map(row => row.quarantine) })
-      await atomicWrite(receiptFile, canonical(completed), { expectedCurrentState: await targetState(receiptFile) }); committed = true
+      let completed = sealReceipt({ ...receipt, status: 'rolled-back', rollbackStage, ...(preservationProof?{cordisPreservationProof:preservationProof}:{}), cleanupPending: swaps.map(row => row.quarantine) })
+      signal?.throwIfAborted()
+      const committedBytes=Buffer.from(canonical(completed)),committedState={type:'file',bytes:committedBytes.length,sha256:sha256(committedBytes)}
+      await atomicWrite(receiptFile, committedBytes, { expectedCurrentState: receiptReadState }); committed = true
       const cleanupPending = []
       for (const swap of swaps) { try { await rm(swap.quarantine, { recursive: true, force: true }) } catch { cleanupPending.push(swap.quarantine) } }
       try { await rm(stageRoot, { recursive: true, force: true }) } catch { cleanupPending.push(stageRoot) }
       completed = sealReceipt({ ...completed, cleanupPending })
-      await atomicWrite(receiptFile, canonical(completed), { expectedCurrentState: await targetState(receiptFile) })
+      await atomicWrite(receiptFile, canonical(completed), { expectedCurrentState: committedState })
       return Object.freeze({ status: 'rolled-back', receiptPath: receiptFile, receipt: completed })
     } catch (error) { if (!committed) await recover(swaps); throw error }
   } catch (error) { await rm(stageRoot, { recursive: true, force: true }); throw error }

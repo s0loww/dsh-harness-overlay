@@ -62,6 +62,9 @@ export async function applyLivePromotion(options) {
       }
       records.push({ operation, stage, backup })
     }
+    const cordisRecord = records.find(row => row.operation.type === 'merge-cordis')
+    if (!cordisRecord) throw new OfficialUiInstallerError('LIVE_CORDIS_SNAPSHOT_REQUIRED')
+    await copyChecked(cordisRecord.stage, join(plan.backupRoot, 'after/cordis.patch.yml'), cordisRecord.operation.after)
     const receipt = sealReceipt({
       schemaVersion: 1,
       status: 'pending',
@@ -74,6 +77,7 @@ export async function applyLivePromotion(options) {
       artifactPackageNames: plan.artifactPackageNames,
       dependencyResolution: plan.dependencyResolution,
       previousPromotion: plan.previousPromotion,
+      cordisAfterSnapshot: 'after/cordis.patch.yml',
       transactionStage: { strategy: 'profile-same-volume', directory: relative(plan.profileRoot, stageRoot).replaceAll('\\', '/') },
       planSignature: plan.signature,
       packageNames: plan.packageNames,

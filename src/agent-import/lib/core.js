@@ -124,10 +124,12 @@ export async function previewImport(options) {
 export async function applyImport(options, request) {
   if (!Array.isArray(request.selected) || !request.selected.length || request.selected.length > 128 || new Set(request.selected).size !== request.selected.length) fail('SELECTION_REQUIRED')
   const result = await scan(options)
+  await options.verifyProject?.()
   if (request.revision !== result.revision) fail('STALE_PREVIEW')
   const selected = request.selected.map(id => result.entries.find(entry => entry.id === id))
   if (selected.some(entry => !entry || entry.status !== 'new')) fail('CONFLICT_REJECTED')
   const run = randomUUID(), backupRoot = join(options.dshHome, 'agent-import', 'backups', run), lock = join(result.target, '.airules-import.lock')
+  await options.verifyProject?.()
   await safePath(result.target, lock, true); const handle = await open(lock, 'wx').catch(() => fail('IMPORT_BUSY'))
   const created = []; let agentsChanged = false, temp
   try {
@@ -142,9 +144,11 @@ export async function applyImport(options, request) {
       await writeFile(temp, merged, { flag: 'wx', mode: 0o600 })
     }
     for (const entry of selected.filter(e => e.kind === 'skill')) {
+      await options.verifyProject?.()
       const dest = join(result.target, entry.destination)
       await safePath(result.target, dest, true); await mkdir(dirname(dest), { recursive: true }); await mkdir(dest); created.push(dest)
       for (const file of entry.files) {
+        await options.verifyProject?.()
         const path = join(dest, file.path); await safePath(result.target, path, true); await mkdir(dirname(path), { recursive: true })
         if (file.path === 'SKILL.md' && entry.hasScripts) {
           // Write the original under a non-discovered name first, then the
@@ -154,6 +158,7 @@ export async function applyImport(options, request) {
         } else await writeFile(path, file.data, { flag: 'wx', mode: 0o600 })
       }
     }
+    await options.verifyProject?.()
     if (temp) { const current = await bytes(result.target, join(result.target, 'AGENTS.md')); if (hash(current ?? '') !== hash(result.agents ?? '')) fail('STALE_PREVIEW'); await rename(temp, join(result.target, 'AGENTS.md')); temp = undefined; agentsChanged = true }
     await writeFile(join(backupRoot, 'receipt.json'), JSON.stringify({ schemaVersion: 1, id: run, target: result.target, agentsChanged, selected: selected.map(e => ({ id: e.id, source: e.source, destination: e.destination, digest: e.sourceDigest })) }, null, 2), { flag: 'wx', mode: 0o600 })
     return { imported: selected.length, backupId: run, target: result.target }

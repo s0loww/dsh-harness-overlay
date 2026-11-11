@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID, timingSafeEqual, createHash } from 'node:crypto'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { createController as createCogneeController, activeScope } from './control.js'
-import { createMemoryService } from './core.js'
-import { createGlobalPolicyStore, createProjectPolicyStore, effectivePolicy, selectBackends, DEFAULT_PROJECT_POLICY } from './policy.js'
+import { createMemoryService, datasetForRoot } from './core.js'
+import { createGlobalPolicyStore, createProjectPolicyStore, effectivePolicy, selectBackends, DEFAULT_PROJECT_POLICY, validatePolicy } from './policy.js'
 import { createMemoryRouter, createRoutingJournal } from './router.js'
 import { createMemoriaAdapter } from './memoria.js'
 import { executeNativeTool } from './native-tools.js'
@@ -21,13 +21,33 @@ export function createMemoryWorkspace(ctx,options={}){
   function verify(scope,signal){signal?.throwIfAborted();const fresh=scopeFor(scope.agent.session.id);if(fresh.agent!==scope.agent||fresh.stamp!==scope.stamp)fail('MEMORY_SCOPE_CHANGED')}
   const projectStore=options.projectStore??createProjectPolicyStore({fsFor:scope=>ctx.agentPresets.serviceFor?.(scope.agent,'fs')??ctx.fs,verifyScope:verify})
   const journal=options.journal??createRoutingJournal(join(home,'routing-receipts.json'))
+  const rootKey=value=>process.platform==='win32'?resolve(value).toLowerCase():resolve(value)
+  async function coldScope(input,lease,{writing=false}={}){
+    if(typeof lease?.verify!=='function'||typeof lease?.assertScope!=='function'||lease.sessionId!==input.sessionId||!isAbsolute(lease.projectRoot??''))fail('MEMORY_ACTIVE_PROJECT_REQUIRED')
+    const native=await lease.verify()
+    if(native.agent||native.active||native.sessionId!==input.sessionId||!isAbsolute(native.root??'')||rootKey(native.root)!==rootKey(lease.projectRoot)||!['1c-airules','python-airules','sysadmin-airules'].includes(native.preset)||!['read-only','workspace-write','danger-full-access'].includes(native.policy?.mode)||native.policy.sessionId!==input.sessionId||!isAbsolute(native.policy.workspaceRoot??'')||rootKey(native.policy.workspaceRoot)!==rootKey(native.root)||native.writable!==(native.policy.mode!=='read-only'))fail('MEMORY_ACTIVE_PROJECT_REQUIRED')
+    await lease.assertScope(native)
+    if(writing&&!native.writable)fail('MEMORY_WRITE_REQUIRED')
+    return{root:resolve(native.root),dataset:datasetForRoot(native.root),sessionId:input.sessionId,mode:native.policy.mode,policy:native.policy,writable:native.writable,globalWritable:false,active:false,executorAvailable:false,cold:true,lease}
+  }
+  async function verifyCold(scope,writing=false){
+    const current=await coldScope({sessionId:scope.sessionId},scope.lease,{writing})
+    if(rootKey(current.root)!==rootKey(scope.root)||JSON.stringify(current.policy)!==JSON.stringify(scope.policy))fail('MEMORY_SCOPE_CHANGED')
+  }
+  const coldStore=(scope,writing=false)=>createGlobalPolicyStore(join(scope.root,'.dsh','memory.json'),{anchor:scope.root,validate:value=>validatePolicy(value,{project:true}),defaultValue:DEFAULT_PROJECT_POLICY,verify:()=>verifyCold(scope,writing)})
+  async function preferenceScope(input,lease,{writing=false}={}){
+    let scope
+    try{scope=scopeFor(input.sessionId,{writing})}
+    catch(error){if(!lease||ctx.agents.get(input.sessionId))throw error;return coldScope(input,lease,{writing})}
+    await lease?.assertScope(scope);return scope
+  }
   async function processing(){
     if(processingManager){const value=await processingManager.configuration();return{...value,...(keyStore?{openRouterCredential:await keyStore.status()}:{})}}
     const old=await cognee.configuration();return{profile:legacyProfile(old.config.localProcessing),revision:'legacy',bindingAvailable:false,applied:{state:'unverified',fingerprint:null,matchesDesired:false}}
   }
   async function policyFor(scope,signal){
-    const global=await globalStore.read(),project=scope?await projectStore.read(scope,signal):{value:null,revision:null}
-    if(scope)verify(scope,signal)
+    const global=await globalStore.read(),project=scope?scope.cold?await coldStore(scope).read():await projectStore.read(scope,signal):{value:null,revision:null}
+    if(scope){if(scope.cold)await verifyCold(scope);else verify(scope,signal)}
     if((await globalStore.read()).revision!==global.revision)fail('MEMORY_POLICY_STALE')
     return{global:global.value,project:project.value,effective:effectivePolicy(global.value,project.value??DEFAULT_PROJECT_POLICY),globalRevision:global.revision,projectRevision:project.revision,revision:digest([global.revision,project.revision])}
   }
@@ -80,11 +100,11 @@ export function createMemoryWorkspace(ctx,options={}){
       permits.set(execution.token,{agent:scope.agent,scope,revision:snapshot.revision,names:new Set(Object.values(policy.memoria).filter(row=>row&&typeof row==='object').map(row=>row.tool))})
       try{return await adapter[input.action](input)}finally{permits.delete(execution.token)}
     }})
-  async function configuration(input={}){
+  async function configuration(input={},lease){
     let scope=null,projectError
-    if(input.sessionId)try{scope=scopeFor(input.sessionId);await projectStore.read(scope)}catch(error){scope=null;projectError=errorCode(error)}
+    if(input.sessionId)try{scope=await preferenceScope(input,lease);if(scope.cold)await coldStore(scope).read();else await projectStore.read(scope)}catch(error){scope=null;projectError=errorCode(error)}
     const [connection,policy,selected]=await Promise.all([cognee.configuration(),policyFor(scope),processing()])
-    return{...connection,policy:{...policy,policyRevision:policy.revision},processing:selected,scope:scope&&{projectRoot:scope.root,dataset:scope.dataset,writable:scope.writable,globalWritable:scope.globalWritable},...(projectError?{projectError}:{})}
+    return{...connection,policy:{...policy,policyRevision:policy.revision},processing:selected,scope:scope&&{projectRoot:scope.root,dataset:scope.dataset,writable:scope.writable,globalWritable:scope.globalWritable,active:!scope.cold,executorAvailable:!scope.cold},...(projectError?{projectError}:{})}
   }
   async function act(input,execution){
     if(busy)fail('MEMORY_OPERATION_BUSY')
@@ -165,12 +185,14 @@ export function createMemoryWorkspace(ctx,options={}){
         if(!String(request.headers?.['content-type']??'').startsWith('application/json'))fail('MEMORY_JSON_REQUIRED');input=await body(request)
       }else return send(405,{ok:false,error:'METHOD_REJECTED'})
       if(!input||typeof input!=='object'||Array.isArray(input))fail('MEMORY_INPUT_INVALID')
+      const lease=request[Symbol.for('airules.project-request')]
+      if(input.sessionId&&['status','documents','graph','task','recall','remember','process','processingApply','configure','memoraCatalog'].includes(input.action))await lease?.assertScope(scopeFor(input.sessionId))
       let result
-      if(input.action==='configuration')result=await configuration(input)
+      if(input.action==='configuration')result=await configuration(input,lease)
       else if(input.action==='policyGlobal'){
-        if(busy)fail('MEMORY_OPERATION_BUSY');await globalStore.save(input.policy,input.expectedRevision);result=await configuration(input)
+        if(busy)fail('MEMORY_OPERATION_BUSY');await globalStore.save(input.policy,input.expectedRevision);result=await configuration(input,lease)
       }else if(input.action==='projectPolicy'){
-        if(busy)fail('MEMORY_OPERATION_BUSY');const scope=scopeFor(input.sessionId,{writing:true});await projectStore.save(scope,input.policy,input.expectedRevision);result=await configuration(input)
+        if(busy)fail('MEMORY_OPERATION_BUSY');const scope=await preferenceScope(input,lease,{writing:true});if(scope.cold)await coldStore(scope,true).save(input.policy,input.expectedRevision);else await projectStore.save(scope,input.policy,input.expectedRevision);result=await configuration(input,lease)
       }else if(input.action==='processingModels'){
         if(!processingManager)fail('MEMORY_PROCESSING_UNAVAILABLE')
         result=await processingManager.catalog({kind:input.kind,provider:input.provider,endpoint:input.endpoint})
@@ -180,7 +202,7 @@ export function createMemoryWorkspace(ctx,options={}){
         if(Object.keys(input).some(key=>!['action','secret','expectedRevision'].includes(key)))fail('MEMORY_INPUT_INVALID')
         await keyStore.save(input.secret,input.expectedRevision);await processingManager?.invalidateCredential?.();result={saved:true}
       }else if(input.action==='processingSave'){
-        if(busy)fail('MEMORY_OPERATION_BUSY');if(!processingManager)fail('MEMORY_PROCESSING_UNAVAILABLE');await processingManager.save({profile:input.profile,expectedRevision:input.expectedRevision});result=await configuration(input)
+        if(busy)fail('MEMORY_OPERATION_BUSY');if(!processingManager)fail('MEMORY_PROCESSING_UNAVAILABLE');await processingManager.save({profile:input.profile,expectedRevision:input.expectedRevision});result=await configuration(input,lease)
       }else if(input.action==='configure'){
         if(busy)fail('MEMORY_OPERATION_BUSY');result={...await cognee.configure(input),...await configuration(input)}
       }else if(input.action==='memoraCatalog'){

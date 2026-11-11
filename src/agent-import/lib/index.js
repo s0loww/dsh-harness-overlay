@@ -14,6 +14,7 @@ export function handlerFor(ctx, paths = { userHome: homedir(), dshHome: dshHomeP
       if (!ctx.connection || ctx.connection.requestRejection(request) !== undefined) return send(403, { ok: false, error: 'NATIVE_CONNECTION_REQUIRED' })
       if (request.method === 'GET') {
         const url = new URL(request.url, 'http://localhost'), scope = await workflowSession(ctx, url.searchParams.get('sessionId'))
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         return send(200, { ok: true, csrfToken, projectRoot: scope.root, writable: scope.writable, globalWritable: scope.mode === 'danger-full-access' })
       }
       if (request.method !== 'POST') return send(405, { ok: false, error: 'METHOD_REJECTED' })
@@ -26,7 +27,8 @@ export function handlerFor(ctx, paths = { userHome: homedir(), dshHome: dshHomeP
       if (!body || Object.keys(body).some(key => !['action', 'sessionId', 'origin', 'scope', 'revision', 'selected'].includes(key)) || !['preview', 'apply'].includes(body.action)) throw new Error('BODY_REJECTED')
       const session = await workflowSession(ctx, body.sessionId, body.action === 'apply')
       if (body.action === 'apply' && body.scope === 'global' && session.mode !== 'danger-full-access') throw new Error('GLOBAL_WRITE_REQUIRED')
-      const options = { ...paths, projectRoot: session.root, origin: body.origin, scope: body.scope }
+      await request[Symbol.for('airules.project-request')]?.assertScope(session)
+      const options = { ...paths, projectRoot: session.root, origin: body.origin, scope: body.scope, verifyProject: () => request[Symbol.for('airules.project-request')]?.verify() }
       const result = await (body.action === 'preview' ? previewImport(options) : applyImport(options, body))
       if (body.action === 'apply') {
         ctx.get?.('skills')?.invalidateCache?.()
@@ -36,8 +38,13 @@ export function handlerFor(ctx, paths = { userHome: homedir(), dshHome: dshHomeP
       return send(200, { ok: true, ...result })
     } catch (error) {
       const code = /^[A-Z][A-Z_]{1,60}$/u.test(error.message) ? error.message : 'IMPORT_UNAVAILABLE'
-      return send(code === 'STALE_PREVIEW' ? 409 : 400, { ok: false, error: code, partial: !!error.partial, message: error.partial ? 'Часть файлов могла сохраниться. Обновите предпросмотр и проверьте конфликты; существующие файлы не заменялись.' : ({ STALE_PREVIEW: 'Источники или назначения изменились. Обновите предпросмотр.', GLOBAL_WRITE_REQUIRED: 'Для записи общих правил нужен полный доступ штатной песочницы.', WORKSPACE_WRITE_REQUIRED: 'Для импорта включите запись в рабочую папку.', IMPORT_BUSY: 'Другой импорт уже выполняется. Повторите позже.', LINK_REJECTED: 'Символические ссылки и junction не импортируются.' }[code] ?? 'Импорт недоступен. Проверьте сеанс проекта, доступ и формат файлов.') })
+      return send(code === 'STALE_PREVIEW' ? 409 : 400, { ok: false, error: code, partial: !!error.partial, message: error.partial ? 'Часть файлов могла сохраниться. Обновите предпросмотр и проверьте конфликты; существующие файлы не заменялись.' : ({ STALE_PREVIEW: 'Источники или назначения изменились. Обновите предпросмотр.', GLOBAL_WRITE_REQUIRED: 'Для записи общих правил нужен полный доступ штатной песочницы.', WORKSPACE_WRITE_REQUIRED: 'Для импорта включите запись в рабочую папку.', IMPORT_BUSY: 'Другой импорт уже выполняется. Повторите позже.', LINK_REJECTED: 'Символические ссылки и junction не импортируются.' }[code] ?? 'Импорт недоступен. Проверьте выбранный проект, доступ и формат файлов.') })
     }
   }
 }
-export function apply(ctx) { ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: handlerFor(ctx) })) }
+export function apply(ctx) {
+  const originalHandler = handlerFor(ctx)
+  let routeHandler = originalHandler
+  ctx.inject?.(['airulesProjects'], ready => { routeHandler = ready.airulesProjects.bindHandler(originalHandler, { presets: ['1c-airules','python-airules','sysadmin-airules'] }); return () => { routeHandler = originalHandler } })
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: (request,response) => routeHandler(request,response) }))
+}

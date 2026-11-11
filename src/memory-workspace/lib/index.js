@@ -20,6 +20,9 @@ export async function apply(ctx) {
   const controller = createMemoryWorkspace(ctx, { configPath, createUserMessage,processingManager,keyStore })
   ctx.provide('airulesMemory', controller)
   ctx.on('tools/pre-execute',controller.gate)
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: controller.handler }))
+  const originalHandler = controller.handler
+  let routeHandler = originalHandler
+  ctx.inject?.(['airulesProjects'], ready => { routeHandler = ready.airulesProjects.bindHandler(originalHandler, { presets: ['1c-airules','python-airules','sysadmin-airules'], allowUnresolvedConfiguration: true, allowGlobalActions: ['policyGlobal','processingSave','processingCredentialSave','processingModels','processingStatus'] }); return () => { routeHandler = originalHandler } })
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: (request,response) => routeHandler(request,response) }))
   ctx.effect(()=>{const cancel=new AbortController();void processingManager.inspect({signal:cancel.signal}).catch(()=>{});return()=>cancel.abort()})
 }

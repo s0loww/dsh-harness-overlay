@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile, writeFile, mkdir, rename, lstat, rm } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { writeFile, mkdir, rename, lstat, rm, open, realpath } from 'node:fs/promises'
+import { dirname, join, resolve, isAbsolute, relative, sep } from 'node:path'
 import { validateMemoriaBinding } from './memoria.js'
 export const PROJECT_POLICY_PATH = '.dsh/memory.json'
 export const DEFAULT_GLOBAL_POLICY = Object.freeze({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto' })
@@ -34,23 +34,53 @@ export function selectBackends(policy,{action,backend,kind='fact'}={}){
   return allowed
 }
 /** Profile-owned preferences. No project contents or credentials are accepted. */
-export function createGlobalPolicyStore(path){
+export function createGlobalPolicyStore(path,{validate=validatePolicy,verify=()=>{},defaultValue=DEFAULT_GLOBAL_POLICY,anchor}={}){
   let saving=false
+  const key=value=>process.platform==='win32'?resolve(value).toLowerCase():resolve(value)
+  async function guard(authority=true){
+    const check=authority?verify:()=>{}
+    await check()
+    if(anchor!==undefined){
+      if(!isAbsolute(anchor)||!isAbsolute(path))fail('MEMORY_PROJECT_LINK_REJECTED')
+      const rel=relative(resolve(anchor),resolve(path));if(rel!==PROJECT_POLICY_PATH.split('/').join(sep))fail('MEMORY_PROJECT_LINK_REJECTED')
+      let at=resolve(anchor)
+      for(const part of ['',...rel.split(sep)]){
+        if(part)at=join(at,part)
+        try{const info=await lstat(at);await check();if(info.isSymbolicLink()||info.isFile()&&info.nlink!==1)fail('MEMORY_PROJECT_LINK_REJECTED');if(key(await realpath(at))!==key(at))fail('MEMORY_PROJECT_LINK_REJECTED');await check()}
+        catch(error){if(error.code!=='ENOENT'||at===resolve(anchor))throw error}
+      }
+    }
+    await check()
+  }
   async function read(){
-    try {const info=await lstat(path);if(!info.isFile()||info.isSymbolicLink()||info.nlink!==1||info.size>16384)fail('MEMORY_POLICY_FILE_INVALID');const bytes=await readFile(path);return{value:validatePolicy(JSON.parse(bytes)),revision:policyDigest(bytes)}}
-    catch(error){if(error.code==='ENOENT')return{value:{...DEFAULT_GLOBAL_POLICY},revision:'missing'};throw error}
+    await guard()
+    let handle
+    try {
+      const info=await lstat(path);await verify();if(!info.isFile()||info.isSymbolicLink()||info.nlink!==1||info.size>16384)fail('MEMORY_POLICY_FILE_INVALID')
+      handle=await open(path,'r');await verify();const before=await handle.stat();await verify();if(!before.isFile()||before.nlink!==1||before.size>16384||before.ino!==info.ino||before.dev!==info.dev)fail('MEMORY_POLICY_FILE_INVALID')
+      const buffer=Buffer.alloc(16385),{bytesRead}=await handle.read(buffer,0,buffer.length,0);await verify();const after=await handle.stat();await verify()
+      if(bytesRead>16384||bytesRead!==before.size||after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs)fail('MEMORY_POLICY_STALE')
+      const current=await lstat(path);await verify();if(current.isSymbolicLink()||current.nlink!==1||current.ino!==before.ino||current.dev!==before.dev)fail('MEMORY_POLICY_STALE')
+      await guard();const bytes=buffer.subarray(0,bytesRead);return{value:validate(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/^\uFEFF/u,''))),revision:policyDigest(bytes)}
+    }
+    catch(error){if(error.code==='ENOENT'){await guard();return{value:validate({...defaultValue}),revision:'missing'}};throw error}
+    finally{await handle?.close()}
   }
   return {read,async save(value,revision){
-    value=validatePolicy(value);if(saving)fail('MEMORY_POLICY_BUSY');saving=true
+    value=validate(value);if(saving)fail('MEMORY_POLICY_BUSY');saving=true
     const temporary=path+'.'+randomUUID()+'.tmp',lock=path+'.lock';let locked=false
     try{
+      await guard()
       await mkdir(dirname(path),{recursive:true});const parent=await lstat(dirname(path));if(!parent.isDirectory()||parent.isSymbolicLink())fail('MEMORY_POLICY_FILE_INVALID')
+      await guard()
       try{await writeFile(lock,'policy-write',{flag:'wx',mode:0o600});locked=true}catch(error){if(error.code==='EEXIST')fail('MEMORY_POLICY_BUSY');throw error}
       if((await read()).revision!==revision)fail('MEMORY_POLICY_STALE')
+      await guard()
       await writeFile(temporary,JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600})
       if((await read()).revision!==revision)fail('MEMORY_POLICY_STALE')
+      await guard()
       await rename(temporary,path);return await read()
-    }finally{saving=false;await rm(temporary,{force:true});if(locked)await rm(lock,{force:true})}
+    }finally{saving=false;try{await guard(false);await rm(temporary,{force:true});if(locked)await rm(lock,{force:true})}catch{}}
   }}
 }
 /** Project policy always goes through the selected native FS and its CAS. */

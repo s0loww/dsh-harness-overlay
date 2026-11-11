@@ -1,0 +1,9 @@
+{
+  "name": "airules-dsh-project-context",
+  "version": "0.1.0-dev1",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./core": "./lib/core.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-api-workspace-controller", "@deepseek-ai/dsh-api-session-controller"] } }
+}

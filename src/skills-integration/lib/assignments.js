@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { lstat, readFile, mkdir, writeFile, rename, unlink, open } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, isAbsolute, resolve } from 'node:path'
 import { safePath } from './core.js'
 
 export const ROLES = Object.freeze(['analytic', 'arch-reviewer', 'architect', 'code-reviewer', 'developer', 'doc-writer', 'error-fixer', 'explorer', 'metadata-manager', 'performance-optimizer', 'planner', 'refactoring', 'tester'])
@@ -100,15 +100,16 @@ async function readDocument(anchor, file, validate) {
     return { value: validate(value), revision: hash(raw), raw }
   } catch (error) { if (error.code === 'ENOENT') return { value: null, revision: null, raw: null }; throw error }
 }
-async function writeDocument({ anchor, file, revision, value, backupRoot, validate }) {
-  await safePath(anchor, file)
+async function writeDocument({ anchor, file, revision, value, backupRoot, validate, verify = () => {} }) {
+  await verify(); await safePath(anchor, file)
   await mkdir(dirname(file), { recursive: true })
-  await safePath(anchor, file)
+  await safePath(anchor, file); await verify()
   const lock = `${file}.lock`, temp = `${file}.${randomUUID()}.tmp`
   const handle = await open(lock, 'wx').catch(error => { if (error.code === 'EEXIST') fail('ASSIGNMENTS_BUSY'); throw error })
   try {
     const current = await readDocument(anchor, file, validate)
     if (current.revision !== revision) fail('STALE_ASSIGNMENTS')
+    await verify()
     const data = validate(value)
     const raw = `${JSON.stringify(data, null, 2)}\n`
     if (Buffer.byteLength(raw) > 512 * 1024) fail('ASSIGNMENTS_INVALID')
@@ -117,8 +118,9 @@ async function writeDocument({ anchor, file, revision, value, backupRoot, valida
     await writeFile(join(folder, 'receipt.json'), JSON.stringify({ schemaVersion: 1, file, revision: current.revision }), { flag: 'wx', mode: 0o600 })
     if (current.raw !== null) await writeFile(join(folder, 'settings.json'), current.raw, { flag: 'wx', mode: 0o600 })
     await writeFile(temp, raw, { flag: 'wx', mode: 0o600 })
-    await safePath(anchor, file)
+    await safePath(anchor, file); await verify()
     if ((await readDocument(anchor, file, validate)).revision !== revision) fail('STALE_ASSIGNMENTS')
+    await verify()
     await rename(temp, file)
     return { value: data, revision: hash(raw) }
   } finally { await unlink(temp).catch(() => {}); await handle.close(); await unlink(lock).catch(() => {}) }
@@ -149,8 +151,9 @@ export function delegatedRole(session) {
 }
 export function taskContext({ selected = 'auto', role = null, plan = false, accessMode }) {
   if (!['auto', 'all', ...Object.keys(TASK_TYPES)].includes(selected) || !Object.hasOwn(ACCESS_MODES, accessMode)) fail('ASSIGNMENTS_INVALID')
-  const taskType = selected !== 'auto' ? selected : plan ? 'planning' : Object.hasOwn(ROLE_TASKS, role) ? ROLE_TASKS[role] : 'all'
-  return { selectedTaskType: selected, taskType, role, accessMode, nativePlan: plan, source: selected !== 'auto' ? 'session' : plan ? 'native-plan' : role ? 'delegated-role' : 'full-catalog' }
+  const managedRole = Object.hasOwn(ROLE_TASKS, role)
+  const taskType = plan ? 'planning' : managedRole ? ROLE_TASKS[role] : selected !== 'auto' ? selected : 'all'
+  return { selectedTaskType: selected, taskType, role, accessMode, nativePlan: plan, source: plan ? 'native-plan' : managedRole ? 'delegated-role' : selected !== 'auto' ? 'project' : 'full-catalog' }
 }
 export function createAssignmentStore(home) {
   const commonFile = join(home, 'skill-assignments', 'settings.json'), backupRoot = join(home, 'skill-assignments', 'backups')
@@ -162,25 +165,26 @@ export function createAssignmentStore(home) {
       const project = root ? await readDocument(root, join(root, '.dsh', 'skill-assignments.json'), validateStore) : { value: null, revision: null }
       return { common: { revision: common.revision, overrides: common.value?.overrides ?? {} }, project: { revision: project.revision, overrides: project.value?.overrides ?? {} }, effective: effectiveAssignments(common.value?.overrides, project.value?.overrides), defaults: DEFAULTS }
     },
-    async save(root, body) {
+    async save(root, body, options = {}) {
       if (!['project', 'global'].includes(body.scope) || typeof body.skill !== 'string' || !namePattern.test(body.skill) || body.skill.length > 100 || !['set', 'reset'].includes(body.change)) fail('ASSIGNMENTS_INVALID')
       const location = target(root, body.scope), current = await readDocument(location.anchor, location.file, validateStore)
       if (body.revision !== current.revision) fail('STALE_ASSIGNMENTS')
       const overrides = { ...current.value?.overrides }
       if (body.change === 'reset') delete overrides[body.skill]
       else overrides[body.skill] = validateAssignment(body.assignment)
-      return writeDocument({ ...location, revision: body.revision, value: { schemaVersion: 1, overrides }, backupRoot, validate: validateStore })
+      return writeDocument({ ...location, revision: body.revision, value: { schemaVersion: 1, overrides }, backupRoot, validate: validateStore, ...options })
     },
-    async context(sessionId) {
-      if (typeof sessionId !== 'string' || !sessionId || sessionId.length > 256) fail('SESSION_REQUIRED')
-      const file = join(home, 'skill-assignments', 'sessions', `${hash(sessionId)}.json`)
-      const validate = value => { if (!known(value, ['schemaVersion', 'sessionId', 'taskType']) || value.schemaVersion !== 1 || value.sessionId !== sessionId || !['auto', 'all', ...Object.keys(TASK_TYPES)].includes(value.taskType)) fail('ASSIGNMENTS_INVALID'); return value }
-      const doc = await readDocument(home, file, validate)
+    async context(root) {
+      if (typeof root !== 'string' || !isAbsolute(root) || root.includes('\0')) fail('PROJECT_REQUIRED')
+      root = resolve(root)
+      const file = join(root, '.dsh', 'skill-context.json')
+      const validate = value => { if (!known(value, ['schemaVersion', 'taskType']) || value.schemaVersion !== 1 || !['auto', 'all', ...Object.keys(TASK_TYPES)].includes(value.taskType)) fail('ASSIGNMENTS_INVALID'); return value }
+      const doc = await readDocument(root, file, validate)
       return { selected: doc.value?.taskType ?? 'auto', revision: doc.revision, file, validate }
     },
-    async setContext(sessionId, body) {
-      const context = await this.context(sessionId)
-      return writeDocument({ anchor: home, file: context.file, revision: body.revision, value: { schemaVersion: 1, sessionId, taskType: body.taskType }, backupRoot, validate: context.validate })
+    async setContext(root, body, options = {}) {
+      const context = await this.context(root)
+      return writeDocument({ anchor: root, file: context.file, revision: body.revision, value: { schemaVersion: 1, taskType: body.taskType }, backupRoot, validate: context.validate, ...options })
     },
   }
 }

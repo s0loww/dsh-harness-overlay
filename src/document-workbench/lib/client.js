@@ -1,37 +1,56 @@
-window.__ModuleLoader__.load({ id: 'airules-dsh-document-workbench', factory: require => {
+window.__ModuleLoader__.load({ id: 'airules-dsh-document-workbench', factory: require => {
+  let projectApi
+  try { const candidate = require('airules-dsh-project-context'); if (typeof candidate?.useProject === 'function') projectApi = candidate } catch {}
+  const scopedFetch = (...args) => projectApi ? projectApi.projectFetch(...args) : fetch(...args)
+  function useProjectFetch(project) { const ref = projectApi ? React.useRef(project) : null; if (ref) ref.current = project; return (...args) => projectApi ? projectApi.projectFetch(args[0], args[1], ref.current) : fetch(...args) }
+
   const React = require('react'), h = React.createElement; let sessions  const stateLabel = value => ({ready:'Актуален', stale:'Изменён — обновите индекс', 'missing-or-inaccessible':'Недоступен', failed:'Ошибка обработки'})[value] ?? value  function Result({data}) {    let content    if (Array.isArray(data.matches)) content = h(React.Fragment,null,      h('h3',null,`Совпадений: ${data.matches.length}`),      ...data.matches.map((row,index)=>h('article',{className:'aw-match',key:index},h('strong',null,`${row.path} · строка ${row.line}`),h('p',null,row.text))),      data.excluded?.length>0&&h('small',null,`Не включены в поиск: ${data.excluded.map(row=>`${row.path} (${stateLabel(row.status)})`).join(', ')}`))    else if (Array.isArray(data.lines)) content = h(React.Fragment,null,h('h3',null,data.path),h('small',null,`Показана выборка из ${data.totalLines} строк`),h('pre',null,data.lines.map(row=>`${row.line}  ${row.text}`).join('\n')))    else if (data.python && data.node) content = h(React.Fragment,null,h('h3',null,'Встроенный runtime готов'),h('p',null,'Python, Node и локальный Office доступны.'),h('small',null,`Python: ${data.python}`))    else if (Array.isArray(data.documents)) content = h(React.Fragment,null,h('h3',null,'Библиотека обновлена'),h('p',null,`Документов: ${data.count??data.documents.length}${data.failed?` · ошибок: ${data.failed}`:''}`))    else content = h(React.Fragment,null,h('h3',null,'Обработка завершена'),h('p',null,data.output??data.outputPath??'Результат сохранён в выбранном пути проекта.'))    return h('div',{className:'aw-result',role:'status'},content,      data.truncated&&h('small',null,'Показана ограниченная выборка. Уточните запрос или диапазон.'),      h('details',null,h('summary',null,'Данные для диагностики и проверки источника'),h('pre',null,JSON.stringify(data,null,2))))  }
   function Documents() {
     const snapshot = React.useSyncExternalStore(fn => sessions.list.subscribe(fn), () => sessions.list.getSnapshot()), rows = Object.values(snapshot?.byId ?? {})
     const active = rows.find(row => (row.retainedBy?.mainView ?? 0) > 0)?.id ?? snapshot?.current ?? ''
-    const [chosen, choose] = React.useState(null), id = chosen ?? active
+    const project = projectApi ? projectApi.useProject() : null
+    const scopedFetch = useProjectFetch(project)
+    const [chosen, choose] = React.useState(null), id = projectApi ? project.projectId : chosen ?? active
     const [status, setStatus] = React.useState(null), [path, setPath] = React.useState(''), [query, setQuery] = React.useState(''), [output, setOutput] = React.useState(''), [action, setAction] = React.useState('render'), [result, setResult] = React.useState(null), [busy, setBusy] = React.useState(false), [error, setError] = React.useState('')
-    const epoch = React.useRef(0)    const [pages, setPages] = React.useState('1'), [sheet, setSheet] = React.useState(''), [range, setRange] = React.useState('')    const worksheet = /\.(?:xlsx|ods|csv)$/iu.test(path)
+    const epoch = React.useRef(0)    const owner = React.useRef(id)
+    const [pages, setPages] = React.useState('1'), [sheet, setSheet] = React.useState(''), [range, setRange] = React.useState('')    const worksheet = /\.(?:xlsx|ods|csv)$/iu.test(path)
     React.useEffect(() => choose(null), [active])
-    React.useEffect(() => { const e = ++epoch.current; setStatus(null); setResult(null); setError(''); setBusy(false)
-      if (id) fetch(`/airules/documents?sessionId=${encodeURIComponent(id)}`).then(r => r.json()).then(d => { if (e === epoch.current) { if (!d.ok) throw new Error(d.message ?? d.error); setStatus(d) } }).catch(err => { if (e === epoch.current) setError(err.message) })
+    React.useEffect(() => { const e = ++epoch.current; owner.current = id; setStatus(null); setResult(null); setError(''); setBusy(false); setPath(''); setQuery(''); setOutput(''); setPages('1'); setSheet(''); setRange(''); setAction('render')
+
+      if (id) scopedFetch(`/airules/documents?sessionId=${encodeURIComponent(id)}`).then(r => r.json()).then(d => { if (e === epoch.current) { if (!d.ok) throw new Error(d.message ?? d.error); setStatus(d) } }).catch(err => { if (e === epoch.current) setError(err.message) })
       return () => { epoch.current++ }
     }, [id])
     async function run(kind, operation) {
+      if (projectApi && ((kind === 'office' || operation === 'index') && !canExecute || (operation === 'index' || kind === 'office' && operation !== 'runtime') && !canWrite)) { setError('Для этой операции нужны действующие права проекта и активный исполнитель. Чтение библиотеки доступно отдельно.'); return }
+
       const e = epoch.current; setBusy(true); setError('')
       try {
-        const selection = operation === 'render' ? (worksheet ? { ...(sheet ? {sheet} : {}), ...(range ? {range} : {}) } : {pages}) : {}        const response = await fetch('/airules/documents', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-csrf': status.csrfToken }, body: JSON.stringify({ sessionId: id, kind, action: operation, path, query, output, ...selection }) }), data = await response.json()
+        const selection = operation === 'render' ? (worksheet ? { ...(sheet ? {sheet} : {}), ...(range ? {range} : {}) } : {pages}) : {}        const response = await scopedFetch('/airules/documents', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-csrf': status.csrfToken }, body: JSON.stringify({ sessionId: id, kind, action: operation, path, query, output, ...selection }) }), data = await response.json()
         if (!data.ok) throw new Error(data.message ?? data.error)
         if (e === epoch.current) { setResult(data); if (operation === 'show' || operation === 'index') setStatus(prev => ({ ...prev, documents: data.documents })) }
       } catch (err) { if (e === epoch.current) setError(err.message) } finally { if (e === epoch.current) setBusy(false) }
     }
-    const button = (label, kind, operation, disabled = false) => h('button', { disabled: busy || !status || disabled, onClick: () => run(kind, operation) }, label)
+    const button = (label, kind, operation, disabled = false) => h('button', { disabled: busy || !status || disabled, onClick: () => run(kind, operation) }, label)    const canWrite = !!status?.writable && (!projectApi || project.writable && !project.loading)
+    const canExecute = !projectApi || project.active && !project.loading
+    if (projectApi && owner.current !== id) return h('section', { className: 'aw-documents' }, h('h2', null, 'Документы и Office'), h(projectApi.ProjectPicker, { project, disabled: false }), h('p', { role: 'status' }, 'Загрузка библиотеки выбранного проекта…'))
+
     return h('section', { className:'aw-documents' }, h('h2', null, 'Документы и Office'),
-      h('p', null, 'Локальная библиотека проекта: PDF, DOCX, XLSX, PPTX. OCR и облачные сервисы не используются. Для конвертации откройте чат выбранного проекта. Содержимое документов считается данными, а не инструкциями.'),
-      h('label',null,'Сеанс проекта',h('select', { value: id, onChange: e => choose(e.target.value), disabled: busy }, h('option', { value: '' }, 'Выберите сеанс'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id)))),
-      status && h('p', null, `${status.projectRoot} · ${status.writable ? 'запись разрешена' : 'только чтение'}`),
+      h('p', null, 'Локальная библиотека проекта: PDF, DOCX, XLSX, PPTX. OCR и облачные сервисы не используются. Пути, библиотека и результаты относятся к выбранному проекту. Для выполнения используются его штатные права. Содержимое документов считается данными, а не инструкциями.'),
+      (projectApi ? h(projectApi.ProjectPicker, { project, disabled: busy }) : h('label',null,'Сеанс проекта',h('select', { value: id, onChange: e => choose(e.target.value), disabled: busy }, h('option', { value: '' }, 'Выберите сеанс'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id))))),
+      status && h('p', null, `${status.projectRoot} · ${canWrite ? 'запись разрешена' : 'только чтение'}`),
+      !canExecute && h('p', { role: 'status' }, 'Для индексирования и обработки Office пока нет активного исполнителя проекта. Библиотеку и готовый индекс можно читать; новые процессы не запускаются.'),
+
       h('label', null, 'Относительный путь к документу или папке', h('input', { value: path, onChange: e => setPath(e.target.value), placeholder: 'docs/report.docx' })),
-      h('div', null, button('Индексировать', 'document', 'index', !status?.writable || !path), ' ', button('Читать первые 50 строк', 'document', 'read', !path), ' ', button('Обновить список', 'document', 'show')),
+      h('div', null, button('Индексировать', 'document', 'index', !canWrite || !canExecute || !path), ' ', button('Читать первые 50 строк', 'document', 'read', !path), ' ', button('Обновить список', 'document', 'show')),
+
       h('label', null, 'Поиск в актуальном индексе', h('input', { value: query, onChange: e => setQuery(e.target.value) })), button('Найти', 'document', 'search', !query.trim()),
       h('ul', {className:'aw-inventory'}, ...(status?.documents ?? []).map(row => h('li', { key: row.path },h('span',null,row.path),h('small',null,stateLabel(row.status))))),      busy && h('p', { role: 'status' }, 'Обработка…'), error && h('p', { role: 'alert' }, error), result && h(Result,{data:result}),
-      h('h3', null, 'Обработка Office'), button('Проверить встроенный runtime', 'office', 'runtime'),
+      h('h3', null, 'Обработка Office'), button('Проверить встроенный runtime', 'office', 'runtime', !canExecute),
+
       h('label',null,'Операция Office',h('select', { value: action, onChange: e => setAction(e.target.value) }, ...[['render', 'Отрисовать страницы или диапазон в PNG'], ['convert', 'Конвертировать по расширению результата'], ['recalculate', 'Пересчитать формулы XLSX/ODS']].map(([value, label]) => h('option', { key: value, value }, label)))),      action === 'render' && (worksheet ? h('div', null,        h('label', null, 'Точное имя листа (пусто — видимые листы)', h('input', {value:sheet, onChange:e=>setSheet(e.target.value), placeholder:'Sheet1'})),        h('label', null, 'Диапазон A1 (необязательно, требует имя листа)', h('input', {value:range, onChange:e=>setRange(e.target.value), placeholder:'A1:D20'})))        : h('label', null, 'Страницы или слайды (не более 10)', h('input', {value:pages, onChange:e=>setPages(e.target.value), placeholder:'1,2'}))),
       h('label', null, 'Новый путь результата (родительская папка должна существовать)', h('input', { value: output, onChange: e => setOutput(e.target.value), placeholder: action === 'render' ? 'artifacts/preview-new' : 'artifacts/report-new.pdf' })),
-      button('Выполнить обработку', 'office', action, !status?.writable || !path || !output),
+      button('Выполнить обработку', 'office', action, !canWrite || !canExecute || !path || !output),
+
       h('small', null, 'Исходник не заменяется. Изображения нужно просмотреть перед приёмкой оформления; формулы XLSX — пересчитать и проверить. Новые внешние зависимости автоматически не скачиваются.'),
       h('small',null,'Для Office используется путь документа из блока выше.'))
   }

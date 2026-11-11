@@ -24,6 +24,9 @@ export async function apply(ctx, config) {
     onModeChange: config.allowModeConfiguration === false ? undefined : mode => writeMode(modePath, mode) })
   class WorkflowService extends Service { constructor(scope) { super(scope, 'airulesWorkflows'); Object.assign(this, service) } }
   new WorkflowService(ctx)
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: createHandler(ctx, service) }))
+  const originalHandler = createHandler(ctx, service)
+  let routeHandler = originalHandler
+  ctx.inject?.(['airulesProjects'], ready => { routeHandler = ready.airulesProjects.bindHandler(originalHandler, { presets: ['1c-airules','python-airules','sysadmin-airules'] }); return () => { routeHandler = originalHandler } })
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: (request,response) => routeHandler(request,response) }))
   ctx.effect(() => () => { void service.dispose() })
 }

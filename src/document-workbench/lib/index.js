@@ -57,6 +57,7 @@ export function handlerFor(ctx, service) {
       if (req.method === 'GET') {
 
         const scope = await documentSession(ctx, new URL(req.url, 'http://localhost').searchParams.get('sessionId'))
+        await req[Symbol.for('airules.project-request')]?.assertScope(scope)
 
         return send(200, { ok: true, csrfToken, ...await service.execute(scope, { action: 'status' }), ...await service.execute(scope, { action: 'show' }) })
 
@@ -82,13 +83,15 @@ export function handlerFor(ctx, service) {
 
       const scope = await documentSession(ctx, body.sessionId, body.action === 'index' || (body.kind === 'office' && body.action !== 'runtime'))
 
+      await req[Symbol.for('airules.project-request')]?.assertScope(scope)
+      const verifyProject=()=>req[Symbol.for('airules.project-request')]?.verify()
       const agent = ctx.agents.get(body.sessionId)
 
-      const result = await (body.kind === 'office' ? service.office(scope, body, { agent }) : service.execute(scope, body, { agent }))
+      const result = await (body.kind === 'office' ? service.office(scope, body, { agent, verifyProject }) : service.execute(scope, body, { agent, verifyProject }))
 
       send(200, { ok: true, ...result })
 
-    } catch (error) { send(400, { ok: false, error: /^[A-Z_]{2,64}$/u.test(error.message) ? error.message : 'DOCUMENT_UNAVAILABLE', message: ({ ACTIVE_AGENT_REQUIRED: 'Откройте чат выбранного проекта перед обработкой документов.', WORKSPACE_WRITE_REQUIRED: 'Для индекса и результатов Office разрешите запись в рабочей папке.', DOCUMENT_OUTPUT_EXISTS: 'Результат уже существует. Укажите новый путь.', DOCUMENT_PATH_REJECTED: 'Используйте обычный файл внутри выбранного проекта, без ссылок.', DSH_BUNDLED_RUNTIME_REQUIRED: 'Встроенный runtime DSH не подключён.', DOCUMENT_SESSION_REQUIRED: 'Выберите сеанс с пресетом airules.' })[error.message] ?? 'Обработка недоступна: проверьте путь, формат, сеанс и штатные права DSH.' }) }
+    } catch (error) { send(400, { ok: false, error: /^[A-Z_]{2,64}$/u.test(error.message) ? error.message : 'DOCUMENT_UNAVAILABLE', message: ({ ACTIVE_AGENT_REQUIRED: 'Откройте чат выбранного проекта перед обработкой документов.', WORKSPACE_WRITE_REQUIRED: 'Для индекса и результатов Office разрешите запись в рабочей папке.', DOCUMENT_OUTPUT_EXISTS: 'Результат уже существует. Укажите новый путь.', DOCUMENT_PATH_REJECTED: 'Используйте обычный файл внутри выбранного проекта, без ссылок.', DSH_BUNDLED_RUNTIME_REQUIRED: 'Встроенный runtime DSH не подключён.', DOCUMENT_SESSION_REQUIRED: 'Для выбранного проекта недоступен исполнитель нашего пресета.' })[error.message] ?? 'Обработка недоступна: проверьте путь, формат, выбранный проект и штатные права DSH.' }) }
 
   }
 
@@ -104,7 +107,10 @@ export async function apply(ctx) {
 
   new Documents(ctx)
 
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: handlerFor(ctx, workbench) }))
+  const originalHandler = handlerFor(ctx, workbench)
+  let routeHandler = originalHandler
+  ctx.inject?.(['airulesProjects'], ready => { routeHandler = ready.airulesProjects.bindHandler(originalHandler, { presets: ['1c-airules','python-airules','sysadmin-airules'] }); return () => { routeHandler = originalHandler } })
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: (request,response) => routeHandler(request,response) }))
 
 }
 

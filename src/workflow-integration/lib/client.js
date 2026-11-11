@@ -1,4 +1,9 @@
 window.__ModuleLoader__.load({ id: 'airules-dsh-workflows', factory: require => {
+  let projectApi
+  try { const candidate = require('airules-dsh-project-context'); if (typeof candidate?.useProject === 'function') projectApi = candidate } catch {}
+  const scopedFetch = (...args) => projectApi ? projectApi.projectFetch(...args) : fetch(...args)
+  function useProjectFetch(project) { const ref = projectApi ? React.useRef(project) : null; if (ref) ref.current = project; return (...args) => projectApi ? projectApi.projectFetch(args[0], args[1], ref.current) : fetch(...args) }
+
   const React = require('react'), h = React.createElement
   let sessions
   const styles = {
@@ -160,7 +165,8 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-workflows', factory: require => 
           value: `Проверь мой прогон ${result.runId || ''} через airules_workflow_result и состояние через airules_workflow_status. Установи, завершён ли исполнитель, какие изменения подтверждены и какое свидетельство нужно для сверки цели. ${fixtureRecovery ? `Для встроенной заглушки используй airules_workflow_recover с runId ${result.runId || ''}, targetId из результата, providerId ${fixtureRecovery.id} и уникальным requestId; обрабатывай только тестовый маркер.` : 'Подготовь план восстановления через airules_workflow_recover: runId этого прогона, targetId из результата, подходящий providerId из recoveryProviders и уникальный requestId. Покажи последствия и согласуй восстановление реальной базы перед выполнением.'} Пока ничего в реальной базе не меняй, блокировки вручную не удаляй и деплой не повторяй.` }))))
   }
 
-  function WorkflowPanel({ sessionId, initialTemplate = '', onTemplateChange }) {
+  function WorkflowPanel({ sessionId, initialTemplate = '', onTemplateChange, projectContext }) {
+    const scopedFetch = useProjectFetch(projectContext)
     const [data, setData] = React.useState(null), [workflowId, setWorkflowId] = React.useState(initialTemplate), [plan, setPlan] = React.useState(null)
     const [runs, setRuns] = React.useState([]), [result, setResult] = React.useState(null), [error, setError] = React.useState(''), [networkBusy, setBusy] = React.useState(false)
     const [setup, setSetup] = React.useState(null), [form, setForm] = React.useState({}), [preview, setPreview] = React.useState(null)
@@ -180,7 +186,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-workflows', factory: require => 
         const post = action === 'plan' || action === 'previewSetup' || action === 'saveSetup' || action === 'setMode'
         const payload = { action, sessionId, ...parameters }
         const query = Object.entries(payload).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&')
-        const response = await fetch(`/airules/workflows${post ? '' : `?${query}`}`, {
+        const response = await scopedFetch(`/airules/workflows${post ? '' : `?${query}`}`, {
           method: post ? 'POST' : 'GET', credentials: 'same-origin', mode: 'same-origin', signal: controller.signal,
           headers: { accept: 'application/json', ...(post ? { 'content-type': 'application/json', 'x-dsh-csrf': csrfToken } : {}) },
           ...(post ? { body: JSON.stringify(payload) } : {}),
@@ -424,12 +430,17 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-workflows', factory: require => 
     const snapshot = React.useSyncExternalStore(listener => sessions.list.subscribe(listener), () => sessions.list.getSnapshot())
     const rows = Object.values(snapshot?.byId || {})
     const active = rows.find(row => (row.retainedBy?.mainView || 0) > 0)?.id || snapshot?.current || null
-    const [manual, setManual] = React.useState(null), [template, setTemplate] = React.useState(''), id = manual || active
+    const project = projectApi ? projectApi.useProject({ presets: ['1c-airules', 'python-airules', 'sysadmin-airules'] }) : null
+    const [manual, setManual] = React.useState(null), [template, setTemplate] = React.useState(''), id = projectApi ? project.projectId : manual || active
+    const templateOwner = React.useRef(id)
+    const ownedTemplate = templateOwner.current === id ? template : ''
+    const changeTemplate = value => { templateOwner.current = id; setTemplate(value) }
     React.useEffect(() => setManual(null), [active])
+    React.useEffect(() => setTemplate(''), [id])
     return h('section', { style: styles.page }, h('h2', null, 'Проверки и деплой'),
-      h('label', { style: styles.field }, 'Проектный сеанс', h('select', { style: styles.control, value: id || '', onChange: event => setManual(event.target.value || null) },
-        h('option', { value: '' }, 'Выберите сеанс проекта'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title || row.label || row.id)))),
-      h(WorkflowPanel, { key: id, sessionId: id, initialTemplate: template, onTemplateChange: setTemplate }))
+      (projectApi ? h(projectApi.ProjectPicker, { project, disabled: false }) : h('label', { style: styles.field }, 'Проектный сеанс', h('select', { style: styles.control, value: id || '', onChange: event => setManual(event.target.value || null) },
+        h('option', { value: '' }, 'Выберите сеанс проекта'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title || row.label || row.id))))),
+      h(WorkflowPanel, { key: id, sessionId: id, projectContext: project, initialTemplate: ownedTemplate, onTemplateChange: changeTemplate }))
   }
 
   return { inject: ['slots', 'sessions'], WorkflowsSettings, WorkflowPanel, PlanView, ResultView,

@@ -31,7 +31,7 @@ export function createCatalogService(ctx, store) {
     definitions: { taskTypes: TASK_TYPES, roles: ROLES, accessModes: ACCESS_MODES },
     status(id) { return statuses.get(id) ?? null },
     async context(session, agent) {
-      const selected = await store.context(session.id)
+      const selected = await store.context(session.header.cwd)
       const policy = get(ctx, 'sandboxPolicy').resolve({ session })
       const planService = agent ? get(ctx, 'agentPresets')?.serviceFor(agent, 'planMode') ?? agent.ctx?.get?.('planMode') : undefined
       const planState = planService?.get(agent)
@@ -41,9 +41,9 @@ export function createCatalogService(ctx, store) {
     async settings(scope, agent) {
       try {
         const settings = await store.snapshot(scope.root)
-        const selected = scope.id && !scope.session ? await store.context(scope.id) : null
+        const selected = scope.root && !scope.session ? await store.context(scope.root) : null
         const context = scope.session ? await this.context(scope.session, agent)
-          : selected ? { ...taskContext({ selected: selected.selected, accessMode: scope.mode }), revision: selected.revision, source: 'archived-selection' } : null
+          : selected ? { ...taskContext({ selected: selected.selected, accessMode: scope.mode }), revision: selected.revision } : null
         return { ...settings, context, status: scope.id ? this.status(scope.id) : null, definitions: this.definitions }
       } catch {
         return { settingsError: true, context: null, status: scope.id ? this.status(scope.id) : null, definitions: this.definitions }

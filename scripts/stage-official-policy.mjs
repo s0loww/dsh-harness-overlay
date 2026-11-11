@@ -283,7 +283,7 @@ function args(argv) {
   for (let index = 2; index < argv.length; index += 2) {
     const key = argv[index]
     const value = argv[index + 1]
-    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized', '--include-memory-workspace', '--include-context-continuity', '--continuity-rules-root', '--include-history-recall', '--include-skill-evaluation', '--include-reviewed-knowledge', '--include-evidence-links', '--include-runtime-utilities'].includes(key) || value === undefined) throw new Error('USAGE')
+    if (!['--rulepack', '--output', '--source-bundle', '--target-lock', '--artifact-version', '--include-telegram', '--include-acp', '--include-subscriptions', '--include-mobile', '--include-mcp-manager', '--include-additional-providers', '--include-onec-panels', '--include-project-settings', '--include-model-orchestration', '--include-domain-presets', '--domain-rules-root', '--include-workflows', '--workflow-rules-root', '--include-agent-import', '--include-skills-manager', '--include-shared-skills', '--include-general-tools', '--include-document-workbench', '--include-onec-capabilities', '--include-native-fs-compat', '--native-modules', '--include-provider-extensions', '--include-cursor-provider', '--include-onec-specialized', '--include-memory-workspace', '--include-context-continuity', '--continuity-rules-root', '--include-history-recall', '--include-skill-evaluation', '--include-reviewed-knowledge', '--include-evidence-links', '--include-runtime-utilities', '--include-project-context'].includes(key) || value === undefined) throw new Error('USAGE')
     if (key.startsWith('--include-') && !['true', 'false'].includes(value)) throw new Error('BOOLEAN_OPTION_REQUIRED')
     out[key.slice(2)] = value
   }
@@ -291,11 +291,11 @@ function args(argv) {
   return out
 }
 
-export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false, includeContextContinuity = false, continuityRulesRoot, includeHistoryRecall = false, includeSkillEvaluation = false, includeReviewedKnowledge = false, includeEvidenceLinks = false, includeRuntimeUtilities = false }) {
+export async function stageOfficialPolicy({ rulepack, output, sourceBundle, artifactVersion, targetLock = DEFAULT_LOCK, includeOpenSpec = true, includeTelegram = false, includeAcp = false, includeSubscriptions = false, includeMobile = false, includeMcpManager = false, includeAdditionalProviders = false, includeOnecPanels = false, includeProjectSettings = false, includeModelOrchestration = false, includeDomainPresets = false, domainRulesRoot, includeWorkflows = false, workflowRulesRoot, includeAgentImport = false, includeSkillsManager = false, includeSharedSkills = false, includeGeneralTools = false, includeDocumentWorkbench = false, includeOnecCapabilities = false, includeNativeFsCompat = false, nativeModules, includeProviderExtensions = false, includeCursorProvider = false, includeOnecSpecialized = false, includeMemoryWorkspace = false, includeContextContinuity = false, continuityRulesRoot, includeHistoryRecall = false, includeSkillEvaluation = false, includeReviewedKnowledge = false, includeEvidenceLinks = false, includeRuntimeUtilities = false, includeProjectContext = false }) {
   const portableMemoryOptions = { includeHistoryRecall, includeSkillEvaluation, includeReviewedKnowledge, includeEvidenceLinks, includeRuntimeUtilities }
   if (Object.values(portableMemoryOptions).some(value => typeof value !== "boolean")) throw new Error("BOOLEAN_OPTION_REQUIRED")
   if (includeReviewedKnowledge && !includeMemoryWorkspace) throw new Error('REVIEWED_KNOWLEDGE_REQUIRES_MEMORY_WORKSPACE')
-  if ([includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace,includeContextContinuity].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
+  if ([includeProjectContext, includeOpenSpec, includeTelegram, includeAcp, includeSubscriptions, includeMobile, includeMcpManager, includeAdditionalProviders, includeOnecPanels, includeProjectSettings, includeModelOrchestration, includeDomainPresets, includeWorkflows, includeAgentImport, includeSkillsManager, includeSharedSkills, includeGeneralTools, includeDocumentWorkbench, includeOnecCapabilities,includeProviderExtensions,includeCursorProvider,includeOnecSpecialized,includeMemoryWorkspace,includeContextContinuity].some(value => typeof value !== 'boolean')) throw new Error('BOOLEAN_OPTION_REQUIRED')
   if(includeProviderExtensions&&(!includeAcp||!includeAdditionalProviders))throw new Error('PROVIDER_EXTENSIONS_REQUIRE_ACP_AND_ADDITIONAL_PROVIDERS')
   if(includeProviderExtensions&&(typeof nativeModules!=='string'||!isAbsolute(nativeModules)))throw new Error('PROVIDER_EXTENSIONS_EXPLICIT_NATIVE_MODULES_REQUIRED')
   if(includeOnecSpecialized&&(!includeWorkflows||!includeOnecPanels))throw new Error('ONEC_SPECIALIZED_REQUIRE_WORKFLOWS_AND_ONEC_PANELS')
@@ -357,6 +357,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
       ...(includeMemoryWorkspace ? [['airules-dsh-memory-workspace', MEMORY_WORKSPACE]] : []),
       ...PORTABLE_MEMORY.filter(([option]) => portableMemoryOptions[option]).map(([,name,directory]) => [name,join(REPO,'src',directory)]),
       ...(includeContextContinuity ? [['airules-dsh-context-continuity', CONTEXT_CONTINUITY]] : []),
+      ...(includeProjectContext ? [['airules-dsh-project-context', join(REPO,'src/project-context')]] : []),
       ...(includeProjectSettings ? [['airules-dsh-project-settings', PROJECT_SETTINGS]] : []),
       ...(includeModelOrchestration ? [['airules-dsh-model-orchestration', MODEL_ORCHESTRATION]] : []),
       ...(includeDomainPresets ? [['airules-dsh-domain-presets', DOMAIN_PRESETS]] : []),
@@ -409,6 +410,9 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
           await writeFile(join(runtime,file),bytes,{flag:'wx'});files[file]={sha256:sha256(bytes),bytes:bytes.length}
         }
         continuityIntegration={package:name,policyOwner:'project_rules',mode:'minimal',memoryWrites:false,canonical:{files,digest:digestData(files)}}
+      }
+      if(includeProjectContext && ['airules-dsh-memory-workspace','airules-dsh-document-workbench','airules-dsh-project-settings','airules-dsh-agent-import','airules-dsh-skills','airules-dsh-general-tools','airules-dsh-workflows','airules-dsh-onec-specialized','dsh-openspec-workflow'].includes(name)){
+        const path=join(target,'package.json'),pkg=await readJson(path);if(!pkg.dsh?.client)throw new Error('PROJECT_CLIENT_REQUIRED');pkg.dsh.client.inject=[...new Set([...(pkg.dsh.client.inject??[]),'airules-dsh-project-context'])];await writeFile(path,JSON.stringify(pkg,null,2)+'\n')
       }
       if (lock.hostVersion==='0.2.2-rc.1' && name!=='airules-dsh-rulepack') {
         const path=join(target,'package.json'),pkg=await readJson(path)
@@ -580,6 +584,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         includeOnecSpecialized ? '          - id: airules-onec-specialized-tools\n            name: airules-dsh-onec-specialized/tools\n' : ''].join(''),
       'portable workbench tools')
     const newHosts=[
+      [includeProjectContext,'airules-project-context','airules-dsh-project-context'],
       [includeRuntimeUtilities,'airules-runtime-utilities-host','airules-dsh-runtime-utilities'],
       [includeReviewedKnowledge,'airules-reviewed-knowledge-host','airules-reviewed-knowledge/host'],
       [includeContextContinuity,'airules-continuity','airules-dsh-context-continuity'],
@@ -659,7 +664,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         base: { id: 'standard', hostVersion: lock.hostVersion, sourceSha256: standardSha256 },
       },
       rulepack: { version: rulepackManifest.package.version, sourceDirty: rulepackManifest.source?.dirty === true, counts: rulepackManifest.counts },
-      ...((openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace || includeContextContinuity || Object.values(portableMemoryOptions).some(Boolean)) ? { integrations: {
+      ...((includeProjectContext || openSpecIntegration || includeTelegram || includeAcp || includeSubscriptions || includeMobile || includeMcpManager || includeAdditionalProviders || includeOnecPanels || includeProjectSettings || includeModelOrchestration || includeDomainPresets || includeWorkflows || includeAgentImport || includeSkillsManager || includeGeneralTools || includeDocumentWorkbench || includeOnecCapabilities || includeNativeFsCompat || includeProviderExtensions || includeCursorProvider || includeOnecSpecialized || includeMemoryWorkspace || includeContextContinuity || Object.values(portableMemoryOptions).some(Boolean)) ? { integrations: {
         ...(continuityIntegration ? {contextContinuity:continuityIntegration} : {}),
         ...(nativeFsIntegration ? {nativeFsCompat: nativeFsIntegration} : {}),
         ...(openSpecIntegration ? { openspec: openSpecIntegration } : {}),
@@ -669,6 +674,7 @@ export async function stageOfficialPolicy({ rulepack, output, sourceBundle, arti
         ...Object.fromEntries(PORTABLE_MEMORY.filter(([option]) => portableMemoryOptions[option]).map(([option,name]) => [option.slice(7,8).toLowerCase()+option.slice(8),{package:name,scope:"custom-presets-only",automaticWrites:false}])),
         ...(includeMcpManager ? { mcpManager: { package: 'airules-dsh-mcp-manager', bindings: 'machine-or-project-external', defaultServers: 0, authority: 'native-loopback-csrf' } } : {}),
         ...(includeAdditionalProviders ? { additionalProviders: { package: 'airules-dsh-additional-providers', authentication: 'explicit-user-action', bootstrap: false } } : {}),
+        ...(includeProjectContext ? { projectContext:{package:'airules-dsh-project-context',scope:'registered-project',execution:'native-pinned',automaticResume:false} } : {}),
         ...(includeMemoryWorkspace ? { memoryWorkspace: {package:'airules-dsh-memory-workspace',defaultEnabled:false,endpoint:'machine-loopback',scope:'native-project-dataset',processing:'explicit-local',migration:false,policyOwner:'project_rules'} } : {}),
         ...(includeOnecPanels ? { onecPanels: { package: 'airules-dsh-onec-panels', metadataReadOnly: true, root: 'selected-session',background:'native-jobs-reviewed-mcp',defaultBackgroundTools:0 } } : {}),
         ...(includeProjectSettings ? { projectSettings: { package: 'airules-dsh-project-settings', bindings: 'project-local', deploy: false, mcp: false } } : {}),
@@ -708,7 +714,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const options = args(process.argv)
     const manifest = await stageOfficialPolicy({ rulepack: options.rulepack, output: options.output, sourceBundle: options['source-bundle'], artifactVersion: options['artifact-version'], targetLock: options['target-lock'] ?? DEFAULT_LOCK,
-      includeEvidenceLinks: options['include-evidence-links'] === 'true', includeRuntimeUtilities: options['include-runtime-utilities'] === 'true', includeHistoryRecall: options['include-history-recall'] === 'true', includeSkillEvaluation: options['include-skill-evaluation'] === 'true', includeReviewedKnowledge: options['include-reviewed-knowledge'] === 'true',
+      includeProjectContext: options['include-project-context'] === 'true', includeEvidenceLinks: options['include-evidence-links'] === 'true', includeRuntimeUtilities: options['include-runtime-utilities'] === 'true', includeHistoryRecall: options['include-history-recall'] === 'true', includeSkillEvaluation: options['include-skill-evaluation'] === 'true', includeReviewedKnowledge: options['include-reviewed-knowledge'] === 'true',
       includeTelegram: options['include-telegram'] === 'true', includeAcp: options['include-acp'] === 'true', includeNativeFsCompat: options['include-native-fs-compat'] === 'true', nativeModules: options['native-modules'],
       includeSubscriptions: options['include-subscriptions'] === 'true', includeMobile: options['include-mobile'] === 'true',
       includeProviderExtensions:options['include-provider-extensions']==='true',includeCursorProvider:options['include-cursor-provider']==='true',includeOnecSpecialized:options['include-onec-specialized']==='true',includeMemoryWorkspace:options['include-memory-workspace']==='true',includeContextContinuity:options['include-context-continuity']==='true',continuityRulesRoot:options['continuity-rules-root'],

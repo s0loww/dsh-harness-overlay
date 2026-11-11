@@ -55,7 +55,7 @@ const HOST_IDS = new Set(['airules-onec-bsl-editor', 'airules-openspec', 'airule
   'airules-acp', 'airules-acp-adapter', 'airules-subscriptions', 'airules-mobile', 'airules-mcp-manager',
   'airules-additional-providers', 'airules-onec-panels', 'airules-project-settings', 'airules-model-orchestration', 'airules-domain-presets',
   'airules-workflows', 'airules-agent-import', 'airules-skills', 'airules-general-tools', 'airules-documents', 'airules-onec-capabilities', 'airules-native-fs',
-  'airules-memory','airules-continuity','airules-provider-extensions','airules-cursor-provider','airules-onec-specialized','airules-reviewed-knowledge-host','airules-runtime-utilities-host'])
+  'airules-memory','airules-continuity','airules-provider-extensions','airules-cursor-provider','airules-onec-specialized','airules-reviewed-knowledge-host','airules-runtime-utilities-host','airules-project-context'])
 function ownership(block) {
   if (mentionsId(block, 'fs-sandbox')) return exactNativeFs(block) ? 'native-fs' : 'ambiguous'
   const hasCompatFs = mentionsId(block, 'airules-native-fs')

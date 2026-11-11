@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtemp, writeFile, readFile, readdir, cp } from 'node:fs/promises'
+import { mkdtemp, writeFile, readFile, readdir, cp, mkdir, symlink } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
@@ -10,16 +11,24 @@ import { bundledNode, renderForAgent, runNative } from '../src/general-tools/lib
 import { sessionScope } from '../src/general-tools/lib/session.js'
 
 const temp = () => mkdtemp(join(tmpdir(), 'airules-general-'))
-test('caveman off by default, explicit lite survives reload, does not leak to another session; CAS', async () => {
-  const home = await temp()
-  assert.deepEqual(await readStyle(home, 'one'), { mode: 'off', revision: null })
-  const saved = await saveStyle(home, 'one', { mode: 'lite', revision: null })
-  assert.equal(styleSync(home, 'one'), 'lite')
-  assert.equal(styleSync(home, 'two'), 'off')
-  await assert.rejects(saveStyle(home, 'one', { mode: 'off', revision: null }), /STALE_STYLE/)
-  await saveStyle(home, 'one', { mode: 'off', revision: saved.revision })
-  assert.equal(styleSync(home, 'one'), 'off')
-  await assert.rejects(saveStyle(home, 'one', { mode: 'full' }), /STYLE_INVALID/)
+test('caveman off by default; project preference survives reload, is isolated and uses CAS', async () => {
+  const home = await temp(), one = await temp(), two = await temp()
+  const legacy = join(home, 'general-tools/styles', createHash('sha256').update('old-session').digest('hex') + '.json')
+  await mkdir(join(home, 'general-tools/styles'), { recursive: true }); const legacyBytes = JSON.stringify({ schemaVersion: 1, sessionId: 'old-session', mode: 'lite' }); await writeFile(legacy, legacyBytes)
+  assert.deepEqual(await readStyle(home, one), { mode: 'off', revision: null })
+  assert.equal(await readFile(legacy, 'utf8'), legacyBytes)
+  const saved = await saveStyle(home, one, { mode: 'lite', revision: null })
+  assert.equal(styleSync(home, one), 'lite')
+  assert.equal(styleSync(home, two), 'off')
+  assert.deepEqual(JSON.parse(await readFile(join(one, '.dsh/response-style.json'), 'utf8')), { schemaVersion: 1, mode: 'lite' })
+  await assert.rejects(saveStyle(home, one, { mode: 'off', revision: null }), /STALE_STYLE/)
+  await saveStyle(home, one, { mode: 'off', revision: saved.revision })
+  assert.equal(styleSync(home, one), 'off')
+  await assert.rejects(saveStyle(home, one, { mode: 'full' }), /STYLE_INVALID/)
+  await symlink(join(one, '.dsh'), join(two, '.dsh'), process.platform === 'win32' ? 'junction' : 'dir')
+  assert.equal(styleSync(home, two), 'off')
+  await assert.rejects(readStyle(home, two), /PATH_REJECTED/)
+  await assert.rejects(saveStyle(home, two, { mode: 'lite', revision: null }), /PATH_REJECTED/)
 })
 test('native bundled node uses child execution authority; no PATH fallback', async () => {
   const exec = { agent: { session: {} }, callId: 'call1', token: Symbol('native') }
@@ -31,7 +40,7 @@ test('native bundled node uses child execution authority; no PATH fallback', asy
   await assert.rejects(bundledNode({ tools: { get: () => undefined } }, exec), /BUNDLED_RUNTIME_REQUIRED/)
   await assert.rejects(bundledNode({ tools: { get: () => ({}), execute: async () => ({ isError: true }) } }, exec), /BUNDLED_RUNTIME_REQUIRED/)
 })
-test('read-only live and archived session scope can edit style metadata without changing execution policy', async () => {
+test('read-only live and archived session scope can read project style metadata without changing execution policy', async () => {
   const root = await temp(), session = { id: 'one', header: { id: 'one', cwd: root } }
   const ctx = { sessions: { get: () => session }, sandboxPolicy: { resolve: () => ({ mode: 'read-only', workspaceRoot: root }) }, sessionProjections: { stateOf: () => '1c-airules' } }
   assert.equal((await sessionScope(ctx, 'one')).writable, false)
@@ -97,12 +106,20 @@ test('real host module service: supported preset opt-in + HTTP admission/CSRF + 
   const { pathToFileURL } = await import('node:url'), { Readable } = await import('node:stream')
   const { createGeneralService, handlerFor } = await import(pathToFileURL(join(root, 'index.js')))
   const session = { id: 'style', header: { id: 'style', cwd: home } }
-  let preset = '1c-airules', rejected = false
-  const ctx = { sessions: { get: () => session }, sandboxPolicy: { resolve: () => ({ mode: 'read-only', workspaceRoot: home }) }, sessionProjections: { stateOf: () => preset }, agentPresets: { composedPreset: () => preset }, connection: { requestRejection: () => rejected ? 'deny' : undefined } }
+  const second = { id: 'second', header: { id: 'second', cwd: home } }, otherRoot = await temp(), other = { id: 'other', header: { id: 'other', cwd: otherRoot } }
+  const nativeSessions = new Map([session, second, other].map(row => [row.id, row]))
+  let preset = '1c-airules', rejected = false, mode = 'workspace-write'
+  const ctx = { sessions: { get: id => nativeSessions.get(id) }, sandboxPolicy: { resolve: ({ session }) => ({ mode, workspaceRoot: session.header.cwd }) }, sessionProjections: { stateOf: () => preset }, agentPresets: { composedPreset: () => preset }, connection: { requestRejection: () => rejected ? 'deny' : undefined } }
   const service = createGeneralService(ctx, home), agent = { session, ctx: {} }
   assert.equal(service.styleText(agent), '')
+  mode = 'read-only'; await assert.rejects(service.setStyle(session.id, { mode: 'lite', revision: null }), /WORKSPACE_WRITE_REQUIRED/); mode = 'workspace-write'
   await service.setStyle(session.id, { mode: 'lite', revision: null })
   assert.match(service.styleText(agent), /explicitly enabled/)
+  assert.equal((await service.status(second.id)).mode, 'lite')
+  assert.match(service.styleText({ session: second, ctx: {} }), /enabled for this project/)
+  assert.equal(service.styleText({ session: other, ctx: {} }), '')
+  assert.equal((await service.status(other.id)).mode, 'off')
+  second.header.origin = 'subagent'; await assert.rejects(service.setStyle(second.id, { mode: 'off', revision: null }), /WORKSPACE_WRITE_REQUIRED/); delete second.header.origin
   assert.match(createGeneralService(ctx, home).styleText(agent), /explicitly enabled/)
   preset = 'standard'; assert.equal(service.styleText(agent), '')
   await assert.rejects(service.setStyle(session.id, { mode: 'off', revision: null }), /PRESET_UNSUPPORTED/)
@@ -123,4 +140,8 @@ test('real host module service: supported preset opt-in + HTTP admission/CSRF + 
   assert.equal((await request('POST', body, headers)).status, 200)
   assert.equal(service.styleText(agent), '')
   assert.equal((await request('POST', body, headers)).status, 409)
+  const bytes = await readFile(join(home, '.dsh/response-style.json')), current = await service.status(session.id), previousResolve = ctx.sandboxPolicy.resolve
+  let policyReads = 0; ctx.sandboxPolicy.resolve = input => ({ ...previousResolve(input), ...(++policyReads > 1 ? { mode: 'read-only' } : {}) })
+  await assert.rejects(service.setStyle(session.id, { mode: 'lite', revision: current.revision }), /PROJECT_SCOPE_CHANGED/)
+  assert.deepEqual(await readFile(join(home, '.dsh/response-style.json')), bytes)
 })

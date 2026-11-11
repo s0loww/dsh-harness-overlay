@@ -16,9 +16,11 @@ compositions. It does not globally alter Standard or donor/vendor files.
 - GET `/airules/general-tools?sessionId=...` returns native admitted session state
   and CSRF. POST same path accepts only sessionId/mode/revision and CSRF header.
   There is deliberately no HTTP execution route.
-- Style is `off` by default. Explicit `lite` is persistent per exact session ID,
-  compare-and-swap protected, not inherited, and can be changed in read-only
-  sessions without changing native rights. Invalid/missing profile fails off.
+- Style is `off` by default. Explicit `lite` is shared by the project through
+  `.dsh/response-style.json`, protected by compare-and-swap, and read by every
+  conversation in that project. Changing it requires a writable lead context;
+  read-only contexts can inspect it. Missing or invalid data fails off. Legacy
+  per-session files are preserved and are not imported automatically.
 - Rendering requires real active agent, workspace-write/full native policy and
   matching project root. It snapshots a bounded UTF-8 .mmd into a fresh artifact
   folder inside the project, invokes fixed renderer argv through native confinement

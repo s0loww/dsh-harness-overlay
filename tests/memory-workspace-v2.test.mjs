@@ -1,12 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join, relative, isAbsolute, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Readable } from 'node:stream'
 import { createMemoryWorkspace } from '../src/memory-workspace/lib/workspace.js'
 import { datasetForRoot } from '../src/memory-workspace/lib/core.js'
 import { createModelKeyStore } from '../src/memory-workspace/lib/model-key.js'
+import { createProjectContext, selectionStore } from '../src/project-context/lib/core.js'
 import { Context } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js'
 import { SandboxedFileSystem } from '../var/host-upgrade/rc022/asar/dsh/node_modules/@deepseek-ai/dsh-fs-sandbox/lib/index.js'
 const binding={namespace:'fixture-project',search:{tool:'mcp__memory_fixture__search',scopeArgument:'project',queryArgument:'query'},remember:{tool:'mcp__memory_fixture__save',scopeArgument:'project',textArgument:'text'}}
@@ -85,4 +87,63 @@ test('credential save uses native store CAS, never echoes the secret or queues i
   const view=await f.controller.configuration();assert.equal(view.processing.openRouterCredential.configured,true);assert.equal(JSON.stringify(view).includes(secret),false)
   assert.equal((await f.request('POST',{action:'processingCredentialSave',secret:'sk-or-v1-different-fixture',expectedRevision:credential.revision},f.csrf)).status,409)
   assert.equal(f.messages.length,0);assert.equal(await f.keyStore.resolve(),secret)
+})
+async function coldFixture(t){
+  const f=await fixture(t),other=join(f.home,'other-project');await mkdir(other)
+  f.agents.clear();f.ctx.sessions={get:()=>undefined};let creates=0
+  f.ctx.agents.create=()=>{creates++;throw Error('no agent creation')};f.ctx.agents.resume=()=>{creates++;throw Error('no agent resume')}
+  f.policies.set('other',{mode:'workspace-write',workspaceRoot:other,sessionId:'other'})
+  f.ctx.sandboxPolicy.resolve=({session})=>({...f.policies.get(session.id)})
+  const headers=new Map([['a',{id:'a',cwd:f.root,agentPreset:'1c-airules'}],['b',{id:'b',cwd:f.root,agentPreset:'1c-airules'}],['other',{id:'other',cwd:other,agentPreset:'python-airules'}]])
+  f.ctx.sessionPersistence={stat:async id=>({header:headers.get(id),eventCount:0,sizeBytes:100}),open:async id=>({header:headers.get(id),read:async()=>({events:[]}),close:async()=>{}})}
+  f.ctx.sessionProjections={restore:(_state,_events,_zero,header)=>({checkpoint:{sandboxMode:{val:f.policies.get(header.id).mode},agentPreset:{val:header.agentPreset}}})}
+  f.ctx.workspaceRegistry={list:()=>[{id:'one',path:f.root,title:'One',sessionIds:['a','b']},{id:'two',path:other,title:'Two',sessionIds:['other']}]}
+  const projects=createProjectContext(f.ctx,{store:selectionStore(join(f.home,'project-selection.json'))})
+  f.controller.handler=projects.bindHandler(f.controller.handler,{presets:['1c-airules','python-airules','sysadmin-airules'],allowGlobalActions:['policyGlobal','processingSave','processingCredentialSave','processingModels','processingStatus']})
+  const view=(sessionId='a',projectId='one')=>f.request('GET',{action:'configuration',projectId,sessionId})
+  const save=(policy,revision,sessionId='a',projectId='one')=>f.request('POST',{action:'projectPolicy',projectId,sessionId,policy,expectedRevision:revision},f.csrf)
+  return{...f,other,view,save,get creates(){return creates}}
+}
+test('cold native project preferences load and save through a private lease without creating an agent',async t=>{
+  const f=await coldFixture(t),initial=await f.view();assert.equal(initial.status,200);assert.ok(!initial.value.projectError)
+  assert.deepEqual(initial.value.scope,{projectRoot:f.root,dataset:datasetForRoot(f.root),writable:true,globalWritable:false,active:false,executorAvailable:false})
+  const changed=await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},initial.value.policy.projectRevision)
+  assert.equal(changed.status,200);assert.equal(changed.value.policy.effective.mode,'both');assert.equal(changed.value.scope.active,false)
+  const second=await f.view('b');assert.equal(second.value.policy.effective.mode,'both');assert.equal(second.value.policy.policyRevision,changed.value.policy.policyRevision)
+  const unrelated=await f.view('other','two');assert.equal(unrelated.value.policy.effective.mode,'cognee')
+  assert.equal((await f.save({schemaVersion:1,mode:'memoria',writeTarget:'auto'},initial.value.policy.projectRevision)).status,409)
+  assert.deepEqual(JSON.parse(await readFile(join(f.root,'.dsh/memory.json'),'utf8')),{schemaVersion:1,mode:'both',writeTarget:'auto'})
+  assert.equal(f.creates,0);assert.equal(f.messages.length,0);assert.equal(f.calls.length,0)
+})
+test('cold native read-only authority can inspect but cannot save project memory preferences',async t=>{
+  const f=await coldFixture(t);f.policies.get('a').mode='read-only'
+  const view=await f.view();assert.equal(view.status,200);assert.equal(view.value.scope.writable,false);assert.equal(view.value.scope.globalWritable,false)
+  const denied=await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},view.value.policy.projectRevision)
+  assert.equal(denied.value.error,'MEMORY_WRITE_REQUIRED');assert.equal(existsSync(join(f.root,'.dsh/memory.json')),false)
+  assert.equal(f.creates,0);assert.equal(f.calls.length,0)
+})
+test('cold scope permits global/model preferences but never authorizes memory calls, MCP or processing',async t=>{
+  const f=await coldFixture(t),view=await f.view()
+  const global=await f.request('POST',{action:'policyGlobal',projectId:'one',sessionId:'a',policy:{schemaVersion:1,mode:'both',writeTarget:'auto'},expectedRevision:view.value.policy.globalRevision},f.csrf);assert.equal(global.status,200)
+  const selected=await f.request('POST',{action:'processingSave',projectId:'one',sessionId:'a',profile:view.value.processing.profile,expectedRevision:view.value.processing.revision},f.csrf);assert.equal(selected.status,200)
+  assert.equal((await f.request('GET',{action:'processingModels',projectId:'one',sessionId:'a',kind:'embeddings',provider:'fastembed'})).status,200)
+  for(const action of ['status','documents','graph','task','memoraCatalog'])assert.equal((await f.request('GET',{action,projectId:'one',sessionId:'a'})).value.error,'MEMORY_ACTIVE_PROJECT_REQUIRED')
+  for(const action of ['recall','remember','process','processingApply'])assert.equal((await f.request('POST',{action,projectId:'one',sessionId:'a',confirm:true,query:'fixture',text:'fixture'},f.csrf)).value.error,'MEMORY_ACTIVE_PROJECT_REQUIRED')
+  assert.equal(f.calls.length,0);assert.equal(f.messages.length,0);assert.equal(f.creates,0)
+})
+test('revoking cold authority after save lock acquisition preserves the existing project policy',async t=>{
+  const f=await coldFixture(t),initial=await f.view();await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},initial.value.policy.projectRevision)
+  const current=await f.view(),file=join(f.root,'.dsh/memory.json'),before=await readFile(file)
+  f.ctx.sandboxPolicy.resolve=({session})=>{if(existsSync(file+'.lock'))f.policies.get(session.id).mode='read-only';return{...f.policies.get(session.id)}}
+  const denied=await f.save({schemaVersion:1,mode:'memoria',writeTarget:'auto'},current.value.policy.projectRevision)
+  assert.equal(denied.value.error,'PROJECT_SCOPE_CHANGED');assert.deepEqual(await readFile(file),before);assert.equal(existsSync(file+'.lock'),false)
+})
+test('cold project memory policy refuses junction and hardlink aliases without affecting global preferences',async t=>{
+  const f=await coldFixture(t),external=join(f.other,'private');await mkdir(external);const file=join(external,'memory.json'),bytes=JSON.stringify({schemaVersion:1,mode:'memoria',writeTarget:'auto'});await writeFile(file,bytes)
+  await symlink(external,join(f.root,'.dsh'),process.platform==='win32'?'junction':'dir')
+  const view=await f.view();assert.equal(view.status,200);assert.equal(view.value.scope,null);assert.equal(view.value.projectError,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(view.value.policy.effective.mode,'cognee')
+  assert.equal((await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},'missing')).value.error,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(await readFile(file,'utf8'),bytes)
+  await rm(join(f.root,'.dsh'));await mkdir(join(f.root,'.dsh'));await link(file,join(f.root,'.dsh/memory.json'))
+  const linked=await f.view();assert.equal(linked.value.projectError,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(linked.value.scope,null)
+  assert.equal((await f.save({schemaVersion:1,mode:'both',writeTarget:'auto'},'missing')).value.error,'MEMORY_PROJECT_LINK_REJECTED');assert.equal(await readFile(file,'utf8'),bytes)
 })

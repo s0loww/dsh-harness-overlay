@@ -49,10 +49,12 @@ export function specializedHandler(ctx,{createUserMessage}){
       if(request.method==='POST'&&request.headers?.['x-airules-csrf']!==csrf)return send(403,{ok:false,error:'CSRF_REQUIRED'})
       if(request.method==='GET'&&input.action!==undefined&&input.action!=='status')return send(405,{ok:false,error:'SPECIALIZED_POST_REQUIRED'})
       const current=scope(ctx,input.sessionId,['save-binding','install-runner'].includes(input.action)),execution={agent:current.agent,callId:`specialized-ui-${randomUUID()}`,signal:new AbortController().signal}
+      await request[Symbol.for('airules.project-request')]?.assertScope({...current,id:input.sessionId})
       if(input.action==='install-runner'){
         const template=await bundledRunnerTemplate(),target=await runnerTarget(ctx,current,template),old=await ctx.fs.stat(target)
         if((old?.version??null)!==input.expectedVersion)throw new Error('SPECIALIZED_BINDING_STALE')
         if(old&&(old.type!=='file'||old.size>1024*1024))throw new Error('SPECIALIZED_RUNNER_FILE_REJECTED')
+        await request[Symbol.for('airules.project-request')]?.verify()
         await ctx.fs.writeText(target,template.source,old?{kind:'replaceIfVersion',version:old.version}:{kind:'createIfAbsent'},execution.signal,current.policy)
       }
       if(input.action==='save-binding'){
@@ -60,6 +62,7 @@ export function specializedHandler(ctx,{createUserMessage}){
         const config=JSON.parse(input.text.replace(/^\uFEFF/,''));validateSpecializedBinding(config)
         const old=await bindingView(ctx,current);if(old.version!==input.expectedVersion)throw new Error('SPECIALIZED_BINDING_STALE')
         const newline=old.crlf?'\r\n':'\n',content=(old.bom?'\uFEFF':'')+JSON.stringify(config,null,2).replace(/\n/g,newline)+newline
+        await request[Symbol.for('airules.project-request')]?.verify()
         await ctx.fs.writeText(await checkedBinding(ctx,current),content,old.exists?{kind:'replaceIfVersion',version:old.version}:{kind:'createIfAbsent'},execution.signal,current.policy)
       }
       if(input.action==='run-in-chat'){

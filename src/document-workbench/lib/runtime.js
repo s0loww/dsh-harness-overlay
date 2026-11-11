@@ -31,13 +31,16 @@ export function createRuntime(ctx, resolveRuntime = exec => runtimeFor(ctx, exec
     runtime: resolveRuntime,
     async convertDocument(path, scope, exec) {
       const runtime = await resolveRuntime(exec), worker = await externalPath(new URL('./convert-worker.js', import.meta.url))
+      await exec.verifyProject?.()
       const result = await runNative(ctx, exec.agent, [runtime.node, worker, scope.root, path], { signal: exec.signal })
+      await exec.verifyProject?.()
       return JSON.parse(result.stdout)
     },
     async office(scope, args, exec) {
       const runtime = await resolveRuntime(exec), cli = await externalPath(new URL('./lib/cli.js', import.meta.resolve('@deepseek-ai/libreoffice-kit/package.json')))
       if (args.action === 'runtime') {
-        const result = await runNative(ctx, exec.agent, [runtime.node, cli, 'capabilities', '--json'], { signal: exec.signal })
+        await exec.verifyProject?.()
+      const result = await runNative(ctx, exec.agent, [runtime.node, cli, 'capabilities', '--json'], { signal: exec.signal })
         return { ...runtime, office: JSON.parse(result.stdout), local: true, automaticDownload: false }
       }
       if (!scope.writable) throw new Error('WORKSPACE_WRITE_REQUIRED')
@@ -58,7 +61,9 @@ export function createRuntime(ctx, resolveRuntime = exec => runtimeFor(ctx, exec
         if (args.action !== 'convert' || extname(output).toLowerCase() !== '.csv' || typeof args.sheet !== 'string' || !args.sheet.trim() || args.sheet.length > 100 || /[\0\r\n]/u.test(args.sheet)) throw new Error('DOCUMENT_SHEET_INVALID')
         argv.push('--sheet', args.sheet)
       }
+      await exec.verifyProject?.()
       const result = await runNative(ctx, exec.agent, argv, { signal: exec.signal, writes: true })
+      await exec.verifyProject?.()
       if (sha(await boundedRead(input, 50 * 1024 * 1024)) !== before) throw new Error('DOCUMENT_SOURCE_CHANGED')
       await safePath(scope.root, output, { absolute: true, directory: args.action === 'render' })
       return { ...JSON.parse(result.stdout), inputSha256: before, output: args.output, note: 'Inspect generated files; conversion is not visual acceptance.' }

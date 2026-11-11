@@ -2,6 +2,8 @@ window.__ModuleLoader__.load({
   id: "dsh-openspec-workflow",
   factory: (require) => {
     const React = require("react");
+    let projectUi = null;
+    try { projectUi = require('airules-dsh-project-context'); } catch { /* legacy standalone bundle */ }
     const h = React.createElement;
     const OPENSPEC_API = "/onec/openspec", OPENSPEC_READ_API = "/onec/openspec/read", OPENSPEC_ACTION_API = "/onec/openspec/action", OPENSPEC_REFRESH_MS = 5000;
     let workspacePanelsContext = null;
@@ -42,7 +44,7 @@ window.__ModuleLoader__.load({
       return h("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, ...paths.map((d, index) => h("path", { d, key: index })));
     }
     const OpenSpecIcon = (props) => h(WorkspaceIcon, { ...props, kind: "openspec" });
-    function useOpenSpecWorkspace(requestedSessionId) {
+    function useOpenSpecWorkspace(requestedSessionId, projectId) {
       const currentSessionId = useWorkspaceSessionId();
       const sessionId = requestedSessionId ?? currentSessionId;
       const [received, setSnapshot] = React.useState(null);
@@ -59,7 +61,7 @@ window.__ModuleLoader__.load({
         if (!sessionId) { setLoading(false); setError("Выберите рабочую область и откройте её сеанс."); return null; }
         if (!options.silent) { setLoading(true); setError(null); }
         try {
-          const response = await fetch(`${OPENSPEC_API}?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: "application/json" } });
+          const response = await fetch(`${OPENSPEC_API}?sessionId=${encodeURIComponent(sessionId)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`, { headers: { accept: "application/json" } });
           const body = await response.json();
           if (id !== generation.current || requestId !== snapshotRequest.current) return null;
           if (!response.ok || !body.ok) throw new Error(openSpecErrorMessage(body.message || body.error ? body : `HTTP ${response.status}`));
@@ -70,7 +72,7 @@ window.__ModuleLoader__.load({
           if (id === generation.current && requestId === snapshotRequest.current) setError(openSpecErrorMessage(reason));
           return null;
         } finally { if (id === generation.current && requestId === snapshotRequest.current && !options.silent) setLoading(false); }
-      }, [sessionId]);
+      }, [sessionId, projectId]);
       const action = React.useCallback(async (input) => {
         snapshotRequest.current += 1; pendingActions.current += 1;
         setError(null);
@@ -78,7 +80,7 @@ window.__ModuleLoader__.load({
         const response = await fetch(OPENSPEC_ACTION_API, {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json", "x-dsh-csrf": csrf.current },
-          body: JSON.stringify({ ...input, sessionId: sessionId || "" })
+          body: JSON.stringify({ ...input, sessionId: sessionId || "", ...(projectId ? { projectId } : {}) })
         });
         const body = await response.json();
         if (!response.ok || !body.ok) {
@@ -89,7 +91,7 @@ window.__ModuleLoader__.load({
         }
         return body;
         } finally { pendingActions.current -= 1; }
-      }, [sessionId]);
+      }, [sessionId, projectId]);
       React.useEffect(() => {
         load();
         const changed = () => load();
@@ -102,16 +104,21 @@ window.__ModuleLoader__.load({
 
     function TicketSystemSettingsSection({ sessionId: requestedSessionId } = {}) {
       const currentSessionId = useWorkspaceSessionId();
-      const sessionId = requestedSessionId ?? currentSessionId;
-      return h(TicketSystemSettingsEditor, { key: sessionId || 'no-project', sessionId });
+      const project = projectUi?.useProject ? projectUi.useProject({ presets: ['1c-airules'] }) : null;
+      const selected = requestedSessionId === undefined ? project : null;
+      const sessionId = requestedSessionId ?? selected?.id ?? selected?.sessionId ?? currentSessionId;
+      const projectId = selected?.projectId;
+      return h(React.Fragment, null,
+        selected && projectUi?.ProjectPicker && h(projectUi.ProjectPicker, { project: selected }),
+        h(TicketSystemSettingsEditor, { key: projectId || sessionId || 'no-project', sessionId, projectId }));
     }
-    function TicketSystemSettingsEditor({ sessionId }) {
-      const state = useOpenSpecWorkspace(sessionId);
+    function TicketSystemSettingsEditor({ sessionId, projectId }) {
+      const state = useOpenSpecWorkspace(sessionId, projectId);
       const [draft, setDraft] = React.useState(null);
       const [busy, setBusy] = React.useState(false);
       const [message, setMessage] = React.useState('');
       const source = draft || state.snapshot?.ticketSource || { url: '', revision: null };
-      if (!sessionId) return h('section', { className: 'dsh1c-panel' }, h('h3', null, 'Система учета задач'), h('p', null, 'Выберите проект и откройте его чат. Источник сохраняется для этого проекта.'));
+      if (!sessionId) return h('section', { className: 'dsh1c-panel' }, h('h3', null, 'Система учета задач'), h('p', null, 'Выберите проект. Источник сохраняется для проекта; доступность изменения определяется его штатными правами.'));
       const edit = event => setDraft(current => ({ ...(current || state.snapshot?.ticketSource || { version: 1, revision: null }), url: event.target.value }));
       const save = async event => {
         event.preventDefault(); setBusy(true); setMessage('');
@@ -154,13 +161,26 @@ window.__ModuleLoader__.load({
       return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, focusable: false }, h('path', { d: paths[kind] || paths.file }));
     }
 
-    // R197 OS-3: черновики документов и ИИ-правки переживают переход в другой чат и обратно.
+    // File drafts belong to the project; AI delivery state belongs to its actual chat.
     const openSpecPanelDrafts = new Map();
+    const openSpecAiDrafts = new Map();
+    function projectDraftKey(snapshot) {
+      const root = snapshot?.projectRoot;
+      return typeof root === 'string' && root && root.length <= 4096 && !root.includes('\0') ? root : null;
+    }
+    function rememberProjectDrafts(root, drafts) {
+      if (!root) return false;
+      if (!Object.keys(drafts).length) { openSpecPanelDrafts.delete(root); return true; }
+      if (!openSpecPanelDrafts.has(root) && openSpecPanelDrafts.size >= 128) return false;
+      openSpecPanelDrafts.set(root, { drafts }); return true;
+    }
+    function readProjectDrafts(root) { return openSpecPanelDrafts.get(root)?.drafts || {}; }
     function OpenSpecPanel({ compact = false, sessionId }) {
       const state = useOpenSpecWorkspace(sessionId);
       const [artifactPath, setArtifactPath] = React.useState('');
       const [page, setPage] = React.useState(null);
-      const [drafts, setDrafts] = React.useState(openSpecPanelDrafts.get(sessionId)?.drafts || {});
+      const [drafts, setDrafts] = React.useState({});
+      const draftOwner = React.useRef({ root: null, restoring: false });
       const [selection, setSelection] = React.useState('');
       const selectionRef = React.useRef(null);
       const editorRef = React.useRef(null);
@@ -169,7 +189,7 @@ window.__ModuleLoader__.load({
       const [documentTab, setDocumentTab] = React.useState('proposal');
       const [focusedDocumentTab, setFocusedDocumentTab] = React.useState('proposal');
       const [requirementsPath, setRequirementsPath] = React.useState('');
-      const [aiDrafts, setAiDrafts] = React.useState(openSpecPanelDrafts.get(sessionId)?.aiDrafts || {});
+      const [aiDrafts, setAiDrafts] = React.useState(openSpecAiDrafts.get(sessionId) || {});
       const [aiOpenPath, setAiOpenPath] = React.useState('');
       const [transition, setTransition] = React.useState(null);
       const transitionRef = React.useRef(null);
@@ -206,6 +226,7 @@ window.__ModuleLoader__.load({
       const [exploreOpen, setExploreOpen] = React.useState(false);
       const [busy, setBusy] = React.useState(false);
       const snapshot = state.snapshot;
+      const draftProject = projectDraftKey(snapshot);
       const sourceConfig = sourceDraft || snapshot?.ticketSource || { url: '' };
       const editSource = patch => setSourceDraft(current => ({ ...(current || snapshot?.ticketSource || { version: 1, url: '', revision: null }), ...patch }));
       const ticketServer = sourceConfig.server || '', ticketSite = sourceConfig.cloudId || '';
@@ -280,15 +301,23 @@ window.__ModuleLoader__.load({
         setStage(['requirements', 'design', 'development', 'archive'].includes(workflow.stage) ? workflow.stage : 'requirements');
       }, [snapshot?.sessionId, change?.id, workflow.stage]);
       React.useEffect(() => {
-        if (!snapshot?.sessionId) return;
-        const kept = openSpecPanelDrafts.get(snapshot.sessionId);
-        setDrafts(kept?.drafts || {}); setAiDrafts(kept?.aiDrafts || {}); setAiOpenPath(''); setCreating(false); setDescription(''); setExplored(false); setExploreTopic(''); setExploreOpen(false);
+        if (!draftProject) return;
+        draftOwner.current = { root: draftProject, restoring: true };
+        setDrafts(readProjectDrafts(draftProject));
+      }, [draftProject]);
+      React.useEffect(() => {
+        if (!draftProject || draftOwner.current.root !== draftProject) return;
+        if (draftOwner.current.restoring) { draftOwner.current.restoring = false; return; }
+        if (!rememberProjectDrafts(draftProject, drafts)) setNotice('Слишком много проектов с несохранёнными черновиками. Сохраните или скопируйте текущую правку перед закрытием панели.');
+      }, [draftProject, drafts]);
+      React.useEffect(() => {
+        setAiDrafts(openSpecAiDrafts.get(snapshot?.sessionId) || {}); setAiOpenPath(''); setCreating(false); setDescription(''); setExplored(false); setExploreTopic(''); setExploreOpen(false);
       }, [snapshot?.sessionId]);
       React.useEffect(() => {
         if (!snapshot?.sessionId) return;
-        if (Object.keys(drafts).length || Object.keys(aiDrafts).length) openSpecPanelDrafts.set(snapshot.sessionId, { drafts, aiDrafts });
-        else openSpecPanelDrafts.delete(snapshot.sessionId);
-      }, [drafts, aiDrafts]);
+        if (Object.keys(aiDrafts).length) openSpecAiDrafts.set(snapshot.sessionId, aiDrafts);
+        else openSpecAiDrafts.delete(snapshot.sessionId);
+      }, [aiDrafts]);
       React.useEffect(() => {
         if (!change || workflow.stage !== 'requirements') return;
         const requirement = requirementDocuments.find(item => item.path === workflow.path);
@@ -749,6 +778,6 @@ window.__ModuleLoader__.load({
       ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({ name: "conversation.session.header.utilities", id: "openspec-activity", order: 70 }, OpenSpecActivity));
       // Atlassian/Jira integration is excluded; plain ticket links remain on changes.
     }
-    return { apply, inject };
+    return { apply, inject, projectDraftKey, rememberProjectDrafts, readProjectDrafts, TicketSystemSettingsSection };
   }
 });

@@ -23,5 +23,5 @@ export async function sessionScope(ctx, id) {
   }
   if (header?.id !== id || !isAbsolute(header.cwd ?? '') || !modes.includes(policy?.mode) || typeof policy.workspaceRoot !== 'string' || resolve(policy.workspaceRoot) !== resolve(header.cwd)) throw new Error('SESSION_REQUIRED')
   const preset = session ? projections.stateOf(session, 'agentPreset') ?? header.agentPreset : restoredPreset ?? header.agentPreset
-  return { id, root: resolve(header.cwd), mode: policy.mode, writable: policy.mode !== 'read-only', session, preset }
+  return { id, root: resolve(header.cwd), mode: policy.mode, writable: policy.mode !== 'read-only', session, preset, origin: header.origin ?? (header.parentSession ? 'subagent' : 'lead') }
 }

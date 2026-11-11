@@ -1,10 +1,16 @@
 window.__ModuleLoader__.load({ id: 'airules-dsh-project-settings', factory: require => {
+  let projectApi
+  try { const candidate = require('airules-dsh-project-context'); if (typeof candidate?.useProject === 'function') projectApi = candidate } catch {}
+  const scopedFetch = (...args) => projectApi ? projectApi.projectFetch(...args) : fetch(...args)
+  function useProjectFetch(project) { const ref = projectApi ? React.useRef(project) : null; if (ref) ref.current = project; return (...args) => projectApi ? projectApi.projectFetch(args[0], args[1], ref.current) : fetch(...args) }
+
   const React = require('react'), h = React.createElement
   let sessions
   function useSessionList() {
     return React.useSyncExternalStore(listener => sessions.list.subscribe(listener), () => sessions.list.getSnapshot())
   }
-  function Discovery({ sessionId, onApply }) {
+  function Discovery({ sessionId, onApply, projectContext }) {
+    const scopedFetch = useProjectFetch(projectContext)
     const [environment, setEnvironment] = React.useState(null), [busy, setBusy] = React.useState(false), [error, setError] = React.useState(''), [query, setQuery] = React.useState(''), [base, setBase] = React.useState(''), [platform, setPlatform] = React.useState(''), [checked, setChecked] = React.useState({})
     const generation = React.useRef(0)
     React.useEffect(() => { generation.current++; setEnvironment(null); setBusy(false); setError(''); setBase(''); setPlatform(''); setChecked({}); return () => { generation.current++ } }, [sessionId])
@@ -12,7 +18,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-project-settings', factory: requ
       const epoch = generation.current
       setBusy(true); setError('')
       try {
-        const response = await fetch(`/airules/project-settings/environment?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: 'application/json' } })
+        const response = await scopedFetch(`/airules/project-settings/environment?sessionId=${encodeURIComponent(sessionId)}`, { headers: { accept: 'application/json' } })
         const body = await response.json()
         if (!response.ok || !body.ok) throw new Error(body.message || 'Среда проекта недоступна.')
         if (generation.current === epoch) { setEnvironment(body); setChecked({}); setBase(''); setPlatform('') }
@@ -35,16 +41,22 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-project-settings', factory: requ
   }
   function EnvironmentSettings() {
     const snapshot = useSessionList(), rows = Object.values(snapshot?.byId ?? {}), active = rows.find(row => (row.retainedBy?.mainView ?? 0) > 0)?.id ?? snapshot?.current ?? null
-    const [manual, setManual] = React.useState(null), id = manual ?? active
+    const project = projectApi ? projectApi.useProject({ presets: ['1c-airules'] }) : null
+    const scopedFetch = useProjectFetch(project)
+    const [manual, setManual] = React.useState(null), id = projectApi ? project.projectId : manual ?? active
     React.useEffect(() => setManual(null), [active])
-    return h('section', { className: 'airules-project-settings' }, h('h2', null, 'Среда проекта 1С'), h('label', null, 'Проектный сеанс', h('select', { value: id ?? '', onChange: event => setManual(event.target.value || null) }, h('option', { value: '' }, 'Выберите сеанс проекта'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id)))), h(Discovery, { key: id, sessionId: id }))
+    return h('section', { className: 'airules-project-settings' }, h('h2', null, 'Среда проекта 1С'), (projectApi ? h(projectApi.ProjectPicker, { project, disabled: false }) : h('label', null, 'Проектный сеанс', h('select', { value: id ?? '', onChange: event => setManual(event.target.value || null) }, h('option', { value: '' }, 'Выберите сеанс проекта'), ...rows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id))))), h(Discovery, { key: id, sessionId: id, projectContext: project }))
   }
   function ProjectSettings() {
     const snapshot = useSessionList(), sessionRows = Object.values(snapshot?.byId ?? {})
     const active = sessionRows.find(session => (session.retainedBy?.mainView ?? 0) > 0)?.id ?? snapshot?.current ?? null
-    const [manual, setManual] = React.useState(null), id = manual ?? active
+    const project = projectApi ? projectApi.useProject({ presets: ['1c-airules'] }) : null
+    const scopedFetch = useProjectFetch(project)
+    const [manual, setManual] = React.useState(null), id = projectApi ? project.projectId : manual ?? active
     const [data, setData] = React.useState(null), [draft, setDraft] = React.useState({}), [search, setSearch] = React.useState(''), [error, setError] = React.useState(''), [notice, setNotice] = React.useState(''), [busy, setBusy] = React.useState(false)
     const generation = React.useRef(0), state = React.useRef(null)
+    const owner = React.useRef(id)
+    const canWrite = !!data?.writable && (!projectApi || project.writable && !project.loading)
     const dirty = Object.keys(draft).length
     state.current = { dirty, id }
     React.useEffect(() => { setManual(null) }, [active])
@@ -53,30 +65,31 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-project-settings', factory: requ
       if (!id) { setData(null); setBusy(false); setError(''); return }
       setBusy(true); setError(''); setNotice('')
       try {
-        const response = await fetch(`/airules/project-settings?sessionId=${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } })
+        const response = await scopedFetch(`/airules/project-settings?sessionId=${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } })
         const body = await response.json()
         if (!response.ok || !body.ok) throw new Error(body.message || 'Не удалось прочитать настройки.')
         if (epoch === generation.current) { setData(body); setDraft({}) }
       } catch (reason) { if (epoch === generation.current) setError(reason.message) }
       finally { if (epoch === generation.current) setBusy(false) }
     }, [id])
-    React.useEffect(() => { generation.current++; setData(null); setDraft({}); load(); return () => { generation.current++ } }, [load])
+    React.useEffect(() => { generation.current++; owner.current = id; setData(null); setDraft({}); load(); return () => { generation.current++ } }, [load])
     React.useEffect(() => { const prevent = event => { if (state.current?.dirty) { event.preventDefault(); event.returnValue = '' } }; window.addEventListener('beforeunload', prevent); return () => window.removeEventListener('beforeunload', prevent) }, [])
-    const change = (field, value) => setDraft(current => {
+    const change = (field, value) => { if (projectApi && !canWrite) return; setDraft(current => {
       const next = { ...current, [field.key]: value }
       if (!field.secret && value === data.values[field.key]) delete next[field.key]
       return next
-    })
+    }) }
     const applyDetected = updates => {
-      if (!data?.writable || busy) return
+      if (!canWrite || busy) return
       setDraft(current => { const next = { ...current }; for (const [key, value] of Object.entries(updates)) { if (value !== data.values[key]) next[key] = value; else delete next[key] } return next })
       setNotice('Выбранные параметры добавлены в черновик. Проверьте поля и нажмите «Сохранить».')
     }
     async function save() {
+      if (projectApi && !canWrite) { setError('Проект сейчас доступен только для чтения. Черновик сохранён.'); return }
       const epoch = generation.current, updates = { ...draft }
       setBusy(true); setError(''); setNotice('')
       try {
-        const response = await fetch('/airules/project-settings', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-csrf': data.csrfToken }, body: JSON.stringify({ sessionId: id, revision: data.revision, updates }) })
+        const response = await scopedFetch('/airules/project-settings', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-csrf': data.csrfToken }, body: JSON.stringify({ sessionId: id, revision: data.revision, updates }) })
         const body = await response.json()
         if (!response.ok || !body.ok) throw new Error(body.message || 'Сохранение не выполнено. Черновик сохранён в форме.')
         if (epoch === generation.current) { setData(body); setDraft({}); setNotice(body.changed ? 'Настройки сохранены. Предыдущая версия существующего файла защищена в каталоге DSH.' : 'Изменений в файле нет.') }
@@ -85,12 +98,13 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-project-settings', factory: requ
     }
     const filtered = (data?.fields ?? []).filter(field => `${field.label} ${field.key}`.toLowerCase().includes(search.toLowerCase()))
     const groups = [...new Set(filtered.map(field => field.group))]
+    if (projectApi && owner.current !== id) return h('section', { className: 'airules-project-settings' }, h('h2', null, 'Настройки проекта 1С'), h(projectApi.ProjectPicker, { project, disabled: false }), h('p', { role: 'status' }, 'Загрузка настроек выбранного проекта…'))
     function fieldRow(field) {
       const value = Object.hasOwn(draft, field.key) ? draft[field.key] : field.secret ? '' : data.values[field.key]
-      const props = { id: `airules-project-${field.key}`, value, disabled: busy || !data.writable, onChange: event => change(field, event.target.value), autoComplete: 'off', maxLength: 4096 }
-      return h('div', { className: 'airules-project-field', key: field.key }, h('label', { htmlFor: props.id }, field.label), h('small', null, field.key), field.choices ? h('select', props, h('option', { value: '' }, 'Не задано'), ...field.choices.map(option => h('option', { key: option, value: option }, field.key === 'USE_EDT' ? option === 'true' ? '1C:EDT' : 'Конфигуратор' : option))) : h('input', { ...props, type: field.secret ? 'password' : 'text', placeholder: field.secret ? data.secrets[field.key] ? 'Задано. Введите новое значение для замены.' : 'Не задано' : '' }), field.secret && h('div', null, h('small', null, data.secrets[field.key] ? 'Значение задано и не передаётся в браузер. ' : 'Значение не задано. '), h('button', { type: 'button', disabled: busy || !data.writable, onClick: () => change(field, '') }, 'Очистить при сохранении')), data.redactedKeys.includes(field.key) && h('small', null, 'Существующее значение скрыто: содержит реквизиты доступа. Без явной правки сохранится как есть. Пароль задавайте отдельным полем.'))
+      const props = { id: `airules-project-${field.key}`, value, disabled: busy || !canWrite, onChange: event => change(field, event.target.value), autoComplete: 'off', maxLength: 4096 }
+      return h('div', { className: 'airules-project-field', key: field.key }, h('label', { htmlFor: props.id }, field.label), h('small', null, field.key), field.choices ? h('select', props, h('option', { value: '' }, 'Не задано'), ...field.choices.map(option => h('option', { key: option, value: option }, field.key === 'USE_EDT' ? option === 'true' ? '1C:EDT' : 'Конфигуратор' : option))) : h('input', { ...props, type: field.secret ? 'password' : 'text', placeholder: field.secret ? data.secrets[field.key] ? 'Задано. Введите новое значение для замены.' : 'Не задано' : '' }), field.secret && h('div', null, h('small', null, data.secrets[field.key] ? 'Значение задано и не передаётся в браузер. ' : 'Значение не задано. '), h('button', { type: 'button', disabled: busy || !canWrite, onClick: () => change(field, '') }, 'Очистить при сохранении')), data.redactedKeys.includes(field.key) && h('small', null, 'Существующее значение скрыто: содержит реквизиты доступа. Без явной правки сохранится как есть. Пароль задавайте отдельным полем.'))
     }
-    return h('section', { className: 'airules-project-settings' }, h('h2', null, 'Настройки проекта 1С'), h('p', null, 'Локальные параметры .dev.env выбранного проекта. Сохраняются только изменённые поля.'), h('label', null, 'Проектный сеанс', h('select', { value: id ?? '', disabled: busy, onChange: event => { if (!dirty || window.confirm('Перейти к другому проекту и сбросить несохранённые изменения?')) setManual(event.target.value || null) } }, h('option', { value: '' }, 'Выберите сеанс проекта'), ...sessionRows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id)))), !id && h('p', null, 'Откройте сеанс проекта или выберите его в списке.'), error && h('p', { role: 'alert' }, error), notice && h('p', { role: 'status' }, notice), data && h(React.Fragment, null, h('p', { className: 'airules-project-root' }, data.projectRoot), !data.writable && h('p', null, 'Настройки доступны для чтения. Сохранение требует доступа к рабочей папке с записью.'), h('input', { type: 'search', placeholder: 'Поиск параметров по названию или ключу', value: search, onChange: event => setSearch(event.target.value), 'aria-label': 'Поиск параметров проекта' }), h(Discovery, { sessionId: id, onApply: data.writable && !busy ? applyDetected : undefined }), ...groups.map(group => h('details', { key: group, open: true }, h('summary', null, group), ...filtered.filter(field => field.group === group).map(fieldRow))), h('div', { className: 'airules-project-save' }, h('button', { type: 'button', disabled: busy || !dirty || !data.writable, onClick: save }, busy ? 'Обработка…' : `Сохранить${dirty ? ` (${dirty})` : ''}`), h('button', { type: 'button', disabled: busy, onClick: () => { if (!dirty || window.confirm('Обновить файл и сбросить несохранённые изменения?')) load() } }, 'Перечитать файл'))))
+    return h('section', { className: 'airules-project-settings' }, h('h2', null, 'Настройки проекта 1С'), h('p', null, 'Локальные параметры .dev.env выбранного проекта. Сохраняются только изменённые поля.'), (projectApi ? h(projectApi.ProjectPicker, { project, disabled: busy, beforeChange: () => !dirty || window.confirm('Перейти к другому проекту и сбросить несохранённые изменения?') }) : h('label', null, 'Проектный сеанс', h('select', { value: id ?? '', disabled: busy, onChange: event => { if (!dirty || window.confirm('Перейти к другому проекту и сбросить несохранённые изменения?')) setManual(event.target.value || null) } }, h('option', { value: '' }, 'Выберите сеанс проекта'), ...sessionRows.map(row => h('option', { key: row.id, value: row.id }, row.title ?? row.label ?? row.id))))), !id && h('p', null, 'Выберите проект в списке.'), error && h('p', { role: 'alert' }, error), notice && h('p', { role: 'status' }, notice), data && h(React.Fragment, null, h('p', { className: 'airules-project-root' }, data.projectRoot), !canWrite && h('p', null, 'Настройки доступны для чтения. Сохранение требует доступа к рабочей папке с записью.'), h('input', { type: 'search', placeholder: 'Поиск параметров по названию или ключу', value: search, onChange: event => setSearch(event.target.value), 'aria-label': 'Поиск параметров проекта' }), h(Discovery, { sessionId: id, projectContext: project, onApply: canWrite && !busy ? applyDetected : undefined }), ...groups.map(group => h('details', { key: group, open: true }, h('summary', null, group), ...filtered.filter(field => field.group === group).map(fieldRow))), h('div', { className: 'airules-project-save' }, h('button', { type: 'button', disabled: busy || !dirty || !canWrite, onClick: save }, busy ? 'Обработка…' : `Сохранить${dirty ? ` (${dirty})` : ''}`), h('button', { type: 'button', disabled: busy, onClick: () => { if (!dirty || window.confirm('Обновить файл и сбросить несохранённые изменения?')) load() } }, 'Перечитать файл'))))
   }
   function apply(ctx) {
     sessions = ctx.get('sessions')

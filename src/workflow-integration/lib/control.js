@@ -18,6 +18,7 @@ export function createHandler(ctx, service) {
       if (request.method === 'GET') {
         const url = new URL(request.url, 'http://localhost'), action = url.searchParams.get('action') ?? 'status'
         const scope = await workflowSession(ctx, url.searchParams.get('sessionId'))
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         if (action === 'status') return send(200, { ok: true, ...await service.status(scope), csrfToken: token })
         if (action === 'setup') return send(200, { ok: true, ...await service.setup(scope), csrfToken: token })
         if (action === 'runs') return send(200, { ok: true, runs: await service.runs(scope) })
@@ -31,19 +32,23 @@ export function createHandler(ctx, service) {
       const body = await readBody(request)
       if (body.action === 'previewSetup') {
         const scope = await workflowSession(ctx, body.sessionId)
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         return send(200, { ok: true, ...await service.previewSetup(scope, body.setup) })
       }
       if (body.action === 'saveSetup') {
         const scope = await workflowSession(ctx, body.sessionId, true)
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         return send(200, { ok: true, ...await service.saveSetup(scope, body.setup, body.revision) })
       }
       if (body.action === 'setMode') {
         const scope = await workflowSession(ctx, body.sessionId, true)
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         return send(200, { ok: true, ...await service.setMode(scope, body.mode) })
       }
       if (body.action !== 'plan') return send(405, { ok: false, error: 'ACTION_REJECTED' })
       const scope = await workflowSession(ctx, body.sessionId, true)
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
       return send(200, { ok: true, plan: await service.plan(scope, body.workflowId) })
-    } catch (error) { return send(400, { ok: false, error: safeCode(error), message: 'Проверки проекта недоступны. Проверьте сеанс, права и проектные привязки.' }) }
+    } catch (error) { return send(400, { ok: false, error: safeCode(error), message: 'Проверки проекта недоступны. Проверьте выбранный проект, права и его привязки.' }) }
   }
 }

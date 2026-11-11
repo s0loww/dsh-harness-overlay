@@ -7,6 +7,8 @@ import { pathToFileURL } from 'node:url'
 import { Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { createSkill, draftSkill, parseSkill, safePath, scanFiles, skillRoots, toggleFile } from '../src/skills-integration/lib/core.js'
+import { createAssignmentStore } from '../src/skills-integration/lib/assignments.js'
+import { createCatalogService } from '../src/skills-integration/lib/catalog.js'
 import { parse } from '../var/asar-extract-rc5/dsh/node_modules/yaml/dist/index.js'
 const native = resolve('var/asar-extract-rc5/dsh/node_modules')
 function fixture(t) {
@@ -157,4 +159,27 @@ test('HTTP control requires native connection and CSRF; GET does not mutate and 
   assert.equal((await request('DELETE')).status, 405)
   ctx.connection.requestRejection = () => 'rejected'
   assert.equal((await request('GET')).status, 403)
+})
+test('project task context HTTP shares state across chats and enforces native write scope, lead and CAS', async t => {
+  const f = await runtime(t), manager = f.module.createManager(f), registry = { list: async () => [], invalidateCache() {} }
+  const sessions = new Map(['a', 'b'].map(id => [id, { id, header: { id, cwd: f.projectRoot } }]))
+  let mode = 'read-only'
+  const ctx = { connection: { requestRejection: () => undefined }, skills: registry, sessions: { get: id => sessions.get(id) }, sandboxPolicy: { resolve: () => ({ mode, workspaceRoot: f.projectRoot }) } }
+  const assignments = createCatalogService(ctx, createAssignmentStore(f.home)), handler = f.module.handlerFor(ctx, manager, assignments)
+  async function request(method, body, token, id = 'a') {
+    const req = Readable.from(body ? [Buffer.from(JSON.stringify(body))] : []); Object.assign(req, { method, url: '/airules/skills?sessionId=' + id, headers: { 'content-type': 'application/json', 'x-dsh-csrf': token ?? '' } })
+    let status, text; await handler(req, { writeHead(value) { status = value }, end(value) { text = value } }); return { status, ...JSON.parse(text) }
+  }
+  const initial = await request('GET'), body = { action: 'task-context', sessionId: 'a', taskType: 'documentation', revision: null }
+  assert.equal((await request('POST', body, initial.csrfToken)).error, 'WRITE_REQUIRED')
+  const file = join(f.projectRoot, '.dsh/skill-context.json'); assert.equal(existsSync(file), false)
+  mode = 'workspace-write'; const saved = await request('POST', body, initial.csrfToken); assert.equal(saved.status, 200); assert.equal(saved.assignments.context.source, 'project')
+  const second = await request('GET', null, null, 'b'); assert.equal(second.assignments.context.taskType, 'documentation'); assert.equal(second.assignments.context.revision, saved.assignments.context.revision)
+  assert.equal((await request('POST', body, initial.csrfToken)).status, 409)
+  sessions.get('a').header.origin = 'subagent'
+  assert.equal((await request('POST', { ...body, revision: saved.assignments.context.revision }, initial.csrfToken)).error, 'WRITE_REQUIRED'); delete sessions.get('a').header.origin
+  const bytes = readFileSync(file)
+  let resolves = 0; ctx.sandboxPolicy.resolve = () => ({ mode: ++resolves > 1 ? 'read-only' : 'workspace-write', workspaceRoot: f.projectRoot })
+  assert.equal((await request('POST', { ...body, taskType: 'testing', revision: saved.assignments.context.revision }, initial.csrfToken)).error, 'PROJECT_SCOPE_CHANGED')
+  assert.deepEqual(readFileSync(file), bytes)
 })

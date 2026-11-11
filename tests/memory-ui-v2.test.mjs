@@ -33,7 +33,7 @@ test('global policy can be saved without a usable project session and mutation c
   const view={ok:true,config:{enabled:true,endpoint:'http://127.0.0.1:18080',localProcessing:true},revision:'connection-v1',csrfToken:'csrf-fixture',scope:null,projectError:'Open a project chat',policy,processing}
   const ui=harness('Memory',{},async input=>input.action==='configuration'?view:{ok:true})
   ui.render();ui.flush();await ui.settle();let tree=ui.render()
-  assert.ok(text(tree).includes('Проектный чат не выбран'));assert.ok(text(tree).includes('Действует: Обе'))
+  assert.ok(text(tree).includes('Проект не выбран'));assert.ok(text(tree).includes('Действует: Обе'))
   assert.equal(findButton(tree,'Проверить связь').props.disabled,true)
   const editor=flatten(tree).find(row=>row.type?.name==='PolicyPanel')
   assert.equal(editor.props.scope,null);assert.equal(editor.props.policy.globalRevision,'global-v1')

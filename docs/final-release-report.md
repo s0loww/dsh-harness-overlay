@@ -3,12 +3,14 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
-Current release: [Persistent memory policy and remaining candidates](memory-policy-release.md).
-UI `0.15.0-host022-ui1`, policy `0.15.0-dev6`, canonical airules `72ed6f6` / 0.15.0.
-944 source tests passed, one obsolete pre-upgrade live test skipped; native mounted
-candidate acceptance passed 166 checks. Candidate rollback/reapply and visible
-startup passed. Installed after-state and UI evidence are recorded in the linked
-release report. No paid model request or real 1C deployment.
+Current release: [Project-owned settings and shared native project context](project-bindings-release.md).
+UI `0.16.0-host022-ui1`, policy `0.16.0-dev4`, canonical airules `82c10a4` / 0.16.0.
+984 source tests passed (one packaging network failure passed on the complete 5-test retry),
+one obsolete pre-upgrade test skipped; native mounted candidate acceptance passed 195 checks.
+Candidate rollback/reapply and visible startup passed. No paid model request or real deployment.
+
+Previous release: [Persistent memory policy and remaining candidates](memory-policy-release.md),
+UI `0.15.0-host022-ui1` / policy `0.15.0-dev6`, canonical `72ed6f6` / 0.15.0.
 
 Previous release: [Memory panel, original history and reviewed lessons](memory-improvements-release.md),
 UI 0.14.0-host022-ui1 / policy 0.14.0-dev3.

@@ -34,7 +34,7 @@ export async function sessionScope(ctx, id) {
     } finally { await reader.close() }
   }
   if (header?.id !== id || typeof header.cwd !== 'string' || !isAbsolute(header.cwd) || typeof policy?.workspaceRoot !== 'string' || !MODES.includes(policy?.mode) || resolve(policy.workspaceRoot) !== resolve(header.cwd)) throw new Error('SESSION_REQUIRED')
-  return { id, root: resolve(header.cwd), writable: policy.mode !== 'read-only', globalWritable: policy.mode === 'danger-full-access', session, mode: policy.mode }
+  return { id, root: resolve(header.cwd), writable: policy.mode !== 'read-only', globalWritable: policy.mode === 'danger-full-access', session, mode: policy.mode, origin: header.origin ?? (header.parentSession ? 'subagent' : 'lead') }
 }
 function registryFor(ctx, id) {
   const agent = id ? get(ctx, 'agents')?.get(id) : undefined
@@ -124,16 +124,21 @@ export function handlerFor(ctx, manager, assignments) {
         body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
       } else return send(405, { ok: false, error: 'METHOD_REJECTED' })
       const scope = await sessionScope(ctx, body.sessionId), { registry, agent } = registryFor(ctx, body.sessionId)
+      await request[Symbol.for('airules.project-request')]?.assertScope(scope)
       if (body.action === 'content') return send(200, { ok: true, ...await manager.content(body, scope, registry, agent) })
       if (assignments && ['assignment-save', 'task-context'].includes(body.action)) {
         if (!scope.id) throw new Error('SESSION_REQUIRED')
         const action = pending.then(async () => {
+          const verify = async () => { await request[Symbol.for('airules.project-request')]?.verify(); const current = await sessionScope(ctx, body.sessionId); if (current.root !== scope.root || current.mode !== scope.mode || current.session !== scope.session || current.origin !== scope.origin) throw new Error('PROJECT_SCOPE_CHANGED') }
+          await verify()
+          if (scope.origin === 'subagent') throw new Error('WRITE_REQUIRED')
           if (body.action === 'task-context') {
-            // Catalog selection is metadata and does not change native permissions.
-            await assignments.store.setContext(scope.id, body)
+            if (!scope.writable) throw new Error('WRITE_REQUIRED')
+            // The preference belongs to the project; the session supplies only authority.
+            await assignments.store.setContext(scope.root, body, { verify })
           } else {
             if (!(body.scope === 'global' ? scope.globalWritable : body.scope === 'project' && scope.writable)) throw new Error('WRITE_REQUIRED')
-            await assignments.store.save(scope.root, body)
+            await assignments.store.save(scope.root, body, { verify })
           }
           return { assignments: await assignments.settings(scope, agent) }
         })
@@ -150,7 +155,7 @@ export function handlerFor(ctx, manager, assignments) {
       const { files, roots, ...data } = await manager.inventory(scope, registry, agent)
       return send(200, { ok: true, ...data, ...(assignments ? { assignments: await assignments.settings(scope, agent) } : {}), directories: roots.filter(row => row.source.endsWith('-dsh')).map(row => ({ scope: row.scope, path: row.root })), csrfToken: token })
     } catch (error) {
-      const code = ['STALE_SKILL', 'WRITE_REQUIRED', 'SKILL_EXISTS', 'SKILL_INVALID', 'SKILL_FRONTMATTER_REQUIRED', 'PATH_REJECTED', 'SKILL_NOT_FOUND', 'SESSION_REQUIRED', 'REQUEST_INVALID', 'STALE_ASSIGNMENTS', 'ASSIGNMENTS_INVALID', 'ASSIGNMENTS_BUSY'].includes(error.message) ? error.message : error.code === 'EEXIST' ? 'SKILL_EXISTS' : 'SKILLS_UNAVAILABLE'
+      const code = ['STALE_SKILL', 'WRITE_REQUIRED', 'SKILL_EXISTS', 'SKILL_INVALID', 'SKILL_FRONTMATTER_REQUIRED', 'PATH_REJECTED', 'SKILL_NOT_FOUND', 'SESSION_REQUIRED', 'PROJECT_REQUIRED', 'PROJECT_SCOPE_CHANGED', 'REQUEST_INVALID', 'STALE_ASSIGNMENTS', 'ASSIGNMENTS_INVALID', 'ASSIGNMENTS_BUSY'].includes(error.message) ? error.message : error.code === 'EEXIST' ? 'SKILL_EXISTS' : 'SKILLS_UNAVAILABLE'
       send(['STALE_SKILL', 'STALE_ASSIGNMENTS'].includes(code) ? 409 : 400, { ok: false, error: code })
     }
   }
@@ -160,5 +165,7 @@ export function apply(ctx) {
   const assignments = createCatalogService(ctx, createAssignmentStore(home))
   ctx.provide('airulesSkillCatalog', assignments)
   registerCatalogRuntime(ctx, assignments, createUserMessage)
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: handlerFor(ctx, manager, assignments) }))
+  const originalHandler=handlerFor(ctx,manager,assignments);let routeHandler=originalHandler
+  ctx.inject?.(['airulesProjects'], ready=>{routeHandler=ready.airulesProjects.bindHandler(originalHandler,{presets:['1c-airules','python-airules','sysadmin-airules'],maxBodyBytes:700*1024});return()=>{routeHandler=originalHandler}})
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: API, handler: (request,response)=>routeHandler(request,response) }))
 }

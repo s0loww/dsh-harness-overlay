@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, symlink } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runInNewContext } from 'node:vm'
+import { createHash } from 'node:crypto'
 import { createAssignmentStore, DEFAULTS, delegatedRole, effectiveAssignments, ROLE_TASKS, ROLES, selectCatalog, taskContext, validateAssignment } from '../src/skills-integration/lib/assignments.js'
 import { createCatalogService, registerCatalogRuntime, OWNER, renderCatalog } from '../src/skills-integration/lib/catalog.js'
 
@@ -102,13 +103,15 @@ test('role/task/access filters are independent and do not mutate the full regist
   assert.equal(selectCatalog(entries, { taskType: 'all', role: null, accessMode: 'read-only' }, rules).length, 2)
   assert.equal(entries.length, 2)
 })
-test('all 13 explicit roles map deterministically; native plan affects auto only; no request classifier exists', () => {
+test('all 13 explicit roles and native plan override the project default without request classification', () => {
   assert.equal(ROLES.length, 13)
   for (const role of ROLES) assert.equal(taskContext({ role, accessMode: 'workspace-write' }).taskType, ROLE_TASKS[role])
   assert.equal(taskContext({ accessMode: 'workspace-write' }).taskType, 'all')
   assert.equal(taskContext({ role: 'tester', plan: true, accessMode: 'read-only' }).taskType, 'planning')
-  assert.equal(taskContext({ selected: 'documentation', plan: true, accessMode: 'read-only' }).taskType, 'documentation')
-  assert.equal(taskContext({ selected: 'all', plan: true, accessMode: 'read-only' }).taskType, 'all')
+  assert.equal(taskContext({ selected: 'documentation', plan: true, accessMode: 'read-only' }).taskType, 'planning')
+  assert.equal(taskContext({ selected: 'all', plan: true, accessMode: 'read-only' }).taskType, 'planning')
+  assert.equal(taskContext({ selected: 'documentation', role: 'tester', accessMode: 'read-only' }).taskType, 'testing')
+  assert.equal(taskContext({ selected: 'documentation', accessMode: 'read-only' }).source, 'project')
   assert.equal(ROLE_TASKS['arch-reviewer'], 'architecture'); assert.notEqual(ROLE_TASKS['code-reviewer'], ROLE_TASKS.tester)
 })
 test('role identity is only the first own native managed descriptor, never inherited/prompt/later metadata', () => {
@@ -119,12 +122,29 @@ test('role identity is only the first own native managed descriptor, never inher
   assert.equal(delegatedRole({ ...session, inheritedEventCount: 4 }), null)
   assert.equal(delegatedRole({ ...session, header: {} }), null)
 })
-test('task selection persists independently per child session and uses CAS', async t => {
+test('task selection belongs to the project and uses CAS; unrelated projects remain independent', async t => {
   const f = await fixture(t)
-  await f.store.setContext('parent', { taskType: 'documentation', revision: null })
-  assert.equal((await f.store.context('parent')).selected, 'documentation')
-  assert.equal((await f.store.context('child')).selected, 'auto')
-  await assert.rejects(f.store.setContext('parent', { taskType: 'testing', revision: null }), /STALE_ASSIGNMENTS/u)
+  const other = join(f.root, 'other'); await mkdir(other)
+  const legacy = join(f.home, 'skill-assignments/sessions', createHash('sha256').update('parent').digest('hex') + '.json')
+  const legacyBytes = JSON.stringify({ schemaVersion: 1, sessionId: 'parent', taskType: 'testing' }); await mkdir(join(f.home, 'skill-assignments/sessions'), { recursive: true }); await writeFile(legacy, legacyBytes)
+  assert.equal((await f.store.context(f.project)).selected, 'auto')
+  await f.store.setContext(f.project, { taskType: 'documentation', revision: null })
+  assert.equal((await f.store.context(f.project)).selected, 'documentation')
+  assert.equal((await createAssignmentStore(f.home).context(f.project)).selected, 'documentation')
+  assert.equal((await f.store.context(other)).selected, 'auto')
+  assert.deepEqual(JSON.parse(await readFile(join(f.project, '.dsh/skill-context.json'), 'utf8')), { schemaVersion: 1, taskType: 'documentation' })
+  assert.equal(await readFile(legacy, 'utf8'), legacyBytes)
+  await assert.rejects(f.store.setContext(f.project, { taskType: 'testing', revision: null }), /STALE_ASSIGNMENTS/u)
+})
+test('two conversations inherit one project default while a managed role keeps its native task', async t => {
+  const f = await fixture(t), ctx = { sandboxPolicy: { resolve: () => ({ mode: 'workspace-write' }) }, agentPresets: { serviceFor: () => undefined } }
+  await f.store.setContext(f.project, { taskType: 'documentation', revision: null })
+  const service = createCatalogService(ctx, f.store)
+  const one = { id: 'one', header: { id: 'one', cwd: f.project } }, two = { id: 'two', header: { id: 'two', cwd: f.project } }
+  assert.equal((await service.context(one)).taskType, 'documentation'); assert.equal((await service.context(two)).taskType, 'documentation')
+  const roleEvent = { type: 'subagent/descriptor', data: { version: 3, provider: 'spawn', mode: 'continuable', label: 'airules-role:tester' } }
+  const child = { id: 'child', header: { id: 'child', cwd: f.project, parentSession: 'one' }, seq: 1, eventAt: () => roleEvent }
+  assert.equal((await service.context(child)).taskType, 'testing'); assert.equal((await service.context(child)).source, 'delegated-role')
 })
 function mockRuntime(f, { complete = true, preset = '1c-airules' } = {}) {
   const events = [], nodes = [], session = { id: 's', header: { id: 's', cwd: f.project }, seq: 0, surface: { nodes }, eventAt: index => events[index] }
@@ -142,33 +162,34 @@ function mockRuntime(f, { complete = true, preset = '1c-airules' } = {}) {
 test('runtime rebuilds full snapshot on changed task and after service restart; unchanged accepted catalog is suppressed', async t => {
   const f = await fixture(t)
   await f.store.save(f.project, { scope: 'project', skill: 'a', revision: null, change: 'set', assignment: restricted })
-  await f.store.setContext('s', { taskType: 'implementation', revision: null })
+  await f.store.setContext(f.project, { taskType: 'implementation', revision: null })
   const runtime = mockRuntime(f)
   let decision = await runtime.step([{ id: 'native', source: { kind: 'skill-catalog', entries: [{ name: 'a', description: 'A' }] } }])
   assert.deepEqual(decision.messages[0].source.entries.map(row => row.name), ['b']); runtime.publish(decision.messages[0])
   decision = await runtime.step([{ id: 'native', source: { kind: 'skill-catalog', entries: [{ name: 'a', description: 'A' }, { name: 'b', description: 'B' }] } }])
   assert.equal(decision.messages.length, 0); assert.equal(decision.messageIntents.size, 0)
-  const context = await f.store.context('s'); await f.store.setContext('s', { taskType: 'testing', revision: context.revision })
+  const context = await f.store.context(f.project); await f.store.setContext(f.project, { taskType: 'testing', revision: context.revision })
   decision = await runtime.step()
   assert.deepEqual(decision.messages[0].source.entries.map(row => row.name), ['a', 'b'])
   assert.equal(decision.messages[0].source.owner, OWNER)
   assert.equal((await runtime.registry.get('a')).name, 'a')
   const restarted = createAssignmentStore(f.home)
-  assert.equal((await restarted.context('s')).selected, 'testing')
+  assert.equal((await restarted.context(f.project)).selected, 'testing')
   assert.ok(renderCatalog([]).includes('Явный вызов доступного навыка'))
 })
 
 test('native plan reads the selected preset isolated service, including a queued selection', async t => {
-  const f = await fixture(t), session = { id: 'plan', header: {} }, agent = { session, ctx: { get: () => undefined } }
+  const f = await fixture(t), session = { id: 'plan', header: { cwd: f.project } }, agent = { session, ctx: { get: () => undefined } }
   const plan = { active: false, pending: true }
   const ctx = { get(key) { return { agentPresets: { serviceFor: (_agent, name) => name === 'planMode' ? { get: () => plan } : undefined }, sandboxPolicy: { resolve: () => ({ mode: 'read-only' }) } }[key] } }
   const service = createCatalogService(ctx, f.store)
   assert.equal((await service.context(session, agent)).taskType, 'planning')
   assert.equal((await service.context(session, agent)).nativePlan, true)
-  await f.store.setContext('plan', { taskType: 'documentation', revision: null })
-  assert.equal((await service.context(session, agent)).taskType, 'documentation')
+  await f.store.setContext(f.project, { taskType: 'documentation', revision: null })
+  assert.equal((await service.context(session, agent)).taskType, 'planning')
   plan.pending = false; plan.active = true
   assert.equal((await service.context(session, agent)).nativePlan, false)
+  assert.equal((await service.context(session, agent)).taskType, 'documentation')
 })
 test('incomplete scan preserves existing history and all noncatalog messages without publishing a partial/broad pending list', async t => {
   const f = await fixture(t), runtime = mockRuntime(f, { complete: false })

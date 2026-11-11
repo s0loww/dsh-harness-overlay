@@ -28,6 +28,7 @@ export function handlerFor(ctx, backupHome = dshHomePath(), discoveryPaths) {
       if (request.method === 'GET') {
         const url = new URL(request.url, 'http://localhost'), id = url.searchParams.get('sessionId')
         const scope = await projectSession(ctx, id)
+        await request[Symbol.for('airules.project-request')]?.assertScope(scope)
         if (url.pathname === ENVIRONMENT_API) return send(200, { ok: true, ...await environmentStatus(scope.root, discoveryPaths) })
         return send(200, { ok: true, ...readSettings(scope.root), projectRoot: scope.root, writable: scope.writable, csrfToken: token })
       }
@@ -37,15 +38,18 @@ export function handlerFor(ctx, backupHome = dshHomePath(), discoveryPaths) {
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return send(403, { ok: false, error: 'CSRF_REQUIRED' })
       if (!String(request.headers?.['content-type'] ?? '').startsWith('application/json')) return send(400, { ok: false, error: 'JSON_REQUIRED' })
       const body = await bodyOf(request), scope = await projectSession(ctx, body.sessionId, true)
+      await request[Symbol.for('airules.project-request')]?.assertScope(scope)
       const result = saveSettings(scope.root, body, backupHome)
       return send(200, { ok: true, ...result, projectRoot: scope.root, writable: true, csrfToken: token })
     } catch (error) {
       const code = ['STALE_SETTINGS', 'WORKSPACE_WRITE_REQUIRED', 'PASSWORD_USE_SEPARATE_FIELD', 'VALUE_INVALID'].includes(error.message) ? error.message : 'PROJECT_SETTINGS_UNAVAILABLE'
-      return send(code === 'STALE_SETTINGS' ? 409 : 400, { ok: false, error: code, message: messages[code] ?? 'Настройки проекта недоступны. Выберите сеанс 1c-airules; проверьте доступ к папке и файлу .dev.env. Большой закрытый сеанс откройте перед редактированием.' })
+      return send(code === 'STALE_SETTINGS' ? 409 : 400, { ok: false, error: code, message: messages[code] ?? 'Настройки проекта недоступны. Проверьте выбранный проект, доступ к его рабочей папке и файлу .dev.env.' })
     }
   }
 }
 export function apply(ctx) {
-  const handler = handlerFor(ctx)
-  for (const path of [ENVIRONMENT_API, API]) ctx.effect(() => ctx.webServer.register({ kind: 'exact', path, handler }))
+  const originalHandler = handlerFor(ctx)
+  let routeHandler = originalHandler
+  ctx.inject?.(['airulesProjects'], ready => { routeHandler = ready.airulesProjects.bindHandler(originalHandler, { presets: ['1c-airules'] }); return () => { routeHandler = originalHandler } })
+  for (const path of [ENVIRONMENT_API, API]) ctx.effect(() => ctx.webServer.register({ kind: 'exact', path, handler: (request,response) => routeHandler(request,response) }))
 }

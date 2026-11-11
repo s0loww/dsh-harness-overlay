@@ -1,10 +1,16 @@
 window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: require => {
+  let projectApi
+  try { const candidate = require('airules-dsh-project-context'); if (typeof candidate?.useProject === 'function') projectApi = candidate } catch {}
+  const scopedFetch = (...args) => projectApi ? projectApi.projectFetch(...args) : fetch(...args)
+  function useProjectFetch(project) { const ref = projectApi ? React.useRef(project) : null; if (ref) ref.current = project; return (...args) => projectApi ? projectApi.projectFetch(args[0], args[1], ref.current) : fetch(...args) }
+
   const React = require('react'), h = React.createElement
   let sessions
-  async function request(input, token) {
+  async function request(input, token, projectContext) {
+    const routeFetch = projectApi ? projectApi.fetchFor(projectContext) : fetch
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 45000)
     try {
-    const response = await fetch(token ? '/airules/memory' : `/airules/memory?${new URLSearchParams(input)}`, token
+    const response = await routeFetch(token ? '/airules/memory' : `/airules/memory?${new URLSearchParams(input)}`, token
       ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-airules-csrf': token }, body: JSON.stringify(input), signal: controller.signal }
       : { headers: { accept: 'application/json' }, signal: controller.signal })
     let result
@@ -64,7 +70,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
   const defaultGlobal = () => ({ schemaVersion: 1, mode: 'cognee', writeTarget: 'auto' })
   const defaultProcessing = () => ({ allowed: false, embeddings: { provider: 'fastembed', model: 'BAAI/bge-small-en-v1.5' }, extraction: { provider: 'gliner', model: 'fastino/gliner2.5-base-v1' } })
   const safeButton = (label, onClick, disabled = false, pending = false) => h('button', { type: 'button', disabled, 'aria-disabled': pending || disabled, onClick: () => { if (!pending && !disabled) void onClick() } }, label)
-  function PolicyPanel({ policy, sessionId, scope, token, busy, onSave }) {
+  function PolicyPanel({ policy, sessionId, scope, token, busy, onSave, projectContext }) {
     const global = policy?.global ?? defaultGlobal(), project = policy?.project ?? defaultProject()
     const [globalDraft, setGlobal] = React.useState(clone(global)), [projectDraft, setProject] = React.useState(clone(project))
     const [catalog, setCatalog] = React.useState([]), [catalogBusy, setCatalogBusy] = React.useState(false), [catalogMessage, setCatalogMessage] = React.useState('')
@@ -83,9 +89,9 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       updateProject({ mode, writeTarget: effectiveMode === 'both' || ['inherit', 'auto', effectiveMode].includes(projectDraft.writeTarget) ? projectDraft.writeTarget : 'auto' })
     }
     async function loadCatalog() {
-      if (catalogBusy || !sessionId) return
+      if (catalogBusy || !sessionId || scope?.active === false) return
       const current = generation.current; setCatalogBusy(true); setCatalogMessage('Чтение доступных схем…')
-      try { const value = await request({ action: 'memoraCatalog', sessionId }); if (current === generation.current) { setCatalog(value.tools ?? []); setCatalogMessage(value.tools?.length ? `Доступно схем: ${value.tools.length}. Наличие схемы не подтверждает соединение с сервером.` : 'В этом проектном сеансе инструменты Memoria не видны. Подключите MCP и обновите каталог.') } }
+      try { const value = await request({ action: 'memoraCatalog', sessionId }, undefined, projectContext); if (current === generation.current) { setCatalog(value.tools ?? []); setCatalogMessage(value.tools?.length ? `Доступно схем: ${value.tools.length}. Наличие схемы не подтверждает соединение с сервером.` : 'Для этого проекта инструменты Memoria пока не видны. Подключите MCP и обновите каталог.') } }
       catch (error) { if (current === generation.current) setCatalogMessage(error.message) }
       finally { if (current === generation.current) setCatalogBusy(false) }
     }
@@ -107,15 +113,15 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
         h('p', { className: 'am-muted' }, 'В режиме «Обе» автоматический выбор направляет факты и handoff в Memoria, документы — в Cognee. Двойная запись создаёт два результата; частичный успех не считается полным. Существующая память автоматически не копируется.')),
       safeButton('Сохранить общую настройку памяти', () => onSave('policyGlobal', { policy: globalDraft, expectedRevision: policy?.globalRevision }), !token, busy),
       h('section', { className: 'am-card' }, h('h3', null, 'Настройка этого проекта'),
-        h('p', { className: 'am-muted' }, scope?.projectRoot ?? 'Откройте проектный чат, чтобы настроить переопределение. Общая настройка уже доступна.'),
+        h('p', { className: 'am-muted' }, scope?.projectRoot ?? 'Выберите проект для его настройки. Общие предпочтения доступны отдельно.'),
         field('Режим памяти проекта', select(projectDraft.mode, [['inherit', 'Наследовать общую настройку'], ...Object.entries(MODES)], changeProjectMode, !scope?.writable)),
         field('Назначение записей проекта', select(projectDraft.writeTarget, writeOptions(projectMode, projectDraft.writeTarget, true), writeTarget => updateProject({ writeTarget }), !scope?.writable)),
         inheritedConflict && h('p', { role: 'status', className: 'am-error' }, 'Наследуемое назначение записи несовместимо с режимом проекта. Выберите автоматическое назначение или разрешённое хранилище; записи автоматически перенаправляться не будут.'),
         safeButton('Сохранить настройку проекта', saveProject, !scope?.writable || !token, busy),
-        h('p', { className: 'am-muted' }, 'Все чаты этого проекта наследуют одну политику. Сеанс задаёт только исполнителя и его права.'),
+        h('p', { className: 'am-muted' }, 'Настройка действует для всех чатов этого проекта.'),
         h('details', null, h('summary', null, 'Привязка Memoria к проекту'),
           h('p', { className: 'am-muted' }, 'Укажите пространство проекта и поля реальных MCP-инструментов. Запрос без проверенной области не отправляется. Фасад не требуется.'),
-          safeButton('Обновить каталог Memoria', loadCatalog, !sessionId, catalogBusy || busy),
+          safeButton('Обновить каталог Memoria', loadCatalog, !sessionId || scope?.active === false, catalogBusy || busy),
           h('p', { role: 'status', className: 'am-muted' }, catalogMessage || 'Каталог ещё не запрашивался.'),
           field('Пространство проекта в Memoria', h('input', { value: binding.namespace ?? '', maxLength: 256, disabled: !scope?.writable, onChange: event => updateBinding({ namespace: event.target.value }) })),
           toolSelect('search'),
@@ -196,14 +202,18 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       h('p', { className: 'am-muted' }, 'Сохранение фиксирует желаемый профиль. Применение — отдельная операция через чат с native approval; она может перезапустить Cognee. До подтверждения применения выбранные модели не считаются активными.'),
       h('p', { role: 'status', className: 'am-muted' }, !processing?.bindingAvailable ? 'Привязка локального управления Cognee не настроена. Выбор можно сохранить; применение сейчас недоступно.' : applied ? `Профиль сервера: ${typeof applied === 'string' ? stateLabel[applied] ?? applied : stateLabel[applied.state] ?? applied.status ?? 'сведения получены'}.${applied.matchesDesired === true ? ' Подтверждённый профиль совпадает с сохранённым.' : ' Совпадение с сохранённым профилем пока не подтверждено.'}` : 'Применение профиля ещё не подтверждено.'))
   }
+  const rawRequest = request
   function Memory() {
     const snapshot = React.useSyncExternalStore(listener => sessions.list.subscribe(listener), () => sessions.list.getSnapshot())
     const rows = Object.values(snapshot?.byId ?? {}), active = rows.find(row => (row.retainedBy?.mainView ?? 0) > 0)?.id ?? snapshot?.current ?? ''
-    const [manual, setManual] = React.useState(null), sessionId = manual ?? active
+    const project = projectApi ? projectApi.useProject() : null
+    const projectRef = projectApi ? React.useRef(project) : null; if (projectRef) projectRef.current = project
+    const request = (input,token) => rawRequest(input,token,projectRef?.current)
+    const [manual, setManual] = React.useState(null), sessionId = projectApi ? project.projectId : manual ?? active
     const [data, setData] = React.useState(null), [config, setConfig] = React.useState(null), [error, setError] = React.useState(''), [busy, setBusy] = React.useState(false)
     const [result, setResult] = React.useState(null), [action, setAction] = React.useState(''), [query, setQuery] = React.useState(''), [text, setText] = React.useState(''), [title, setTitle] = React.useState(''), [taskId, setTaskId] = React.useState('')
     const [kind, setKind] = React.useState('fact'), [notice, setNotice] = React.useState(''), [attempted, setAttempted] = React.useState('')
-    const epoch = React.useRef(0), sequence = React.useRef(0), pending = React.useRef(false)
+    const epoch = React.useRef(0), sequence = React.useRef(0), pending = React.useRef(false), owner = React.useRef(sessionId)
     function accept(value) { setData(value); setConfig(value.config); setError('') }
     const load = React.useCallback(async () => {
       const generation = epoch.current, seq = ++sequence.current
@@ -212,7 +222,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       catch (reason) { if (generation === epoch.current && seq === sequence.current) setError(reason.message) }
       finally { if (generation === epoch.current && seq === sequence.current) { pending.current = false; setBusy(false) } }
     }, [sessionId])
-    React.useEffect(() => { epoch.current++; setData(null); setConfig(null); setResult(null); setError(''); setText(''); setTitle(''); setQuery(''); setTaskId(''); setAction(''); setAttempted(''); void load(); return () => { epoch.current++ } }, [load])
+    React.useEffect(() => { epoch.current++; owner.current = sessionId; setData(null); setConfig(null); setResult(null); setError(''); setText(''); setTitle(''); setQuery(''); setTaskId(''); setAction(''); setAttempted(''); void load(); return () => { epoch.current++ } }, [load])
     async function run(nextAction, supplied = {}) {
       if (pending.current) return
       if (['remember', 'process', 'processingApply'].includes(nextAction) && !window.confirm(nextAction === 'remember' ? 'Передать сохранение подтверждённой записи в чат? Назначение определяется политикой проекта; действуют штатные права и approval.' : nextAction === 'processingApply' ? 'Передать применение выбранных моделей в чат? Потребуются полные права и native approval. Возможен перезапуск Cognee; обработка выбранным API может быть платной.' : 'Передать обработку набора Cognee в чат? Будет использован подтверждённый профиль моделей, возможны внешние API и тарификация. Потребуется штатное подтверждение.')) return
@@ -231,20 +241,24 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
       } catch (reason) { if (generation === epoch.current && seq === sequence.current) setError(nextAction === 'processingCredentialSave' ? 'Сохранение ключа OpenRouter не подтверждено. Обновите сведения о защищённом хранилище DSH; ключ не будет показан в сообщении ошибки.' : reason.message); return false }
       finally { if (generation === epoch.current && seq === sequence.current) { pending.current = false; setBusy(false) } }
     }
-    const policy = data?.policy, mode = policy?.effective?.mode ?? 'cognee', scope = data?.scope
-    const writable = !!scope?.writable, connected = !!data?.config?.enabled, available = !!scope && (mode !== 'cognee' || connected), cognee = mode !== 'memoria'
+    const policy = data?.policy, mode = policy?.effective?.mode ?? 'cognee', storedScope = data?.scope
+    const scope = storedScope && { ...storedScope, writable: storedScope.writable && (!projectApi || !project.loading && project.writable), globalWritable: storedScope.globalWritable && (!projectApi || !project.loading && project.globalWritable) }
+    const activeScope = !!scope && scope.active !== false
+    const writable = !!scope?.writable, connected = !!data?.config?.enabled, available = activeScope && (mode !== 'cognee' || connected), cognee = mode !== 'memoria'
     const button = (label, verb, disabled = false, args = {}) => safeButton(label, () => run(verb, args), disabled, busy)
     const source = policy?.effective?.source === 'project' ? 'переопределение проекта' : 'общая настройка'
+    if (projectApi && owner.current !== sessionId) return h('section', { className: 'airules-memory' }, h(projectApi.ProjectPicker, { project, disabled: busy }), h('p', { role: 'status' }, 'Загрузка настроек выбранного проекта…'))
     return h('section', { className: 'airules-memory' }, h('h2', null, 'Память'),
       h('p', { className: 'am-muted' }, 'Политика памяти сохраняется для приложения и проекта. Все чаты проекта наследуют её; память не привязана к одному сеансу. Источники не копируются друг в друга автоматически.'),
-      h('section', { className: 'am-card am-project' }, h('h3', null, 'Текущий проект'), h('p', null, scope?.projectRoot ?? 'Проектный чат не выбран'),
+      h('section', { className: 'am-card am-project' }, h('h3', null, 'Текущий проект'), h('p', null, scope?.projectRoot ?? project?.projectRoot ?? 'Проект не выбран'),
         h('p', { className: 'am-muted' }, `Действует: ${MODES[mode] ?? mode} · ${source}.`),
         data?.projectError && h('p', { role: 'status', className: 'am-muted' }, typeof data.projectError === 'string' ? data.projectError : 'Для проектных операций выберите доступный чат нашего пресета.'),
-        h('details', null, h('summary', null, 'Дополнительно: исполнитель проектных операций'),
+        (projectApi ? h(projectApi.ProjectPicker, { project, disabled: busy }) : h('details', null, h('summary', null, 'Дополнительно: исполнитель проектных операций'),
           field('Открытый проектный сеанс', select(sessionId, [['', 'Без проектного исполнителя'], ...rows.map(row => [row.id, row.title ?? row.label ?? row.id])], value => setManual(value))),
-          h('p', { className: 'am-muted' }, 'Активный чат выбирается автоматически. Этот выбор определяет проект и штатные права исполнителя; политика памяти сохраняется отдельно и применяется ко всем чатам того же проекта.'))),
+          h('p', { className: 'am-muted' }, 'Активный чат выбирается автоматически. Этот выбор определяет проект и штатные права исполнителя; политика памяти сохраняется отдельно и применяется ко всем чатам того же проекта.')))),
       safeButton('Обновить настройки', load, false, busy),
-      h('div', { className: 'am-toolbar' }, button('Проверить связь', 'status', !scope), button('Документы', 'documents', !scope || !cognee || !connected, { backend: 'cognee' }), button('Граф', 'graph', !scope || !cognee || !connected, { backend: 'cognee' })),
+      scope?.active === false && h('p', { className: 'am-muted', role: 'status' }, 'Настройки проекта доступны без активного чата. Для команд памяти нужен активный штатный исполнитель; новые чаты автоматически не создаются.'),
+      h('div', { className: 'am-toolbar' }, button('Проверить связь', 'status', !activeScope), button('Документы', 'documents', !activeScope || !cognee || !connected, { backend: 'cognee' }), button('Граф', 'graph', !activeScope || !cognee || !connected, { backend: 'cognee' })),
       !cognee && h('p', { className: 'am-muted' }, 'Документы, граф и обработка Cognee недоступны в режиме Memoria. Поиск и сохранение используют выбранную политику.'),
       h('div', { className: 'am-feedback', 'aria-busy': busy }, h('p', { role: error ? 'alert' : 'status', className: error ? 'am-error' : 'am-muted' }, error || notice || 'Выберите действие. Ответ появится здесь.'),
         h('div', { className: 'am-result' }, result ? h(Result, { result, action }) : h('p', { className: 'am-muted' }, error ? 'Операция не вернула подтверждённого результата.' : 'Проверьте источники памяти или выполните поиск.'))),
@@ -253,7 +267,7 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
         field('Тип записи', select(kind, [['fact', 'Факт или решение'], ['handoff', 'Рабочий контекст / handoff'], ['document', 'Документ для поиска и графа']], setKind)),
         field('Название', h('input', { value: title, maxLength: 120, onChange: event => setTitle(event.target.value) })), field('Текст и источник', h('textarea', { rows: 6, maxLength: 32000, value: text, onChange: event => setText(event.target.value) })),
         button('Сохранить запись через чат', 'remember', !available || !writable || !text.trim(), { text, title, kind, confirm: true })),
-      h(PolicyPanel, { policy, sessionId, scope, token: data?.csrfToken, busy, onSave: run }),
+      h(PolicyPanel, { policy, sessionId, projectContext: project, scope, token: data?.csrfToken, busy, onSave: run }),
       h(ProcessingPanel, { processing: data?.processing, sessionId, scope, token: data?.csrfToken, busy, onSave: run }),
       h('details', null, h('summary', null, 'Подключение и обработка Cognee'),
         config && h(React.Fragment, null,
@@ -261,8 +275,8 @@ window.__ModuleLoader__.load({ id: 'airules-dsh-memory-workspace', factory: requ
           field('Локальный адрес API Cognee', h('input', { value: config.endpoint, disabled: !scope?.globalWritable, onChange: event => { if (!busy) setConfig({ ...config, endpoint: event.target.value }) } })),
           h('p', { className: 'am-muted' }, 'Подключение к хранилищу и модели обработки настраиваются отдельно. Секреты на этой странице не отображаются.'),
           button('Сохранить подключение', 'configure', !scope?.globalWritable, { config })),
-        h('div', { className: 'am-toolbar' }, button('Обработать набор Cognee через чат', 'process', !connected || !writable || !cognee || !(data?.processing?.profile?.allowed ?? data?.config?.localProcessing), { backend: 'cognee', confirm: true })),
-        field('Идентификатор задачи (необязательно)', h('input', { value: taskId, maxLength: 256, onChange: event => setTaskId(event.target.value) })), button('Проверить обработку', 'task', !connected || !scope || !cognee, { backend: 'cognee', taskId }),
+        h('div', { className: 'am-toolbar' }, button('Обработать набор Cognee через чат', 'process', !connected || !writable || !activeScope || !cognee || !(data?.processing?.profile?.allowed ?? data?.config?.localProcessing), { backend: 'cognee', confirm: true })),
+        field('Идентификатор задачи (необязательно)', h('input', { value: taskId, maxLength: 256, onChange: event => setTaskId(event.target.value) })), button('Проверить обработку', 'task', !connected || !activeScope || !cognee, { backend: 'cognee', taskId }),
         attempted === 'task' && h('div', { className: 'am-local-feedback', 'aria-live': 'polite' }, busy ? h('p', null, notice) : error ? h('p', { role: 'alert', className: 'am-error' }, error) : result && h(Result, { result, action: 'task' }))),
       h('p', { className: 'am-muted' }, 'В режиме «Обе» источники и их ошибки показываются раздельно. Пустая или частичная выдача не доказывает отсутствие записи. Документы и граф остаются представлениями своего хранилища.'))
   }

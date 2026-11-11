@@ -60,7 +60,7 @@ export async function persistPreviewFixture(ctx,{root,agent,id}){
   const titles=ctx.get?.('sessionTitle')??ctx.sessionTitle
   titles?.rename(agent.session,'Хранилище и обновления — локальный стенд')
   await ctx.sessions.flush(agent.session)
-  const workspace=await ctx.workspaceRegistry.create(root,'Релиз 1С — изолированный стенд')
+  const workspace=await ctx.workspaceRegistry.resolveByPath?.(root)??await ctx.workspaceRegistry.create(root,'Релиз 1С — изолированный стенд')
   await workspace.attachSession(id)
   const persisted=await ctx.sessionPersistence.list()
   assert.ok(persisted.some(row=>row.header.id===id),'fixture session is durably persisted')

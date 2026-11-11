@@ -530,6 +530,27 @@ export function formatOpenSpecStatusRu(snapshot) {
   return `OpenSpec ${OPENSPEC_CLI_VERSION}: изменений ${snapshot.changes.length}, спецификаций ${snapshot.specs.length}, задачи ${totals.done}/${totals.total}, заблокировано ${totals.blocked}.${selected}`
 }
 
+const projectIdentity = root => {
+  const canonical = realpathSync(resolve(root))
+  return process.platform === 'win32' ? canonical.toLowerCase() : canonical
+}
+/** Project navigation is shared; execution, handoff nonces and ticket requests are not. */
+export function createProjectSelectionStore({ limit = 128 } = {}) {
+  const projects = new Map()
+  return {
+    forRoot(root) {
+      const key = projectIdentity(root)
+      if (!projects.has(key)) {
+        if (projects.size >= limit) fail('OPENSPEC_PROJECT_CAPACITY')
+        const state = { selectedChange: null, selectedStage: 'requirements', selectedPath: null, selectedFragment: '' }
+        Object.defineProperty(state, 'projectRoot', { value: key, enumerable: true })
+        projects.set(key, state)
+      }
+      return projects.get(key)
+    },
+  }
+}
+
 export class OpenSpecWorkspace {
   constructor(workspaceRoot, options = {}) {
     this.workspaceRoot = resolve(workspaceRoot)
@@ -537,18 +558,19 @@ export class OpenSpecWorkspace {
     this.timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
       ? Math.min(options.timeoutMs, 60_000)
       : 15_000
-    this.selectedChange = null
-    this.selectedStage = 'requirements'
-    this.selectedPath = null
-    this.selectedFragment = ''
+    if (!existsSync(this.workspaceRoot)) fail('OPENSPEC_WORKSPACE_MISSING')
+    assertNormalEntry(this.workspaceRoot)
+    if (!lstatSync(this.workspaceRoot).isDirectory()) fail('OPENSPEC_WORKSPACE_REQUIRED')
+    const selection = options.projectSelection ?? { projectRoot: projectIdentity(this.workspaceRoot), selectedChange: null, selectedStage: 'requirements', selectedPath: null, selectedFragment: '' }
+    if (selection.projectRoot !== projectIdentity(this.workspaceRoot)) fail('OPENSPEC_PROJECT_SELECTION_MISMATCH')
+    for (const field of ['selectedChange', 'selectedStage', 'selectedPath', 'selectedFragment']) Object.defineProperty(this, field, {
+      enumerable: true, get: () => selection[field], set: value => { selection[field] = value },
+    })
     this.sessionId = options.sessionId ?? null
     this.exploreSetting = options.exploreEnabled
     this.newChangeBaseline = null
     this.validations = new Map()
     this.gitCache = null
-    if (!existsSync(this.workspaceRoot)) fail('OPENSPEC_WORKSPACE_MISSING')
-    assertNormalEntry(this.workspaceRoot)
-    if (!lstatSync(this.workspaceRoot).isDirectory()) fail('OPENSPEC_WORKSPACE_REQUIRED')
   }
 
   initialize() {
@@ -718,6 +740,7 @@ export class OpenSpecWorkspace {
       if (this.selectedChange) this.clearSelection()
       const value = {
         schema: 'openspec-workspace/v1',
+        projectRoot: projectIdentity(this.workspaceRoot),
         openspecVersion: OPENSPEC_CLI_VERSION,
         available: false,
         changes: [],
@@ -760,6 +783,7 @@ export class OpenSpecWorkspace {
     }
     const value = {
       schema: 'openspec-workspace/v1',
+      projectRoot: projectIdentity(this.workspaceRoot),
       openspecVersion: OPENSPEC_CLI_VERSION,
       available: true,
       changes,
@@ -962,7 +986,7 @@ export class OpenSpecWorkspace {
       this.selectedPath = this.stagePath(change.id, this.selectedStage)
       this.selectedFragment = ''
     }
-    return { selectedChange: change.id, workflow: this.workflowSnapshot(), statusRu: `Спецификация ${change.id} подключена к контексту чата.` }
+    return { selectedChange: change.id, workflow: this.workflowSnapshot(), statusRu: `Спецификация ${change.id} выбрана для проекта.` }
   }
 
   stagePath(change, stage) {
@@ -983,7 +1007,7 @@ export class OpenSpecWorkspace {
     this.selectedStage = input.stage
     this.selectedPath = path
     this.selectedFragment = selection
-    return { selectedChange: change, workflow: this.workflowSnapshot(), statusRu: 'Этап выбран в текущем чате.' }
+    return { selectedChange: change, workflow: this.workflowSnapshot(), statusRu: 'Этап выбран для проекта.' }
   }
 
   recordReview(input, approve = false) {
@@ -1516,6 +1540,7 @@ export function apply(ctx, config = {}) {
   // workspace пересобирается, иначе `openspec/` искался бы в каталоге запуска.
   let workspace = new OpenSpecWorkspace(resolveTrustedWorkspaceRoot(config), config)
   const sessionWorkspaces = new Map()
+  const projectSelections = createProjectSelectionStore()
   const verifiedHeaders = new Map()
   const targetFor = (sessionId, cwd) => ctx.agents?.get(sessionId) ?? ctx.sessions?.get(sessionId) ?? verifiedHeaders.get(sessionId) ?? { sessionId, cwd }
   const workspaceForSession = (sessionId, sessionRoot) => {
@@ -1533,7 +1558,7 @@ export function apply(ctx, config = {}) {
     const key = `${sessionId}\0${root}`
     if (!sessionWorkspaces.has(key)) {
       if (sessionWorkspaces.size >= 8) sessionWorkspaces.delete(sessionWorkspaces.keys().next().value)
-      sessionWorkspaces.set(key, new OpenSpecWorkspace(resolveTrustedWorkspaceRoot({ workspacePath: root }), { ...config, sessionId, exploreEnabled: config.exploreEnabled ?? (() => optionalService(ctx, 'projectPresets')?.openSpecExplore?.(targetFor(sessionId, root)) === true) }))
+      sessionWorkspaces.set(key, new OpenSpecWorkspace(resolveTrustedWorkspaceRoot({ workspacePath: root }), { ...config, sessionId, projectSelection: projectSelections.forRoot(root), exploreEnabled: config.exploreEnabled ?? (() => optionalService(ctx, 'projectPresets')?.openSpecExplore?.(targetFor(sessionId, root)) === true) }))
     }
     return sessionWorkspaces.get(key)
   }
@@ -1551,6 +1576,15 @@ export function apply(ctx, config = {}) {
   })
   const handoffProgress = new HandoffProgressController(config.handoffProgress)
   const disposers = []
+  let projectService
+  const projectInjection = ctx.inject?.(['airulesProjects'], ready => {
+    projectService = ready.airulesProjects
+    return () => { projectService = undefined }
+  })
+  if (typeof projectInjection === 'function') disposers.push(projectInjection)
+  const projectHandler = original => (request, response) => projectService
+    ? projectService.bindHandler(original, { presets: ['1c-airules'] })(request, response)
+    : original(request, response)
   const definitions = []
   const mounted = new WeakSet()
   let workspaceCommand
@@ -1734,7 +1768,8 @@ export function apply(ctx, config = {}) {
         return security
       }
       const routeDisposers = []
-      routeDisposers.push(webCtx.webServer.register({
+      const registerProjectRoute = definition => webCtx.webServer.register({ ...definition, handler: projectHandler(definition.handler) })
+      routeDisposers.push(registerProjectRoute({
         kind: 'exact',
         path: API_ROOT,
         handler: async (request, response) => {
@@ -1755,7 +1790,7 @@ export function apply(ctx, config = {}) {
           catch (error) { sendJson(response, 400, { ok: false, error: safeErrorCode(error), message: openSpecErrorMessage(error) }) }
         },
       }))
-      routeDisposers.push(webCtx.webServer.register({
+      routeDisposers.push(registerProjectRoute({
         kind: 'exact',
         path: API_GIT,
         handler: async (request, response) => {
@@ -1769,7 +1804,7 @@ export function apply(ctx, config = {}) {
           catch (error) { sendJson(response, 400, { ok: false, error: safeErrorCode(error), message: openSpecErrorMessage(error) }) }
         },
       }))
-      routeDisposers.push(webCtx.webServer.register({
+      routeDisposers.push(registerProjectRoute({
         kind: 'exact',
         path: API_READ,
         handler: async (request, response) => {
@@ -1790,7 +1825,7 @@ export function apply(ctx, config = {}) {
           }
         },
       }))
-      routeDisposers.push(webCtx.webServer.register({
+      routeDisposers.push(registerProjectRoute({
         kind: 'exact',
         path: API_ACTION,
         handler: async (request, response) => {

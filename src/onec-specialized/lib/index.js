@@ -119,6 +119,8 @@ export async function apply(ctx, config) {
     },
   })
   ctx.inject(['webServer', 'connection', 'fs'], ready => {
-    ready.effect(() => ready.webServer.register({kind:'exact',path:CONTROL_API,handler:specializedHandler(ready,{createUserMessage})}))
+    const originalHandler=specializedHandler(ready,{createUserMessage});let routeHandler=originalHandler
+    ready.inject?.(['airulesProjects'], projects=>{routeHandler=projects.airulesProjects.bindHandler(originalHandler,{presets:['1c-airules']});return()=>{routeHandler=originalHandler}})
+    ready.effect(() => ready.webServer.register({kind:'exact',path:CONTROL_API,handler:(request,response)=>routeHandler(request,response)}))
   })
 }

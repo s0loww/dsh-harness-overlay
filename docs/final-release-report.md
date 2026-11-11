@@ -3,6 +3,13 @@
 Date: 2026-11-11
 Target: DeepSeek Harness Desktop `0.2.2-rc.1`
 
+Distribution: [Unified colleague test package](colleague-package-release.md),
+`0.17.2-test1`, 3.03 GiB, private provisioning included. Full source suite
+1192 PASS / 0 FAIL / 1 obsolete skip; actual isolated install, local Cognee,
+repair, three-layer rollback and stock PowerShell extraction passed. A clean
+Windows NSIS/Docker/WSL installation remains the first recipient check.
+The existing live installation was preserved.
+
 Current release: [Configurable memory confirmations](memory-approval-settings-release.md).
 UI `0.17.0-host022-ui1`, policy `0.17.2-approval1`.
 Global/project confirmation preferences support required, disabled and inheritance;

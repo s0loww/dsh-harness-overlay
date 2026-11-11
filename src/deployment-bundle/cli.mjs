@@ -23,6 +23,10 @@ export function runtimeEnvironment(bundleRoot,manifest,home,extra={}){
 // Start-Process joins an ArgumentList array without preserving argument bounds.
 // Build the single Windows command line explicitly for MSI paths with spaces.
 export function windowsArgumentLine(args){return args.map(value=>'"'+String(value).replace(/(\\*)"/gu,'$1$1\\"').replace(/(\\+)$/u,'$1$1')+'"').join(' ')}
+export function renderInstalledLauncher({nodePath,cliPath,bundleRoot,stateRoot,installRoot,dshHome,isolatedRoot}){
+ const literal=value=>String(value).replaceAll('%','%%')
+ return '@echo off\r\nsetlocal disableDelayedExpansion\r\nchcp 65001 >nul\r\n"'+literal(nodePath)+'" "'+literal(cliPath)+'" launch --bundle-root "'+literal(bundleRoot)+'" --state-root "'+literal(stateRoot)+'" --install-root "'+literal(installRoot)+'" --dsh-home "'+literal(dshHome)+'"'+(isolatedRoot?' --isolated-root "'+literal(isolatedRoot)+'"':'')+'\r\n'
+}
 async function run(spec){try{const r=await execute(spec.file,spec.args,{windowsHide:true,encoding:'utf8',maxBuffer:4*1024*1024,timeout:spec.timeoutMs??30000,signal:spec.signal,env:spec.env??process.env,cwd:spec.cwd});return{code:0,stdout:r.stdout}}catch(error){return{code:typeof error.code==='number'?error.code:1,stdout:error.stdout??''}}}
 async function launch(spec){
  if(spec.elevated){const script=`$p=Start-Process -FilePath ${quote(spec.file)} -ArgumentList ${quote(windowsArgumentLine(spec.args))} -Verb RunAs -PassThru -Wait;exit $p.ExitCode`;return run({file:'powershell.exe',args:['-NoProfile','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],timeoutMs:spec.timeoutMs,signal:spec.signal})}
@@ -63,8 +67,7 @@ export async function main(args=process.argv.slice(2)){
  const result=await service.apply({planId:plan.planId,acceptPlan:true})
  // Launchers live in our stable, private installation cache. No PATH/registry mutation.
  const cache=join(stateRoot,'package'),launcher=join(stateRoot,'LaunchDSH.cmd')
- const literal=value=>String(value).replaceAll('%','%%')
- await writeFile(launcher,'@echo off\r\nsetlocal disableDelayedExpansion\r\n"'+literal(join(cache,...bundle.manifest.paths.node.split('/')))+'" "'+literal(join(cache,...bundle.manifest.paths.engine.split('/'),'src/deployment-bundle/cli.mjs'))+'" launch --bundle-root "'+literal(cache)+'" --state-root "'+literal(stateRoot)+'" --install-root "'+literal(installRoot)+'" --dsh-home "'+literal(dshHome)+'"'+(isolated?' --isolated-root "'+literal(isolated)+'"':'')+'\r\n')
+ await writeFile(launcher,renderInstalledLauncher({nodePath:join(cache,...bundle.manifest.paths.node.split('/')),cliPath:join(cache,...bundle.manifest.paths.engine.split('/'),'src/deployment-bundle/cli.mjs'),bundleRoot:cache,stateRoot,installRoot,dshHome,isolatedRoot:isolated}))
  result.launcher=launcher
  if(!isolated&&process.platform==='win32'){
   const script=`$p=Join-Path ([Environment]::GetFolderPath('Desktop')) 'DSH Airules (тест).lnk';if(Test-Path -LiteralPath $p){exit 0};$s=(New-Object -ComObject WScript.Shell).CreateShortcut($p);$s.TargetPath=${quote(launcher)};$s.WorkingDirectory=${quote(stateRoot)};$s.IconLocation=${quote(join(installRoot,'DeepSeek Harness.exe')+',0')};$s.Description='DSH Airules — тестовая сборка';$s.Save()`

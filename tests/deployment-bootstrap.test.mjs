@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {mkdtemp,writeFile,readFile,rm,open} from 'node:fs/promises'
+import {mkdtemp,mkdir,writeFile,readFile,rm,open} from 'node:fs/promises'
 import {createHash} from 'node:crypto'
 import {createReadStream} from 'node:fs'
 import {tmpdir} from 'node:os'
@@ -38,6 +38,7 @@ test('malformed executable inventory refuses with a bounded error before launchi
 
 test('Windows PowerShell 5 actual host probe normalizes absent and discovered Docker paths before planning', {skip:process.platform!=='win32'},async t=>{
  const execute=promisify(execFile),systemRoot='C:\\Fixture Programs\\Docker\\Docker',userRoot='C:\\Fixture Профиль\\Programs\\DockerDesktop',docker=p=>p+'\\resources\\bin\\docker.exe',desktop=p=>p+'\\Docker Desktop.exe',literal=s=>"'"+s.replaceAll("'","''")+"'"
+ let spec;await assert.rejects(probeDocker({run:async value=>{spec=value;return{code:1,stdout:''}},platform:'win32',arch:'x64'}),/BOOTSTRAP_HOST_PROBE_FAILED/);const wire=Buffer.from(spec.args.at(-1),'base64').toString('utf16le');assert.ok(wire.endsWith(WINDOWS_HOST_PROBE))
  const cases=[
   {name:'no Docker on clean host',paths:[],cli:null,desktop:null},
   {name:'system install',paths:[docker(systemRoot),desktop(systemRoot)],cli:docker(systemRoot),desktop:desktop(systemRoot)},
@@ -55,7 +56,7 @@ function Get-Command { param($Name,$ErrorAction) if($Name -eq 'wsl.exe'){[pscust
 $script:present=@(${row.paths.map(literal).join(',')})
 function Test-Path { param($LiteralPath,$Path) if($LiteralPath){$script:present -contains [string]$LiteralPath}else{$script:present -contains [string]$Path} }
 `
-  const script='[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);\n'+mock+WINDOWS_HOST_PROBE
+  const script=mock+wire
   const ps=await execute('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,encoding:'utf8',timeout:30000,maxBuffer:1024*1024})
   const actual=JSON.parse(ps.stdout.trim());assert.equal(actual.dockerExecutable,row.cli);assert.equal(actual.desktopExecutable,row.desktop)
   for(const field of ['dockerExecutable','desktopExecutable'])assert.ok(actual[field]===null||typeof actual[field]==='string')
@@ -63,6 +64,15 @@ function Test-Path { param($LiteralPath,$Path) if($LiteralPath){$script:present 
   if(!row.cli||!row.desktop){assert.equal(result.operation,'install-docker');assert.equal(f.launches[0].operation,'install-docker');assert.equal(f.verified[0].kind,'dockerInstaller')}
   else{assert.equal(result.operation,'start-docker');assert.equal(f.launches[0].file,row.desktop)}
  })
+})
+
+test('actual PowerShell signature probe uses the OS security module despite a poisoned inherited module path', {skip:process.platform!=='win32'},async t=>{
+ const root=await temp(t),file=join(root,'unsigned.msi'),handle=await open(file,'wx');await handle.truncate(50*1024**2);await handle.close();const hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk)
+ const poison=join(root,'modules'),fake=join(poison,'Microsoft.PowerShell.Security');await mkdir(fake,{recursive:true});await writeFile(join(fake,'Microsoft.PowerShell.Security.psd1'),"@{ModuleVersion='99.0.0';PowerShellVersion='99.0'}")
+ const execute=promisify(execFile);let signed
+ const run=async spec=>{const r=await execute(spec.file,spec.args,{windowsHide:true,encoding:'utf8',timeout:30000,maxBuffer:1024*1024,env:{...process.env,PSModulePath:poison+';'+join(process.env.SystemRoot??'C:\\Windows','System32/WindowsPowerShell/v1.0/Modules')}});signed=JSON.parse(r.stdout);return{code:0,stdout:r.stdout}}
+ await assert.rejects(verifyBootstrapAsset({bundleRoot:root,asset:{path:'unsigned.msi',bytes:50*1024**2,sha256:hash.digest('hex')},kind:'wslInstaller',run}),/BOOTSTRAP_VENDOR_SIGNATURE_INVALID/)
+ assert.ok(['NotSigned','UnknownError'].includes(signed.status));assert.equal(signed.subject,'')
 })
 test('WSL feature bootstrap requests native elevation, never restarts Windows and records resumable reboot status',async t=>{
  const f=fixture({dockerExecutable:null,desktopExecutable:null,virtualMachinePlatform:'disabled'}),root=await temp(t),receiptPath=join(root,'receipt.json'),result=await ensureDocker({...f.options,allowInstall:true,receiptPath})

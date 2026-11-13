@@ -13,13 +13,22 @@ are rejected with `BOOTSTRAP_HOST_PROBE_INVALID` before any executable is used.
 Hardware checks, vendor verification, elevation and manual licence acceptance
 are unchanged.
 
+An additional native end-to-end probe exposed a separate module-loading issue:
+the PowerShell signature cmdlet could not autoload from the inherited module
+environment and produced empty signature fields. The signature probe now
+imports `Microsoft.PowerShell.Security` by its absolute path under `$PSHOME`,
+uses its qualified cmdlet name and stops on PowerShell execution errors. It
+still requires the expected valid publisher; no signature check is bypassed.
+
 The regression tests execute the full `WINDOWS_HOST_PROBE` in actual
 `powershell.exe` 5.1, with isolated CIM/path-presence fixtures. Six cases cover
 absence, system and per-user paths (including Cyrillic/spaces), both locations
 and either missing executable. Their JSON passes through `ensureDocker` to a
 mocked installer/start action. These tests do not install Docker or constitute
 a completed clean-Windows installation. The affected deployment suite passes
-36 checks with no failures.
+37 checks with no failures. A separate regression executes the exact signature
+command in Windows PowerShell with a deliberately incompatible security module
+on the inherited module path and confirms that an unsigned file is rejected.
 
 `src/deployment-bundle/bootstrap/index.mjs` exports `probeDocker`,
 `planDockerPrerequisites`, `verifyBootstrapAsset` and `ensureDocker`.

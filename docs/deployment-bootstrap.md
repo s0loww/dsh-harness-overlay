@@ -19,6 +19,9 @@ environment and produced empty signature fields. The signature probe now
 imports `Microsoft.PowerShell.Security` by its absolute path under `$PSHOME`,
 uses its qualified cmdlet name and stops on PowerShell execution errors. It
 still requires the expected valid publisher; no signature check is bypassed.
+The same explicit import protects the stock DSH installer verification. A native
+test verifies its real hash and certificate thumbprint while replacing only the
+final installation call, so the NSIS installer is not executed.
 
 The regression tests execute the full `WINDOWS_HOST_PROBE` in actual
 `powershell.exe` 5.1, with isolated CIM/path-presence fixtures. Six cases cover
@@ -26,7 +29,7 @@ absence, system and per-user paths (including Cyrillic/spaces), both locations
 and either missing executable. Their JSON passes through `ensureDocker` to a
 mocked installer/start action. These tests do not install Docker or constitute
 a completed clean-Windows installation. The affected deployment suite passes
-37 checks with no failures. A separate regression executes the exact signature
+38 checks with no failures. A separate regression executes the exact signature
 command in Windows PowerShell with a deliberately incompatible security module
 on the inherited module path and confirms that an unsigned file is rejected.
 

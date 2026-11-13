@@ -1,5 +1,26 @@
 # Windows Docker and WSL bootstrap
 
+## TEST3: Windows PowerShell empty-path regression
+
+On a host without Docker, the previous `Select-Object -First 1` pipeline
+assigned PowerShell's empty-result value to both executable fields. Windows
+PowerShell 5 serialized these values as `{}`, not JSON `null`. The JavaScript
+path check then failed before the Docker installer could be offered.
+
+TEST3 indexes the collected candidate array and explicitly converts each result
+to a scalar string or `$null`. Non-string non-null executable inventory values
+are rejected with `BOOTSTRAP_HOST_PROBE_INVALID` before any executable is used.
+Hardware checks, vendor verification, elevation and manual licence acceptance
+are unchanged.
+
+The regression tests execute the full `WINDOWS_HOST_PROBE` in actual
+`powershell.exe` 5.1, with isolated CIM/path-presence fixtures. Six cases cover
+absence, system and per-user paths (including Cyrillic/spaces), both locations
+and either missing executable. Their JSON passes through `ensureDocker` to a
+mocked installer/start action. These tests do not install Docker or constitute
+a completed clean-Windows installation. The affected deployment suite passes
+36 checks with no failures.
+
 `src/deployment-bundle/bootstrap/index.mjs` exports `probeDocker`,
 `planDockerPrerequisites`, `verifyBootstrapAsset` and `ensureDocker`.
 

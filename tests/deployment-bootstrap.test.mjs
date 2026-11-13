@@ -5,7 +5,9 @@ import {createHash} from 'node:crypto'
 import {createReadStream} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join,resolve,relative,isAbsolute} from 'node:path'
-import {probeDocker,planDockerPrerequisites,ensureDocker,verifyBootstrapAsset,BOOTSTRAP_VENDOR_ASSETS} from '../src/deployment-bundle/bootstrap/index.mjs'
+import {probeDocker,planDockerPrerequisites,ensureDocker,verifyBootstrapAsset,BOOTSTRAP_VENDOR_ASSETS,WINDOWS_HOST_PROBE} from '../src/deployment-bundle/bootstrap/index.mjs'
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
 const response=value=>({code:0,stdout:JSON.stringify(value)})
 function fixture(overrides={}){
  const host={platform:'win32',arch:'x64',osBuild:26100,productType:1,memoryBytes:16*1024**3,freeDiskBytes:100*1024**3,virtualizationEnabled:true,slat:true,virtualMachinePlatform:'enabled',legacyWslFeature:'enabled',pendingReboot:false,isAdmin:false,wslAvailable:true,dockerExecutable:join(tmpdir(),'Docker','docker.exe'),desktopExecutable:join(tmpdir(),'Docker','Docker Desktop.exe'),...overrides}
@@ -26,6 +28,41 @@ test('missing Docker produces a read-only plan and interactive verified vendor i
  const f=fixture({dockerExecutable:null,desktopExecutable:null});assert.equal((await ensureDocker(f.options)).reason,'DOCKER_DESKTOP_REQUIRED');assert.equal(f.launches.length,0)
  const result=await ensureDocker({...f.options,allowInstall:true});assert.equal(result.status,'waiting-for-user');assert.equal(result.reason,'START_DOCKER_AND_REVIEW_VENDOR_TERMS');assert.equal(f.verified[0].kind,'dockerInstaller');assert.equal(f.launches.length,1)
  assert.deepEqual(f.launches[0].args,['install','--user','--backend=wsl-2']);assert.equal(f.launches[0].interactive,true);assert.equal(f.launches[0].wait,true);assert.ok(!JSON.stringify(f.launches).includes('--accept-license'))
+})
+
+test('malformed executable inventory refuses with a bounded error before launching any command',async()=>{
+ for(const field of ['dockerExecutable','desktopExecutable'])for(const value of [{},[],42,true]){
+  const f=fixture({[field]:value});await assert.rejects(probeDocker(f.options),/^Error: BOOTSTRAP_HOST_PROBE_INVALID$/u);assert.equal(f.runs.length,1);assert.equal(f.launches.length,0)
+ }
+})
+
+test('Windows PowerShell 5 actual host probe normalizes absent and discovered Docker paths before planning', {skip:process.platform!=='win32'},async t=>{
+ const execute=promisify(execFile),systemRoot='C:\\Fixture Programs\\Docker\\Docker',userRoot='C:\\Fixture Профиль\\Programs\\DockerDesktop',docker=p=>p+'\\resources\\bin\\docker.exe',desktop=p=>p+'\\Docker Desktop.exe',literal=s=>"'"+s.replaceAll("'","''")+"'"
+ const cases=[
+  {name:'no Docker on clean host',paths:[],cli:null,desktop:null},
+  {name:'system install',paths:[docker(systemRoot),desktop(systemRoot)],cli:docker(systemRoot),desktop:desktop(systemRoot)},
+  {name:'per-user install with spaces and Unicode',paths:[docker(userRoot),desktop(userRoot)],cli:docker(userRoot),desktop:desktop(userRoot)},
+  {name:'both locations prefer system install',paths:[docker(systemRoot),desktop(systemRoot),docker(userRoot),desktop(userRoot)],cli:docker(systemRoot),desktop:desktop(systemRoot)},
+  {name:'only CLI remains',paths:[docker(systemRoot)],cli:docker(systemRoot),desktop:null},
+  {name:'only desktop remains',paths:[desktop(userRoot)],cli:null,desktop:desktop(userRoot)},
+ ]
+ for(const row of cases)await t.test(row.name,async()=>{
+  const mock=String.raw`$ProgressPreference='SilentlyContinue'
+$env:ProgramFiles='C:\Fixture Programs'
+$env:LOCALAPPDATA='C:\Fixture Профиль'
+function Get-CimInstance { param($ClassName,$Filter) switch($ClassName){'Win32_OperatingSystem'{[pscustomobject]@{BuildNumber='26100';ProductType=1}} 'Win32_ComputerSystem'{[pscustomobject]@{TotalPhysicalMemory=17179869184;HypervisorPresent=$true}} 'Win32_Processor'{[pscustomobject]@{VirtualizationFirmwareEnabled=$true;SecondLevelAddressTranslationExtensions=$true}} 'Win32_LogicalDisk'{[pscustomobject]@{FreeSpace=107374182400}} 'Win32_OptionalFeature'{[pscustomobject]@{InstallState=1}} default{throw 'UNEXPECTED_CLASS'}}}
+function Get-Command { param($Name,$ErrorAction) if($Name -eq 'wsl.exe'){[pscustomobject]@{Name='wsl.exe'}}else{throw 'UNEXPECTED_COMMAND'} }
+$script:present=@(${row.paths.map(literal).join(',')})
+function Test-Path { param($LiteralPath,$Path) if($LiteralPath){$script:present -contains [string]$LiteralPath}else{$script:present -contains [string]$Path} }
+`
+  const script='[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);\n'+mock+WINDOWS_HOST_PROBE
+  const ps=await execute('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,encoding:'utf8',timeout:30000,maxBuffer:1024*1024})
+  const actual=JSON.parse(ps.stdout.trim());assert.equal(actual.dockerExecutable,row.cli);assert.equal(actual.desktopExecutable,row.desktop)
+  for(const field of ['dockerExecutable','desktopExecutable'])assert.ok(actual[field]===null||typeof actual[field]==='string')
+  const f=fixture(actual);f.engine(null);const result=await ensureDocker({...f.options,allowInstall:true})
+  if(!row.cli||!row.desktop){assert.equal(result.operation,'install-docker');assert.equal(f.launches[0].operation,'install-docker');assert.equal(f.verified[0].kind,'dockerInstaller')}
+  else{assert.equal(result.operation,'start-docker');assert.equal(f.launches[0].file,row.desktop)}
+ })
 })
 test('WSL feature bootstrap requests native elevation, never restarts Windows and records resumable reboot status',async t=>{
  const f=fixture({dockerExecutable:null,desktopExecutable:null,virtualMachinePlatform:'disabled'}),root=await temp(t),receiptPath=join(root,'receipt.json'),result=await ensureDocker({...f.options,allowInstall:true,receiptPath})

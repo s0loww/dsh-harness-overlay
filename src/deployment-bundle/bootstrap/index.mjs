@@ -17,8 +17,10 @@ $cpu=@(Get-CimInstance Win32_Processor)[0]
 $disk=Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'"
 function FeatureState($name){try{$item=Get-CimInstance Win32_OptionalFeature -Filter "Name='$name'";if($item.InstallState -eq 1){'enabled'}elseif($item.InstallState -eq 2){'disabled'}else{'unknown'}}catch{'unknown'}}
 $programRoots=@((Join-Path $env:ProgramFiles 'Docker\Docker'),(Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop'))
-$docker=@($programRoots|ForEach-Object{Join-Path $_ 'resources\bin\docker.exe'}|Where-Object{Test-Path -LiteralPath $_})|Select-Object -First 1
-$desktop=@($programRoots|ForEach-Object{Join-Path $_ 'Docker Desktop.exe'}|Where-Object{Test-Path -LiteralPath $_})|Select-Object -First 1
+$docker=@($programRoots|ForEach-Object{Join-Path $_ 'resources\bin\docker.exe'}|Where-Object{Test-Path -LiteralPath $_})[0]
+$docker=if($docker){[string]$docker}else{$null}
+$desktop=@($programRoots|ForEach-Object{Join-Path $_ 'Docker Desktop.exe'}|Where-Object{Test-Path -LiteralPath $_})[0]
+$desktop=if($desktop){[string]$desktop}else{$null}
 $principal=New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 [pscustomobject]@{platform='win32';arch=[Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLower();osBuild=[int]$os.BuildNumber;productType=[int]$os.ProductType;memoryBytes=[double]$system.TotalPhysicalMemory;freeDiskBytes=[double]$disk.FreeSpace;virtualizationEnabled=([bool]$cpu.VirtualizationFirmwareEnabled -or [bool]$system.HypervisorPresent);slat=([bool]$cpu.SecondLevelAddressTranslationExtensions -or [bool]$system.HypervisorPresent);virtualMachinePlatform=(FeatureState 'VirtualMachinePlatform');legacyWslFeature=(FeatureState 'Microsoft-Windows-Subsystem-Linux');pendingReboot=((Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'));isAdmin=$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);dockerExecutable=$docker;desktopExecutable=$desktop;wslAvailable=[bool](Get-Command wsl.exe -ErrorAction SilentlyContinue)}|ConvertTo-Json -Compress`
 const encoded=script=>Buffer.from(script,'utf16le').toString('base64')
@@ -37,7 +39,7 @@ export async function probeDocker({run,signal,platform=process.platform,arch=pro
  if(resultCode(hostResult)!==0)fail('BOOTSTRAP_HOST_PROBE_FAILED')
  const host=json(hostResult)
  if(host.platform!=='win32'||host.arch!=='x64'||!Number.isSafeInteger(host.osBuild)||!Number.isFinite(host.memoryBytes)||!Number.isFinite(host.freeDiskBytes)||![1,2,3].includes(host.productType)||!['enabled','disabled','unknown'].includes(host.virtualMachinePlatform))fail('BOOTSTRAP_HOST_PROBE_INVALID')
- for(const field of ['dockerExecutable','desktopExecutable'])if(host[field]!==null&&host[field]!==undefined&&(!isAbsolute(host[field])||!host[field].toLowerCase().endsWith('.exe')))fail('BOOTSTRAP_HOST_PROBE_INVALID')
+ for(const field of ['dockerExecutable','desktopExecutable'])if(host[field]!==null&&host[field]!==undefined&&(typeof host[field]!=='string'||!isAbsolute(host[field])||!host[field].toLowerCase().endsWith('.exe')))fail('BOOTSTRAP_HOST_PROBE_INVALID')
  let wslVersion=null
  if(host.wslAvailable){const row=await run({operation:'wsl-version',file:'wsl.exe',args:['--version'],signal,timeoutMs:15000});if(resultCode(row)===0)wslVersion=version(output(row))}
  const docker={installed:!!host.dockerExecutable&&!!host.desktopExecutable,ready:false,engine:'unavailable',composeVersion:null,endpoint:PIPE}

@@ -8,7 +8,7 @@ import {readDeploymentBundle} from '../src/deployment-bundle/lib/core.mjs'
 import {stageDeploymentExtras} from './stage-deployment-extras.mjs'
 
 const ROOT=resolve(fileURLToPath(new URL('..',import.meta.url))),run=promisify(execFile)
-export const DEFAULT_PACKAGE_VERSION='0.17.2-test2'
+export const DEFAULT_PACKAGE_VERSION='0.17.2-test3'
 const UI='airules-ui-overlay-0.17.0-host022-ui1',POLICY='airules-official-policy-0.17.3-linter1'
 const HOST='0.2.2-rc.1',THUMBPRINT='84032578657219876E273E0D1BD303CFE1B82E6F'
 async function tree(root){await guard(root,{allowMissing:false});const result=[];async function visit(dir){for(const e of (await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){const path=join(dir,e.name);await guard(path,{allowMissing:false});if(e.isDirectory())await visit(path);else if(e.isFile())result.push(path);else fail('PACKAGE_SPECIAL_FILE_REJECTED')}}await visit(root);return result}
